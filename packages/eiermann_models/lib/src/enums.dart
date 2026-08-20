@@ -64,6 +64,86 @@ enum ProspectStage implements WireEnum {
   static ProspectStage? fromWire(Object? v) => wireEnum(values, v);
 }
 
+/// Why a Spot was closed (`spots.closed_reason`).
+///
+/// Mandatory when closing, because "closed" without a reason is the state
+/// nobody can act on later: [netted] and [buildingGone] mean never come back,
+/// while [permissionWithdrawn] and [noPigeons] are the two a conversation can
+/// reopen.
+enum ClosedReason implements WireEnum {
+  /// The ledges were netted — the building is out of the method's reach.
+  netted('netted'),
+
+  /// The owner side took the permission back.
+  permissionWithdrawn('permission_withdrawn'),
+
+  /// The building is gone.
+  buildingGone('building_gone'),
+
+  /// Nothing nesting there after all.
+  noPigeons('no_pigeons');
+
+  const ClosedReason(this.wire);
+
+  @override
+  final String wire;
+
+  static ClosedReason? fromWire(Object? v) => wireEnum(values, v);
+}
+
+/// Who a contact person is to the building (`spot_contacts.role`).
+enum ContactRole implements WireEnum {
+  owner('owner'),
+  management('management'),
+
+  /// The Hausmeister — in practice the one number that gets somebody in.
+  caretaker('caretaker'),
+  tenant('tenant'),
+  other('other');
+
+  const ContactRole(this.wire);
+
+  @override
+  final String wire;
+
+  static ContactRole? fromWire(Object? v) => wireEnum(values, v);
+}
+
+/// The `spot_overview.urgency` ladder, named.
+///
+/// Not a [WireEnum]: the server does not store this, it computes it in the
+/// view's CASE expression, and the number is what the list sorts and pages by.
+/// The names exist so the screen that renders it switches exhaustively instead
+/// of over bare integers — a rank the app has no name for must be visible as
+/// such, not silently drawn as "in Rhythmus".
+enum SpotUrgency {
+  /// A due date in the past.
+  overdue(0),
+  dueToday(1),
+  dueThisWeek(2),
+
+  /// Active and not due yet — including an active Spot with no due date at
+  /// all, which is waiting for its first nest rather than overdue.
+  inRhythm(3),
+
+  /// Needs a conversation, not a visit.
+  prospect(4),
+  paused(5),
+  closed(6);
+
+  const SpotUrgency(this.rank);
+
+  /// The integer the view emits, and the key the list is ordered by.
+  final int rank;
+
+  static SpotUrgency? fromRank(int? rank) {
+    for (final value in values) {
+      if (value.rank == rank) return value;
+    }
+    return null;
+  }
+}
+
 /// What a nest holds, biologically (`nests.species`).
 ///
 /// The way INTO [protected] is open to everybody — seeing a protected species
