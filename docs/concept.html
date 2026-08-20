@@ -1,0 +1,913 @@
+<title>Eiermann</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ── Tokens: light is the base, both dark states redefine only these ───── */
+  :root {
+    --ground:   #EDECEF;
+    --surface:  #FBFAFD;
+    --sunk:     #E3E1E7;
+    --ink:      #1B1A20;
+    --ink-soft: #45424E;
+    --muted:    #6A6675;
+    --line:     #D9D6DE;
+    --line-firm:#BEB9C6;
+    --accent:   #0E6B62;
+    --accent-2: #6B4A7C;
+    --accent-wash: #DEEAE7;
+    --warn:     #8F5507;
+    --warn-wash:#F2E6D2;
+    --crit:     #952B2B;
+    --crit-wash:#F2DEDE;
+    --ok:       #246645;
+    --ok-wash:  #DCEAE1;
+
+    --f-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --f-body:    "Literata", Georgia, "Times New Roman", serif;
+    --f-mono:    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+    --measure: 68ch;
+    --pad: clamp(1.25rem, 4vw, 3.5rem);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #151419;
+      --surface:  #1D1C23;
+      --sunk:     #121116;
+      --ink:      #E9E7ED;
+      --ink-soft: #C3BFCC;
+      --muted:    #9B97A7;
+      --line:     #302E39;
+      --line-firm:#453F52;
+      --accent:   #4EC1B3;
+      --accent-2: #B091C4;
+      --accent-wash: #17302E;
+      --warn:     #DDA23E;
+      --warn-wash:#31280F;
+      --crit:     #E4736E;
+      --crit-wash:#331A1A;
+      --ok:       #5FBB8C;
+      --ok-wash:  #16291F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #151419;
+    --surface:  #1D1C23;
+    --sunk:     #121116;
+    --ink:      #E9E7ED;
+    --ink-soft: #C3BFCC;
+    --muted:    #9B97A7;
+    --line:     #302E39;
+    --line-firm:#453F52;
+    --accent:   #4EC1B3;
+    --accent-2: #B091C4;
+    --accent-wash: #17302E;
+    --warn:     #DDA23E;
+    --warn-wash:#31280F;
+    --crit:     #E4736E;
+    --crit-wash:#331A1A;
+    --ok:       #5FBB8C;
+    --ok-wash:  #16291F;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 1rem;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Page frame ────────────────────────────────────────────────────────── */
+  .page {
+    display: grid;
+    grid-template-columns: 1fr;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--pad) 6rem;
+  }
+  @media (min-width: 1120px) {
+    .page {
+      grid-template-columns: 15rem minmax(0, 1fr);
+      column-gap: clamp(2rem, 4vw, 4.5rem);
+    }
+  }
+
+  /* ── Table of contents rail ────────────────────────────────────────────── */
+  .rail { display: none; }
+  @media (min-width: 1120px) {
+    .rail {
+      display: block;
+      grid-column: 1;
+      position: sticky;
+      top: 0;
+      align-self: start;
+      max-height: 100vh;
+      overflow-y: auto;
+      padding: 4.5rem 0 3rem;
+      font-family: var(--f-display);
+      font-size: 0.8125rem;
+      line-height: 1.45;
+    }
+  }
+  .rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .rail a {
+    display: grid;
+    grid-template-columns: 1.7rem 1fr;
+    gap: 0.25rem;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 0.15rem 0;
+    border-bottom: 1px solid transparent;
+  }
+  .rail a:hover, .rail a:focus-visible { color: var(--accent); }
+  .rail .n { font-family: var(--f-mono); font-size: 0.6875rem; color: var(--line-firm); padding-top: 0.15rem; }
+  .rail .rail-title {
+    font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--line-firm); margin: 0 0 0.9rem;
+  }
+
+  main { grid-column: 1; min-width: 0; }
+  @media (min-width: 1120px) { main { grid-column: 2; } }
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  h1, h2, h3, h4 { font-family: var(--f-display); font-weight: 700; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2.75rem, 8vw, 5rem); line-height: 0.95; letter-spacing: -0.03em; }
+  h2 { font-size: clamp(1.5rem, 3.4vw, 2.125rem); line-height: 1.1; letter-spacing: -0.018em; }
+  h3 { font-size: 1.125rem; line-height: 1.28; letter-spacing: -0.008em; }
+  h4 { font-size: 0.9375rem; line-height: 1.3; font-weight: 500; }
+
+  p, ul, ol, .note { max-width: var(--measure); }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--accent); text-underline-offset: 0.16em; }
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; }
+  code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+  code { background: var(--sunk); padding: 0.1em 0.34em; border-radius: 3px; color: var(--ink-soft); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  /* ── Masthead ──────────────────────────────────────────────────────────── */
+  .masthead { padding: 4.5rem 0 3rem; border-bottom: 1px solid var(--line-firm); }
+  .kicker {
+    font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 1.4rem;
+  }
+  .masthead h1 { margin-bottom: 1.1rem; }
+  .standfirst {
+    font-size: clamp(1.0625rem, 1.8vw, 1.3125rem); line-height: 1.5;
+    color: var(--ink-soft); max-width: 42ch; margin: 0;
+  }
+  .masthead-meta {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin-top: 2.25rem;
+    font-family: var(--f-mono); font-size: 0.75rem; color: var(--muted);
+  }
+  .masthead-meta span { display: inline-flex; gap: 0.45rem; }
+  .masthead-meta b { font-weight: 500; color: var(--ink-soft); }
+
+  /* ── Sections ──────────────────────────────────────────────────────────── */
+  section { padding: 3.25rem 0 1rem; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+  .eyebrow {
+    display: flex; align-items: baseline; gap: 0.7rem;
+    font-family: var(--f-mono); font-size: 0.6875rem; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 0.85rem;
+  }
+  .eyebrow .num { color: var(--accent); }
+  section > h2 { margin-bottom: 1.1rem; }
+  section > h3 { margin: 2.5rem 0 0.7rem; }
+  section > h4 { margin: 1.75rem 0 0.5rem; color: var(--accent-2); font-family: var(--f-mono);
+                 font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  ul, ol { padding-left: 1.15rem; margin: 0 0 1.05em; }
+  li { margin-bottom: 0.42em; }
+  li::marker { color: var(--line-firm); }
+
+  /* ── Full-bleed breakouts ──────────────────────────────────────────────── */
+  .wide { max-width: none; }
+  .scroller { overflow-x: auto; margin: 1.4rem 0 1.8rem; }
+
+  /* ── Tables ────────────────────────────────────────────────────────────── */
+  table { border-collapse: collapse; width: 100%; font-size: 0.875rem; line-height: 1.45; }
+  th, td { text-align: left; padding: 0.62rem 0.9rem 0.62rem 0; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th {
+    font-family: var(--f-mono); font-size: 0.6875rem; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--muted); font-weight: 500;
+    border-bottom: 1px solid var(--line-firm); white-space: nowrap;
+  }
+  td.f, th.f { font-family: var(--f-mono); font-size: 0.8125rem; white-space: nowrap; color: var(--accent); }
+  td.t { font-family: var(--f-mono); font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+  tbody tr:hover td { background: var(--surface); }
+  table.dec td:first-child { font-family: var(--f-display); font-weight: 500; width: 12rem; }
+  table.dec td:nth-child(2) { width: 17rem; color: var(--ink); }
+  table.dec td:nth-child(3) { color: var(--ink-soft); min-width: 22rem; }
+
+  /* ── Callouts ──────────────────────────────────────────────────────────── */
+  .note {
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); padding: 1rem 1.15rem;
+    margin: 1.4rem 0 1.6rem; font-size: 0.9375rem; line-height: 1.55;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-wash); }
+  .note.crit { border-left-color: var(--crit); background: var(--crit-wash); }
+  .note > :last-child { margin-bottom: 0; }
+  .note .lab {
+    display: block; font-family: var(--f-mono); font-size: 0.6875rem;
+    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.4rem; color: var(--muted);
+  }
+
+  /* ── Entity cards ──────────────────────────────────────────────────────── */
+  .cards { display: grid; gap: 0.85rem; margin: 1.4rem 0 1.8rem;
+           grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--line); padding: 0.9rem 1rem; }
+  .card h4 { font-family: var(--f-mono); font-size: 0.8125rem; color: var(--accent);
+             letter-spacing: 0; text-transform: none; margin: 0 0 0.35rem; font-weight: 500; }
+  .card p { font-size: 0.8125rem; line-height: 1.5; color: var(--ink-soft); margin: 0; max-width: none; }
+
+  /* ── Figures ───────────────────────────────────────────────────────────── */
+  figure { margin: 1.8rem 0 2rem; }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; color: var(--ink-soft); }
+  figcaption { font-size: 0.8125rem; color: var(--muted); line-height: 1.5; margin-top: 0.85rem; max-width: 62ch; }
+  .figframe { background: var(--surface); border: 1px solid var(--line); padding: 1.1rem 1rem; overflow-x: auto; }
+  figure svg .hi { color: var(--accent); }
+  figure svg .dg { color: var(--crit); }
+
+  /* ── Mockup ────────────────────────────────────────────────────────────── */
+  pre.mock {
+    font-family: var(--f-mono); font-size: 0.75rem; line-height: 1.45;
+    background: var(--sunk); border: 1px solid var(--line); color: var(--ink-soft);
+    padding: 1.1rem 1.2rem; overflow-x: auto; margin: 1.4rem 0 1.8rem;
+  }
+
+  /* ── Phase list ────────────────────────────────────────────────────────── */
+  .phases { list-style: none; padding: 0; margin: 1.5rem 0 1.5rem; max-width: none;
+            display: flex; flex-direction: column; }
+  .phases > li {
+    display: grid; grid-template-columns: 3.25rem 1fr; gap: 0 1.1rem;
+    padding: 1.05rem 0; border-top: 1px solid var(--line); margin: 0;
+  }
+  .phases > li:last-child { border-bottom: 1px solid var(--line); }
+  .phases .pn { font-family: var(--f-mono); font-size: 0.8125rem; color: var(--accent); padding-top: 0.15rem; }
+  .phases h4 { font-family: var(--f-display); font-size: 1rem; font-weight: 700;
+               letter-spacing: -0.005em; text-transform: none; color: var(--ink); margin: 0 0 0.3rem; }
+  .phases p { font-size: 0.875rem; margin: 0; color: var(--ink-soft); max-width: 66ch; }
+  .phases .dep { font-family: var(--f-mono); font-size: 0.6875rem; color: var(--muted); margin-top: 0.4rem; display: block; }
+
+  /* ── Pills ─────────────────────────────────────────────────────────────── */
+  .pill {
+    display: inline-block; font-family: var(--f-mono); font-size: 0.6875rem;
+    letter-spacing: 0.04em; padding: 0.1rem 0.42rem; border-radius: 2px;
+    background: var(--accent-wash); color: var(--accent); white-space: nowrap;
+  }
+  .pill.w { background: var(--warn-wash); color: var(--warn); }
+  .pill.c { background: var(--crit-wash); color: var(--crit); }
+  .pill.o { background: var(--ok-wash);  color: var(--ok); }
+
+  hr.rule { border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="page">
+
+<nav class="rail" aria-label="Inhalt">
+  <p class="rail-title">Konzept</p>
+  <ol>
+    <li><a href="#brief"><span class="n">01</span><span>Der Auftrag</span></a></li>
+    <li><a href="#decisions"><span class="n">02</span><span>Entscheidungen</span></a></li>
+    <li><a href="#model"><span class="n">03</span><span>Domänenmodell</span></a></li>
+    <li><a href="#rhythm"><span class="n">04</span><span>Der Rhythmus</span></a></li>
+    <li><a href="#visit"><span class="n">05</span><span>Ein Besuch, eine Transaktion</span></a></li>
+    <li><a href="#protected"><span class="n">06</span><span>Der Artenschutz-Riegel</span></a></li>
+    <li><a href="#screens"><span class="n">07</span><span>Screens</span></a></li>
+    <li><a href="#backend"><span class="n">08</span><span>Backend</span></a></li>
+    <li><a href="#shared"><span class="n">09</span><span>Das geteilte Paket</span></a></li>
+    <li><a href="#repo"><span class="n">10</span><span>Repo-Layout</span></a></li>
+    <li><a href="#lessons"><span class="n">11</span><span>Übernommene Lehren</span></a></li>
+    <li><a href="#phases"><span class="n">12</span><span>Phasenplan</span></a></li>
+    <li><a href="#risks"><span class="n">13</span><span>Risiken &amp; Offenes</span></a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="masthead">
+  <p class="kicker">Produkt- und Technikkonzept</p>
+  <h1>Eiermann</h1>
+  <p class="standfirst">Ein Feldwerkzeug für Stadttauben-Gelegemanagement: Spots auf der Karte, Nester auf dem Foto, Eier im Blick — und ein Rhythmus, der sich selbst nachzieht.</p>
+  <div class="masthead-meta">
+    <span><b>Stack</b> PocketBase + Flutter</span>
+    <span><b>Vorlage</b> fluttermann / federfall</span>
+    <span><b>Plattformen</b> Android · Web · iOS</span>
+    <span><b>UI-Sprache</b> Deutsch, EN als Zweitsprache</span>
+    <span><b>Stand</b> 20.08.2026</span>
+  </div>
+</header>
+
+<section id="brief">
+  <p class="eyebrow"><span class="num">01</span> Der Auftrag</p>
+  <h2>Was die App eigentlich löst</h2>
+  <p>Ehrenamtliche tauschen in Taubennestern echte Eier gegen Attrappen, damit sich die Population nicht vermehrt, ohne dass Tiere getötet werden. Die Arbeit ist zyklisch, örtlich verteilt und wird von wechselnden Personen gemacht. Genau daran scheitert sie heute — drei Probleme wurden benannt, und sie sind der Prüfstein für jede Designentscheidung hier:</p>
+  <ol>
+    <li><strong>Niemand weiß mehr, wie es letztes Mal aussah.</strong> Vor Ort ist unklar, ob die Eier im Nest die eigenen Attrappen sind oder echt, und seit wann sie da liegen. Das Wissen steckt in einem Kopf oder einem WhatsApp-Verlauf.</li>
+    <li><strong>Halbgelege gehen verloren.</strong> Wenn nur ein Ei getauscht werden konnte, weil das zweite noch nicht gelegt war, muss jemand in wenigen Tagen wiederkommen. Diese Notiz überlebt den Alltag nicht — und dann schlüpft das zweite Ei.</li>
+    <li><strong>Die Übergabe ist schmerzhaft.</strong> Wer die Tour zum ersten Mal macht, kennt die Häuser nicht: nicht den Zugang, nicht die Ansprechpartner, nicht die Nester, die man nicht anfassen darf.</li>
+  </ol>
+  <p>Daraus folgt die Leitlinie: <strong>Eiermann ist kein Formular, sondern ein Gedächtnis.</strong> Der Wert liegt nicht im Erfassen, sondern darin, dass beim Antippen eines Spots sofort dasteht, was hier zu tun ist — auch für jemanden, der zum ersten Mal da ist. Alles, was diesem Satz nicht dient, ist Ballast.</p>
+  <div class="note">
+    <span class="lab">Woran das gemessen wird</span>
+    <p>Ein Mensch, der noch nie an einem Spot war, tippt ihn an und weiß innerhalb von fünf Sekunden: wie viele Attrappen einzupacken sind, welches Nest dringend ist, welches man nicht berühren darf, und wen man anrufen muss, um überhaupt reinzukommen.</p>
+  </div>
+</section>
+
+<section id="decisions">
+  <p class="eyebrow"><span class="num">02</span> Entscheidungen</p>
+  <h2>Was festgelegt ist — und was dafür wegfällt</h2>
+  <p>Jede Zeile ist eine getroffene Entscheidung mit ihrem Preis. Die dritte Spalte ist die wichtigere: sie sagt, was diese Wahl <em>nicht</em> kann, damit später niemand überrascht ist.</p>
+  <div class="scroller wide">
+  <table class="dec">
+    <thead><tr><th>Feld</th><th>Entscheidung</th><th>Konsequenz / Verworfene Alternative</th></tr></thead>
+    <tbody>
+      <tr><td>Netz</td><td>Online-only, wie federfall</td><td>Jeder Lese- und Schreibvorgang geht an den Server, mit kurzem Timeout statt Hängen. Kein lokaler Cache, kein Sync, keine Konfliktauflösung — der teuerste Posten fällt weg. Preis: im Keller ohne Empfang kann nicht gespeichert werden. Gegenmittel unter <a href="#visit">05</a>.</td></tr>
+      <tr><td>Mandanten</td><td>Mehr-Org gebaut, eine Org geseedet</td><td>federfalls Modell übernommen: <code>org</code>-Relation überall, org-gescopte Access Rules, schemagetriebener <code>lib_org_scope.js</code>-Hook — aber keine UI zum Anlegen weiterer Orgs. Kostet am Tag eins fast nichts und kann nie nachgerüstet werden müssen.</td></tr>
+      <tr><td>Hierarchie</td><td>Spot → Bereich → Nest</td><td>Ein Spot ist ein Gebäude/eine Adresse; ein Bereich („Dachboden Nord“, „Lichtschacht“) trägt ein Übersichtsfoto mit den Pins; Nester hängen am Bereich. Kleine Spots haben genau einen Bereich.</td></tr>
+      <tr><td>Nest-UI</td><td>Foto-Pins + Ei-Slot-Reihe</td><td>Übersichtsfoto mit zustandsgefärbten Pins, darunter das Nest mit eigenem Foto und einer Reihe Ei-Slots (Art + Alter). Verworfen: das gezeichnete Nest mit antippbaren Eiern — süßer, aber es erkennt niemand einen Dachbalken wieder.</td></tr>
+      <tr><td>Ei-Modell</td><td>Ist-Gelege + unveränderliche Besuchs-Ereignisse</td><td>Slot-Alter kommt aus <code>nest_eggs</code> (Ist-Zustand, veränderlich), die Historie aus <code>nest_checks</code>-Skalaren (unveränderlich). Kein Einzel-Ei-Tracking: „welches der zwei Eier ist welches“ ist vor Ort Fiktion.</td></tr>
+      <tr><td>Rhythmus</td><td>Automatische Leiter, pro Nest, immer erklärt</td><td>Die Zahlen (Basis, Stufen, Schwelle) liegen in <code>organisations.settings</code> und sind ohne Release änderbar. Der Spot erbt das früheste Datum seiner Nester. Die App zeigt immer, <em>warum</em> ein Datum gilt.</td></tr>
+      <tr><td>Halbgelege</td><td>Gespeicherte Nachkontrolle, überschreibt alles</td><td>Ein <code>partial</code>-Check erzeugt eine <code>follow_ups</code>-Zeile mit festem Datum. Sie steht ganz oben, bis ein echter Check sie auflöst — ein übersprungener Besuch löscht sie nicht.</td></tr>
+      <tr><td>Lebenszyklus</td><td>Erkundung → aktiv → pausiert → geschlossen</td><td>Erkundungsstufen: unberührt / Mieter gesprochen / Eigentümer gesprochen / erlaubt / abgelehnt. Pausiert mit optionalem Auto-Wiederanlauf (Gerüst, Winter). Geschlossen mit Grund (vernetzt, Erlaubnis entzogen, Gebäude weg, keine Tauben).</td></tr>
+      <tr><td>Kontakte</td><td>Strukturierte Ansprechpartner, keine Papiere</td><td>Rolle, Name, Telefon, Mail, Notiz — genug für „wen rufe ich an“ und „dürfen wir rein“. Keine Einwilligungsdokumente, keine Ablauffristen. Preis: dient nicht als Rechtsnachweis.</td></tr>
+      <tr><td>Nest-Identität</td><td>Neues Nest, keine Verkettung</td><td>Ein ausgeräumtes Nest wird <code>gone</code>; ein Neubau in derselben Ecke ist ein neuer Datensatz. Einfachste Regeln. Preis: die Geschichte einer Ecke zersplittert — das Bereichsfoto trägt die Kontinuität, nicht der Datensatz.</td></tr>
+      <tr><td>Fotowechsel</td><td>Koordinaten behalten, Prüfung erzwingen</td><td>Neues Bereichsfoto → Pins behalten x/y, aber der Bereich ist <code>pins_need_review</code>, bis jemand jeden Pin bestätigt oder verschiebt; das alte Foto bleibt eine Generation daneben stehen. Nichts driftet still.</td></tr>
+      <tr><td>Touren</td><td>Vorlagen, von denen man abweichen darf</td><td>Benannte Route mit geordneter Spotliste („Tour 1“), plus Läufe: starten, durcharbeiten, mit Grund überspringen, unplanmäßigen Spot ergänzen, abschließen. Ein Lauf ist wiederaufnehmbar.</td></tr>
+      <tr><td>Tourgröße</td><td>Variiert stark — beide Modi</td><td>Vorlagenlauf <em>und</em> „was ist überfällig in meiner Nähe“ müssen gleich gut funktionieren. Ein offener Lauf überlebt App-Neustart.</td></tr>
+      <tr><td>Funde</td><td>Tote Tauben, Küken, geschützte Arten, Bauliches</td><td>Alle vier am Besuch, optional am Nest. Bauliche Veränderungen sind der Pfad, der später einen Spot schließt.</td></tr>
+      <tr><td>Besuchsprotokoll</td><td>Übersprungen-mit-Grund, Notiz, Fotos</td><td>Kein Anwesenheits- und kein Zeiterfassung. Preis: Förderberichte können keine Ehrenamtsstunden ausweisen. Die Antwort auf „Übergabe ist schmerzhaft“ ist das Spot-Dossier, nicht die Teilnehmerliste.</td></tr>
+      <tr><td>Eier physisch</td><td>Nur entnommene echte Eier zählen</td><td>Diese Zahl ist die Kennzahl des Programms. Kein Attrappen-Lagerbestand, keine Einzel-Provenienz.</td></tr>
+      <tr><td>Population</td><td>Wird nicht erfasst</td><td>Nester und Eier, sonst nichts. Schnellere Touren. Preis: die Frage „wirkt das Programm?“ lässt sich nur über entnommene Eier und Nestaktivität beantworten, nicht über Vogelzahlen.</td></tr>
+      <tr><td>Rollen</td><td>Mitglied + Koordination</td><td>Alle machen Feldarbeit und sehen alles. Koordination darf zusätzlich einladen, Spots löschen, Rhythmen überschreiben, Kontakte pflegen, exportieren. Verworfen: federfalls drei Stufen — zu viel Zeremonie für eine Ehrenamtsgruppe.</td></tr>
+      <tr><td>Anmeldung</td><td>Mail + Passwort, OIDC optional</td><td>Kein Self-Signup; Koordination lädt ein. OIDC/OAuth2 zuschaltbar — der Code existiert in federfall (<code>oauth2_provisioning.pb.js</code>, <code>docker-compose.oidc.yml</code>).</td></tr>
+      <tr><td>Erinnerungen</td><td>Nur in der App</td><td>Dashboard und Kartenfarbe. Kein Push, keine FCM/APNs-Abhängigkeit, keine Benachrichtigungsrechte, kein Server-Scheduler außer dem Pause-Wiederanlauf.</td></tr>
+      <tr><td>Berichte</td><td>Eine Engine, zwei Rahmungen</td><td>Formaler Nachweis pro Adresse (Behörde) und Zusammenfassung (Verein/Förderer) aus derselben Datenquelle — federfalls Typst-Pipeline mit <code>?format=</code>-Verzweigung, plus CSV.</td></tr>
+      <tr><td>Verhältnis zu federfall</td><td>Getrennte Apps, keine Datenbrücke</td><td>Gleiche Architektur, gleiche Bibliothek, getrennte Instanzen und Release-Zyklen. Ein Küken, das in Pflege geht, ist hier eine Notiz.</td></tr>
+      <tr><td>Code-Teilung</td><td>Breites geteiltes Paket</td><td>Datenschicht, Kern-Plumbing, UI-Widgets, Theme-Gerüst, Karte, Charts, Hook-Bibliothek, Typst-Basis, Testharness. Details und die eine Einschränkung, die dabei nicht funktioniert, unter <a href="#shared">09</a>.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="model">
+  <p class="eyebrow"><span class="num">03</span> Domänenmodell</p>
+  <h2>Zwölf Collections, kein JSON in der Domäne</h2>
+  <p>Der Kern des Modells ist die Trennung zwischen <strong>Ist-Zustand</strong> und <strong>Ereignis</strong>. Was gerade im Nest liegt, steht in <code>nest_eggs</code> — veränderlich, klein, mit einem <code>since</code>-Datum pro Slot, damit „1 Kunstei seit 12 Tagen“ eine Feldabfrage ist und keine Aggregation. Was jemand getan hat, steht in <code>nest_checks</code> — unveränderlich, als Skalare, damit jeder Bericht reines SQL ist.</p>
+  <div class="note">
+    <span class="lab">Warum die Zähler Skalare sind und kein JSON</span>
+    <p>federfall hat zwei teure Lektionen mit JSON in PocketBase: <code>record.get("settings")</code> gibt der JS-Seite ein <code>types.JSONRaw</code>, also ein Byte-Array — Property-Zugriff ist immer <code>undefined</code> und der Code fällt <em>stillschweigend</em> in seinen Default (federfall-jumi). Und eine berechnete View-Spalte wird auf Typ <code>json</code> zurückgestuft, sodass <code>getString()</code> <code>"Hohltaube"</code> <em>mit</em> Anführungszeichen liefert (federfall-dk0c). Deshalb ist in der Domäne von Eiermann kein einziges JSON-Feld: <code>real_before</code>, <code>removed_real</code>, <code>added_dummy</code> sind <code>number</code>. Genau ein JSON-Feld bleibt — <code>organisations.settings</code> — und es hat genau einen Leser, <code>lib_org.js</code>.</p>
+  </div>
+
+  <h4>Orte</h4>
+  <div class="scroller wide">
+  <table>
+    <thead><tr><th class="f">Collection</th><th>Felder</th><th>Anmerkung</th></tr></thead>
+    <tbody>
+      <tr><td class="f">spots</td><td><code>org</code>, <code>name</code>, <code>street</code>, <code>postal_code</code>, <code>city</code>, <code>geo</code> (geoPoint), <code>geo_confirmed</code>, <code>phase</code>, <code>prospect_stage</code>, <code>paused_until</code>, <code>pause_reason</code>, <code>closed_reason</code>, <code>closed_at</code>, <code>access_note</code>, <code>note</code>, <code>facade_photo</code>, <code>next_due_at</code></td><td>Ein Gebäude bzw. eine Adresse. <code>phase</code>: <span class="pill">prospect</span> <span class="pill o">active</span> <span class="pill w">paused</span> <span class="pill">closed</span>. <code>prospect_stage</code> bleibt nach dem Übergang stehen — die Erkundungsgeschichte ist Teil des Dossiers. <code>next_due_at</code> ist abgeleitet, aber <strong>gespeichert</strong>, damit die Karte in einer Abfrage färbt.</td></tr>
+      <tr><td class="f">spot_contacts</td><td><code>org</code>, <code>spot</code>, <code>role</code>, <code>name</code>, <code>phone</code>, <code>email</code>, <code>note</code>, <code>is_primary</code></td><td><code>role</code>: Eigentümer / Verwaltung / Hausmeister / Mieter / sonstige. Personenbezogen, deshalb aus den Audit-Inhaltsfeldern ausgenommen. Bewusst <em>kein</em> Scrub-Cron wie bei federfalls <code>finders</code>: ein Hausmeisterkontakt wird gebraucht, solange der Spot existiert — er verfällt mit dem Spot.</td></tr>
+      <tr><td class="f">areas</td><td><code>org</code>, <code>spot</code>, <code>name</code>, <code>photo</code>, <code>previous_photo</code>, <code>photo_taken_at</code>, <code>pins_need_review</code>, <code>sort_index</code>, <code>note</code></td><td>Trägt das Übersichtsfoto und damit die Pins. <code>previous_photo</code> hält genau eine Generation — nur solange <code>pins_need_review</code> läuft, damit man beim Bestätigen alt und neu nebeneinander sieht. Danach wird es gelöscht: begrenzter Speicher, exakt der Ablauf, der gebraucht wird.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Nester und Eier</h4>
+  <div class="scroller wide">
+  <table>
+    <thead><tr><th class="f">Collection</th><th>Felder</th><th>Anmerkung</th></tr></thead>
+    <tbody>
+      <tr><td class="f">nests</td><td><code>org</code>, <code>spot</code>, <code>area</code>, <code>label</code>, <code>position_hint</code>, <code>pin_x</code>, <code>pin_y</code>, <code>photo</code>, <code>species</code>, <code>species_label</code>, <code>status</code>, <code>interval_days</code>, <code>empty_streak</code>, <code>next_due_at</code></td><td><code>pin_x</code>/<code>pin_y</code> sind normalisiert auf 0…1, nie Pixel — sonst zerlegt jedes neue Foto und jede Bildschirmbreite die Karte. <code>position_hint</code> („Balken links“) ist das, was der Pin nicht sagen kann. <code>species</code>: <span class="pill">feral_pigeon</span> <span class="pill c">protected</span> <span class="pill">unknown</span>. <code>status</code>: <span class="pill o">active</span> / <span class="pill">gone</span>. <code>spot</code> ist denormalisiert, damit Karte und Scope-Regeln nicht zwei Hops brauchen.</td></tr>
+      <tr><td class="f">nest_eggs</td><td><code>org</code>, <code>nest</code>, <code>slot_index</code>, <code>kind</code>, <code>since</code>, <code>source_check</code></td><td><strong>Das Ist-Gelege.</strong> Eine Zeile je Ei, das jetzt im Nest liegt. <code>kind</code>: <span class="pill">real</span> / <span class="pill o">dummy</span>. Wird gelöscht, wenn das Ei das Nest verlässt. Nur der Besuchs-Endpoint schreibt hier — für Clients ist die Collection schreibgeschützt.</td></tr>
+      <tr><td class="f">nest_checks</td><td><code>org</code>, <code>visit</code>, <code>nest</code>, <code>state</code>, <code>real_before</code>, <code>dummy_before</code>, <code>real_after</code>, <code>dummy_after</code>, <code>removed_real</code>, <code>added_dummy</code>, <code>note</code>, <code>photo</code>, <code>author</code></td><td><strong>Das Ereignis, unveränderlich.</strong> <code>state</code>: <span class="pill o">swapped</span> <span class="pill w">partial</span> <span class="pill">empty</span> <span class="pill">untouched</span> <span class="pill">not_reachable</span> <span class="pill">gone</span> <span class="pill c">protected</span>. <code>partial</code> ist das Halbgelege: nach dem Tausch liegt noch ein echtes Ei drin. Die Invariante <code>*_after = *_before − removed + added</code> erzwingt der Hook, nicht die UI.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Besuche, Funde, Touren</h4>
+  <div class="scroller wide">
+  <table>
+    <thead><tr><th class="f">Collection</th><th>Felder</th><th>Anmerkung</th></tr></thead>
+    <tbody>
+      <tr><td class="f">visits</td><td><code>org</code>, <code>spot</code>, <code>tour_run</code>, <code>visited_at</code>, <code>outcome</code>, <code>skip_reason</code>, <code>skip_note</code>, <code>note</code>, <code>author</code></td><td><code>outcome</code>: <span class="pill o">checked</span> / <span class="pill w">skipped</span>. <code>skip_reason</code>: niemand da / kein Schlüssel / Zugang versperrt / keine Zeit / Bauarbeiten / sonstiges. <strong>Ein übersprungener Besuch geht nicht in den Rhythmus ein</strong> — er ist die Dokumentation eines Nicht-Ereignisses, nicht die Beobachtung eines leeren Nests.</td></tr>
+      <tr><td class="f">visit_photos</td><td><code>org</code>, <code>visit</code>, <code>image</code>, <code>caption</code></td><td>Fotos, die an kein Nest gehören: die Tür, das neue Schloss, das Gerüst.</td></tr>
+      <tr><td class="f">findings</td><td><code>org</code>, <code>visit</code>, <code>spot</code>, <code>nest</code>, <code>kind</code>, <code>count</code>, <code>species_label</code>, <code>note</code>, <code>photo</code></td><td><code>kind</code>: <span class="pill">dead_bird</span> <span class="pill">chick</span> <span class="pill c">other_species</span> <span class="pill w">site_change</span>. <code>species_label</code> ist Freitext und speist eine <code>species_labels</code>-View — Vokabular, das aus dem Gebrauch entsteht (federfalls <code>animal_species</code>-Muster: nichts zu seeden, nichts Totes im Picker). Ein <code>site_change</code>-Fund bietet als Folgeaktion „Spot schließen“ an.</td></tr>
+      <tr><td class="f">follow_ups</td><td><code>org</code>, <code>spot</code>, <code>nest</code>, <code>due_at</code>, <code>reason</code>, <code>note</code>, <code>created_from_check</code>, <code>resolved_at</code>, <code>resolved_by_check</code></td><td><code>reason</code>: <span class="pill w">half_clutch</span> / <span class="pill">manual</span>. <code>due_at</code> ist <strong>gespeichert, nicht abgeleitet</strong> — ein Plan ist eine Tatsache und darf sich nicht rückwirkend verschieben, weil jemand später ein Intervall in den Org-Settings geändert hat (federfalls <code>next_due_at</code>-Regel bei Impfungen).</td></tr>
+      <tr><td class="f">tours</td><td><code>org</code>, <code>name</code>, <code>note</code>, <code>is_active</code>, <code>sort_index</code></td><td>Die Vorlage. „Tour 1“.</td></tr>
+      <tr><td class="f">tour_spots</td><td><code>org</code>, <code>tour</code>, <code>spot</code>, <code>sort_index</code></td><td>Die geordnete Route.</td></tr>
+      <tr><td class="f">tour_runs</td><td><code>org</code>, <code>tour</code>, <code>started_by</code>, <code>started_at</code>, <code>finished_at</code>, <code>note</code></td><td><code>tour</code> ist optional — ein Lauf ohne Vorlage ist die improvisierte Runde. Ein Lauf ohne <code>finished_at</code> ist offen und wird auf dem Dashboard als „Tour 1 fortsetzen“ angeboten. Das ist die Antwort auf „variiert stark“.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Infrastruktur</h4>
+  <div class="cards">
+    <div class="card"><h4>organisations</h4><p><code>name</code>, Kontakt, <code>settings</code> (JSON). Trägt die Rhythmus-Zahlen, das Nachkontroll-Fenster und die Berichts-Metadaten — änderbar ohne Release.</p></div>
+    <div class="card"><h4>users</h4><p>Ergänzt die eingebaute Auth-Collection um <code>role</code> (member/coordinator), <code>org</code>, <code>is_active</code>, <code>invited_by</code>, <code>phone</code>. Nicht neu angelegt, sonst geht die eingebaute Auth-Verdrahtung verloren.</p></div>
+    <div class="card"><h4>audit_events</h4><p>Anhängend, mit Manipulationssperre, nur für Koordination lesbar. Speichert <em>Label-Schnappschüsse</em>, niemals auflösbare Ids.</p></div>
+    <div class="card"><h4>geocode_cache</h4><p>Cache vor dem Nominatim-Proxy, mit Purge-Cron. Schützt den öffentlichen Geocoder und die eigene Rate-Limit-Bilanz.</p></div>
+    <div class="card"><h4>idempotency_keys</h4><p>Macht das Wiederholen eines Besuchs-Writes sicher. Der Kernbaustein der Online-only-Entscheidung.</p></div>
+  </div>
+
+  <h4>Views — jede Liste liest eine Abfrage, nicht vier</h4>
+  <ul>
+    <li><code>spot_overview</code> — Spot + Bereichszahl + Nesterzahl + Gelege-Zusammenfassung + <code>next_due_at</code> + offene Nachkontrollen + Dringlichkeitsrang. <strong>Die Karte und die Spotliste lesen ausschließlich das.</strong></li>
+    <li><code>nest_state</code> — Nest + Ist-Gelege (echt/Attrappe), ältestes <code>since</code>, Tage im Zustand, <code>next_due_at</code>. Speist die Nestliste im Spot-Detail.</li>
+    <li><code>visit_rows</code> — die Berichtstabelle: Adresse, Datum, Ergebnis, entnommene Eier, gesetzte Attrappen, Funde. <strong>Die Tabelle ist einmal definiert</strong> und beide Berichtsrahmungen sowie der CSV-Export lesen sie, damit sie nicht auseinanderlaufen können.</li>
+    <li><code>species_labels</code> — DISTINCT über tatsächlich erfasste Artbezeichnungen, pro Org.</li>
+    <li><code>due_counts</code> — Dashboard-Zähler in einer Abfrage.</li>
+  </ul>
+</section>
+
+<section id="rhythm">
+  <p class="eyebrow"><span class="num">04</span> Der Rhythmus</p>
+  <h2>Eine Ableitung, ein Schreiber</h2>
+  <p>Der Rhythmus ist das Herz der App und gleichzeitig die Stelle, an der ein Fehler unsichtbar bleibt: ein falsches Fälligkeitsdatum sieht genauso aus wie ein richtiges. federfall hat das auf die harte Art gelernt — der Zustand eines Vogels hatte mehrere Ableitungen, bis alle Schreiber auf <code>lib_derive.js</code> zusammengeführt wurden. Eiermann startet damit: <strong><code>lib_rhythm.js</code> ist die einzige Stelle, die <code>empty_streak</code>, <code>interval_days</code> und <code>next_due_at</code> berechnet</strong>, und jeder Schreiber ruft sie auf.</p>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 880 400" role="img" aria-label="Die Rhythmusleiter: 7, 14, 28 Tage, mit Reset bei einem Fund, und die Halbgelege-Nachkontrolle, die als frühestes Datum immer gewinnt.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+          <marker id="ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="hi" d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <text x="0" y="16" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="1.4" fill="currentColor" opacity="0.55">DIE LEITER · PRO NEST</text>
+
+        <!-- ladder -->
+        <rect x="60" y="60" width="190" height="48" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="155" y="83" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="currentColor">Basis: 7 Tage</text>
+        <text x="155" y="98" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.6">empty_streak 0–2</text>
+
+        <line x1="155" y1="108" x2="155" y2="156" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+        <text x="170" y="136" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity="0.75">3× nichts gefunden</text>
+
+        <rect x="60" y="158" width="190" height="48" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="155" y="181" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="currentColor">14 Tage</text>
+        <text x="155" y="196" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.6">empty_streak 3–5</text>
+
+        <line x1="155" y1="206" x2="155" y2="254" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+        <text x="170" y="234" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity="0.75">3× nichts gefunden</text>
+
+        <rect x="60" y="256" width="190" height="48" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="155" y="279" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="currentColor">28 Tage</text>
+        <text x="155" y="294" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.6">Deckel</text>
+
+        <!-- reset arc -->
+        <path d="M 58 280 C 20 280, 20 84, 56 84" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+        <text x="0" y="332" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity="0.75">Reset: ein Ei, ein Küken, eine tote Taube → sofort zurück auf die Basis</text>
+
+        <!-- collector bus -->
+        <line x1="250" y1="84" x2="300" y2="84" stroke="currentColor" stroke-width="1"/>
+        <line x1="250" y1="182" x2="300" y2="182" stroke="currentColor" stroke-width="1"/>
+        <line x1="250" y1="280" x2="300" y2="280" stroke="currentColor" stroke-width="1"/>
+        <line x1="300" y1="84" x2="300" y2="280" stroke="currentColor" stroke-width="1"/>
+        <line x1="300" y1="182" x2="376" y2="182" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+        <text x="338" y="174" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.6">letzter Check</text>
+        <text x="338" y="196" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.6">+ Intervall</text>
+
+        <rect x="380" y="158" width="200" height="48" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="480" y="187" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">nest.next_due_at</text>
+
+        <!-- follow-up override -->
+        <text class="hi" x="380" y="16" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="1.4" fill="currentColor">DIE ÜBERSCHREIBUNG</text>
+        <rect class="hi" x="380" y="40" width="200" height="56" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text class="hi" x="480" y="63" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">follow_ups.due_at</text>
+        <text class="hi" x="480" y="80" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.85">Halbgelege · +4 Tage</text>
+
+        <line class="hi" x1="580" y1="68" x2="654" y2="128" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar-a)"/>
+        <text class="hi" x="600" y="108" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor">gewinnt</text>
+        <line x1="580" y1="182" x2="654" y2="156" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+
+        <rect x="658" y="112" width="222" height="60" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="769" y="136" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">spot.next_due_at</text>
+        <text x="769" y="153" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.6">= min(Nester, Nachkontrollen)</text>
+
+        <line x1="0" y1="358" x2="880" y2="358" stroke="currentColor" stroke-width="1" opacity="0.25"/>
+        <text x="0" y="380" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity="0.75">Übersprungener Besuch: kein Reset, kein neues Datum — der Spot bleibt überfällig.</text>
+      </svg>
+    </div>
+    <figcaption>Die Leiter läuft pro Nest; der Spot erbt das früheste Datum seiner aktiven Nester. Eine offene Halbgelege-Nachkontrolle ist kein Leiterzustand, sondern ein zweites Datum, das in dasselbe Minimum eingeht — und weil es früher liegt, gewinnt es. Ein übersprungener Besuch bewegt nichts, weder Streak noch Datum: er dokumentiert, dass niemand hingesehen hat.</figcaption>
+  </figure>
+
+  <h3>Die Regeln, ausgeschrieben</h3>
+  <ul>
+    <li>Ein abgeschlossener Check mit <code>state = empty</code> erhöht <code>empty_streak</code> um eins.</li>
+    <li>Jedes Ei, jedes Küken, jede tote Taube, jedes bewohnte Nest setzt <code>empty_streak = 0</code> und <code>interval_days</code> zurück auf die Basis.</li>
+    <li><code>interval_days</code> ist die Leiterstufe zum aktuellen Streak, gedeckelt.</li>
+    <li><code>nest.next_due_at = Datum des letzten abgeschlossenen Checks + interval_days</code>.</li>
+    <li><code>state = partial</code> erzeugt eine <code>follow_ups</code>-Zeile mit <code>due_at = heute + half_clutch_return_days</code>. Sie wird aufgelöst, wenn ein späterer Check an <em>diesem</em> Nest den Tausch vollendet — nicht durch Zeitablauf und nicht durch einen übersprungenen Besuch.</li>
+    <li><code>spot.next_due_at = min(</code>alle aktiven Nester, alle offenen Nachkontrollen<code>)</code>. Ein Spot ohne Nester ist nach der Basisperiode fällig — leer heißt nicht erledigt.</li>
+    <li>Ein <code>paused</code> Spot fällt aus allen Fälligkeitslisten; <code>paused_until</code> lässt ihn per Cron von selbst wieder anlaufen.</li>
+  </ul>
+
+  <h4>Die Zahlen liegen in den Org-Settings</h4>
+  <div class="scroller">
+  <table>
+    <thead><tr><th class="f">Schlüssel</th><th class="t">Default</th><th>Bedeutung</th></tr></thead>
+    <tbody>
+      <tr><td class="f">base_interval_days</td><td class="t">7</td><td>Grundrhythmus eines aktiven Nests.</td></tr>
+      <tr><td class="f">empty_checks_per_step</td><td class="t">3</td><td>Wie viele leere Kontrollen in Folge eine Stufe weiterschalten.</td></tr>
+      <tr><td class="f">interval_steps</td><td class="t">[7, 14, 28]</td><td>Die Leiter. Letzter Wert ist der Deckel.</td></tr>
+      <tr><td class="f">half_clutch_return_days</td><td class="t">4</td><td>Fenster für die Nachkontrolle nach einem Halbgelege.</td></tr>
+      <tr><td class="f">pause_auto_resume</td><td class="t">true</td><td>Ob <code>paused_until</code> automatisch reaktiviert.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Gelesen wird das <strong>ausschließlich</strong> über <code>lib_org.js</code>. Das ist keine Stilfrage: ein zweiter <code>getString()</code>+<code>JSON.parse</code> hatte in federfall die org-konfigurierbaren Fenster still deaktiviert, weil <code>get()</code> ein Byte-Array liefert und jeder Zugriff <code>undefined</code> ergibt.</p>
+
+  <div class="note">
+    <span class="lab">Die App muss das Datum erklären können</span>
+    <p>Neben jedem Fälligkeitsdatum steht ein Satz: „<em>4× nichts gefunden — Rhythmus auf 14 Tage gestreckt</em>“ oder „<em>Nachkontrolle Halbgelege, Nest 3</em>“. Der Satz wird <strong>im Client</strong> aus <code>empty_streak</code>, <code>interval_days</code> und dem Nachkontrollgrund gebildet, nicht vom Server geliefert — der Server hat nicht zu entscheiden, welche Sprache der Lesende spricht.</p>
+  </div>
+</section>
+
+<section id="visit">
+  <p class="eyebrow"><span class="num">05</span> Ein Besuch, eine Transaktion</p>
+  <h2>Warum ein Besuch <em>ein</em> Schreibvorgang ist</h2>
+  <p>Ein Besuch an einem Spot mit vier Nestern erzeugt einen <code>visits</code>-Datensatz, vier <code>nest_checks</code>, eine Handvoll <code>nest_eggs</code>-Mutationen, vielleicht einen Fund und vielleicht eine Nachkontrolle. Als einzelne REST-Aufrufe ist das ein Fehler, der auf sich warten lässt: bricht die Verbindung nach dem zweiten Nest ab, steht in der Datenbank ein Besuch, an dem zwei Nester nicht geprüft wurden — <strong>und das ist von „zwei Nester absichtlich nicht angefasst“ nicht zu unterscheiden.</strong></p>
+
+  <figure>
+    <div class="figframe">
+      <svg viewBox="0 0 880 470" role="img" aria-label="Vergleich: sieben Einzel-Writes vom Client hinterlassen bei Abbruch einen halben Besuch; ein transaktionaler Endpunkt schreibt alles oder nichts und leitet danach den Rhythmus neu ab.">
+        <defs>
+          <marker id="v-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+          <marker id="v-ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="hi" d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <text class="dg" x="0" y="14" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="1.4" fill="currentColor">ABGELEHNT · SIEBEN EINZEL-WRITES</text>
+
+        <rect x="0" y="34" width="110" height="150" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="55" y="114" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="currentColor">App</text>
+
+        <line x1="110" y1="109" x2="206" y2="49" stroke="currentColor" stroke-width="1" marker-end="url(#v-ar)"/>
+        <line x1="110" y1="109" x2="206" y2="89" stroke="currentColor" stroke-width="1" marker-end="url(#v-ar)"/>
+        <line class="dg" x1="110" y1="109" x2="206" y2="129" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3"/>
+        <line class="dg" x1="110" y1="109" x2="206" y2="169" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3"/>
+        <path class="dg" d="M 152 116 L 164 128 M 164 116 L 152 128" stroke="currentColor" stroke-width="1.8"/>
+
+        <rect x="210" y="34" width="210" height="30" fill="none" stroke="currentColor" stroke-width="1"/>
+        <text x="222" y="53" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">POST visits</text>
+        <rect x="210" y="74" width="210" height="30" fill="none" stroke="currentColor" stroke-width="1"/>
+        <text x="222" y="93" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">POST nest_checks ×4</text>
+        <rect class="dg" x="210" y="114" width="210" height="30" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3"/>
+        <text class="dg" x="222" y="133" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">PATCH nest_eggs ×6</text>
+        <rect class="dg" x="210" y="154" width="210" height="30" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3"/>
+        <text class="dg" x="222" y="173" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">POST follow_ups</text>
+
+        <text class="dg" x="440" y="97" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">Abbruch hier: ein halber Besuch —</text>
+        <text class="dg" x="440" y="113" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">nicht unterscheidbar von</text>
+        <text class="dg" x="440" y="129" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">„absichtlich nicht angefasst“.</text>
+
+        <line x1="0" y1="220" x2="880" y2="220" stroke="currentColor" stroke-width="1" opacity="0.25"/>
+
+        <text class="hi" x="0" y="252" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="1.4" fill="currentColor">GEWÄHLT · EINE TRANSAKTION</text>
+
+        <rect x="0" y="275" width="100" height="48" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="50" y="304" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="currentColor">App</text>
+
+        <line class="hi" x1="100" y1="299" x2="246" y2="299" stroke="currentColor" stroke-width="1.6" marker-end="url(#v-ar-a)"/>
+        <text class="hi" x="173" y="291" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="currentColor">POST /visit</text>
+        <text class="hi" x="173" y="315" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.8">+ Idempotency-Key</text>
+
+        <rect class="hi" x="250" y="258" width="330" height="150" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text class="hi" x="266" y="277" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="0.8" fill="currentColor">EINE TRANSAKTION — ALLES ODER NICHTS</text>
+        <rect x="266" y="288" width="298" height="26" fill="none" stroke="currentColor" stroke-width="1"/>
+        <text x="276" y="305" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">visits · nest_checks</text>
+        <rect x="266" y="320" width="298" height="26" fill="none" stroke="currentColor" stroke-width="1"/>
+        <text x="276" y="337" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">nest_eggs — Ist-Gelege neu gesetzt</text>
+        <rect x="266" y="352" width="298" height="26" fill="none" stroke="currentColor" stroke-width="1"/>
+        <text x="276" y="369" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">findings · follow_ups</text>
+
+        <line x1="580" y1="333" x2="654" y2="333" stroke="currentColor" stroke-width="1.2" marker-end="url(#v-ar)"/>
+        <text x="617" y="325" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="currentColor" opacity="0.7">lib_rhythm.js</text>
+
+        <rect x="658" y="305" width="222" height="56" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text x="769" y="328" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">nest.next_due_at</text>
+        <text x="769" y="345" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">spot.next_due_at</text>
+
+        <text x="0" y="440" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity="0.75">Wiederholung mit demselben Key → die gespeicherte Antwort, kein zweiter Besuch.</text>
+      </svg>
+    </div>
+    <figcaption><code>POST /api/eiermann/visit</code> nimmt den ganzen Besuch als einen Body und schreibt ihn in einer Transaktion — nach federfalls <code>intake.pb.js</code>-Muster, das dort Tier, Finder, Fall, Gewicht und Quarantäne gemeinsam anlegt. Der Idempotenzschlüssel ist die eigentliche Pointe: er macht den Wiederholversuch harmlos.</figcaption>
+  </figure>
+
+  <div class="note">
+    <span class="lab">Das ist auch die Antwort auf „kein Offline“</span>
+    <p>Die Besuchsmaske sammelt alles im Speicher und schreibt erst beim Abschließen. Im Keller ohne Empfang scheitert genau <em>ein</em> Aufruf, an einer klar benannten Stelle, mit einem „Erneut senden“-Button — und weil der Schlüssel gleich bleibt, kann man drei Mal drücken, ohne drei Besuche zu erzeugen. Das ist nicht Offline-Fähigkeit, aber es ist die 90-%-Lösung für einen Bruchteil des Aufwands: die Maske überlebt Empfangsverlust, nur eben nicht das Beenden der App.</p>
+  </div>
+</section>
+
+<section id="protected">
+  <p class="eyebrow"><span class="num">06</span> Der Artenschutz-Riegel</p>
+  <h2>Der einzige Hook, der niemand umgehen darf</h2>
+  <p>Stadttauben sind als verwilderte Haustiere nicht besonders geschützt. Dohlen, Ringeltauben, Mauersegler und Turmfalken, die in denselben Dachböden und Lichtschächten sitzen, <strong>sind es</strong> — an ihren Gelegen ist jeder Eingriff nach §44 BNatSchG verboten. Genau diese Verwechslung ist das größte reale Risiko, das diese App vergrößern kann: sie macht Gelegetausch schneller und routinierter.</p>
+  <div class="note crit">
+    <span class="lab">Serverseitig, nicht als Warnung</span>
+    <p><code>protected_guard.pb.js</code> weist jede Ei-Mutation an einem Nest mit <code>species = protected</code> zurück — im transaktionalen Besuchs-Endpoint <em>und</em> auf jedem direkten Pfad, und mit einer Fehlermeldung, die die Art und den Grund nennt. Ein Nest kann von <code>unknown</code> auf <code>protected</code> gesetzt werden, aber der Weg zurück ist der Koordination vorbehalten. Auf der Foto-Karte ist ein geschütztes Nest nicht bloß anders eingefärbt, sondern trägt ein eigenes Symbol und ist nicht antippbar für „Eier tauschen“.</p>
+  </div>
+  <p>Was die App <em>nicht</em> leisten kann, gehört genauso deutlich hierher: sie bestimmt keine Arten. Die Zuordnung ist eine menschliche Beurteilung, und der Riegel schützt nur, was jemand als geschützt markiert hat. Deshalb ist <code>unknown</code> ein eigener Zustand und keine stille Annahme von „Stadttaube“ — ein unbestimmtes Nest wird im Spot-Detail als offene Frage geführt, bis jemand entscheidet.</p>
+</section>
+
+<section id="screens">
+  <p class="eyebrow"><span class="num">07</span> Screens</p>
+  <h2>Elf Ansichten, eine davon zählt</h2>
+  <p>Die Karte ist der Einstieg, aber das Spot-Detail ist das Produkt. Alles andere ist Zubringer.</p>
+
+  <h3>Spot-Detail — die erste Sekunde</h3>
+  <p>Zwei Dinge müssen ohne Scrollen und ohne Nachdenken dastehen: das Übersichtsfoto mit zustandsgefärbten Pins, damit man sich <em>körperlich</em> orientiert, und darunter eine Zeile pro Nest mit Inhalt und Alter — dringend zuerst.</p>
+  <pre class="mock">┌──────────────────────────────────────────────────┐
+│  Bahnhofstr. 12                    ● aktiv       │
+│  fällig heute · Nachkontrolle Nest 3             │
+├──────────────────────────────────────────────────┤
+│  Bereich: Dachboden Nord            1 / 2  ›     │
+│  ┌────────────────────────────────────────────┐  │
+│  │ ░░░░░░░░░░ Übersichtsfoto ░░░░░░░░░░░░░░░░ │  │
+│  │ ░░░ ① ░░░░░░░░░░░░░ ② ░░░░░░░░░░░░░░░░░░░░ │  │
+│  │ ░░░░░░░░░░░ ③⚠ ░░░░░░░░░ △④ ░░░░░░░░░░░░░░ │  │
+│  └────────────────────────────────────────────┘  │
+├──────────────────────────────────────────────────┤
+│ ⚠ N3  Balken links   1 Kunst · 1 echt    2 Tage  │
+│   N1  Balken rechts  2 Kunst             34 Tage │
+│   N2  Fensternische  leer                12 Tage │
+│ △ N4  Mauernische    Dohle — nicht anfassen      │
+├──────────────────────────────────────────────────┤
+│  Einpacken: 3 Attrappen                          │
+│  Zugang: Schlüssel bei Hausmeister Kaya, 2. OG   │
+├──────────────────────────────────────────────────┤
+│  [ Besuch starten ]        [ Nicht geprüft ]     │
+└──────────────────────────────────────────────────┘</pre>
+  <p>Die Zeile „Einpacken: 3 Attrappen“ ist die kleinste Funktion mit dem höchsten Alltagswert: sie ist rechenbar aus dem Ist-Gelege und ersetzt das Schätzen am Auto. Und die Zugangszeile ist die eigentliche Antwort auf „die Übergabe ist schmerzhaft“ — nicht eine Teilnehmerliste, sondern das, was der Nächste braucht, um überhaupt reinzukommen.</p>
+
+  <div class="scroller wide">
+  <table>
+    <thead><tr><th>Screen</th><th>Aufgabe</th><th>Besonderheit</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Karte</strong></td><td>Einstieg. Spots als Pins, gefärbt nach Dringlichkeit: überfällig, Halbgelege, bald fällig, in Ordnung, Erkundung, pausiert, geschlossen.</td><td>Liest nur <code>spot_overview</code>. Clustering, Filterchips, Suche, „in meiner Nähe“ über GPS. Kartenquelle kommt zur Laufzeit von <code>/api/eiermann/info</code>, nicht aus dem Build.</td></tr>
+      <tr><td><strong>Dashboard</strong></td><td>Was ist zu tun. Offene Halbgelege stehen immer ganz oben, dann überfällig, dann heute fällig.</td><td>Zeigt einen offenen Tourlauf als „Tour 1 fortsetzen“. Erkundungsspots, die auf eine Rückmeldung warten, als eigener Block.</td></tr>
+      <tr><td><strong>Spot-Detail</strong></td><td>Das Dossier. Bereiche, Nester, Kontakte &amp; Zugang, Verlauf, Rhythmus-Erklärung.</td><td>Der Verlauf ist <em>eine</em> Chronologie aus Besuchen, Checks, Funden und Phasenwechseln — federfalls Regel „eine konsistente Ansicht statt fragmentierter Abschnitte“.</td></tr>
+      <tr><td><strong>Bereichs-Editor</strong></td><td>Foto aufnehmen/ersetzen, Pins setzen und verschieben.</td><td>Nach einem Fotowechsel ein erzwungener Prüfdurchlauf: altes und neues Foto nebeneinander, jeder Pin einmal bestätigt oder verschoben.</td></tr>
+      <tr><td><strong>Nest-Sheet</strong></td><td>Ei-Slots mit Art und Alter. Tauschen, Ei ergänzen, Nest leer, Nest ist weg, Art ändern.</td><td>Bei <code>protected</code> ist der Tausch-Pfad nicht deaktiviert, sondern <em>ersetzt</em> — durch eine Erklärung, warum nicht.</td></tr>
+      <tr><td><strong>Besuchsablauf</strong></td><td>Nester durcharbeiten, Funde erfassen, Notiz und Fotos, abschließen.</td><td>Alles im Speicher bis zum Abschluss; ein Aufruf, ein Idempotenzschlüssel, ein klarer Wiederholpfad. Alternativ „Nicht geprüft“ mit Grund.</td></tr>
+      <tr><td><strong>Touren</strong></td><td>Vorlagen verwalten; Lauf starten, abarbeiten, abweichen, abschließen.</td><td>Fortschritt als Liste mit Reihenfolge; Spot ergänzen und überspringen sind gleichwertige Aktionen, nicht Fehlerpfade.</td></tr>
+      <tr><td><strong>Erkundung</strong></td><td>Der Funnel: unberührt → Mieter → Eigentümer → erlaubt/abgelehnt.</td><td>Nach Stufe gruppiert, mit Kontakt und nächster Aktion. Beantwortet „bei wem hängt es?“.</td></tr>
+      <tr><td><strong>Statistik</strong></td><td>Entnommene Eier über Zeit, Besuche, Spots je Phase, Funde.</td><td>Aggregiert <strong>nichts</strong> im Client — ein Aufruf an <code>/stats</code>, derselbe <code>lib_stats.js</code>, den der Bericht nutzt. Kreisdiagramme auf drei Farbtöne + „Sonstige“ begrenzt.</td></tr>
+      <tr><td><strong>Bericht</strong></td><td>Zeitraum und Format wählen, Datei teilen.</td><td>Behörden-PDF pro Adresse, Zusammenfassung für Förderer, CSV. Kein Encoder im Client.</td></tr>
+      <tr><td><strong>Verwaltung</strong></td><td>Team einladen, Org-Settings (die Rhythmuszahlen!), Audit-Log.</td><td>Nur Koordination. Die Rhythmuszahlen hier bearbeitbar zu machen ist der Grund, warum sie in <code>settings</code> liegen.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="wide" style="font-size:0.875rem;color:var(--muted);max-width:66ch">Dazu die Rahmen-Screens aus federfall, unverändert im Zuschnitt: Server-Einrichtung mit URL-Eingabe und Erreichbarkeitsprobe, Login mit Versionsprüfung, Profil, Startup-Weiche.</p>
+</section>
+
+<section id="backend">
+  <p class="eyebrow"><span class="num">08</span> Backend</p>
+  <h2>PocketBase mit Migrationen, Hooks und drei Routen</h2>
+  <p>Vollständig containerbasiert, wie federfall: Schema ausschließlich über numerierte, eingecheckte JS-Migrationen, niemals per Hand in der Admin-UI. Hooks besitzen alles, was eine Access Rule nicht ausdrücken kann.</p>
+
+  <h4>Hooks</h4>
+  <div class="scroller wide">
+  <table>
+    <thead><tr><th class="f">Datei</th><th>Verantwortung</th></tr></thead>
+    <tbody>
+      <tr><td class="f">lib_rhythm.js</td><td><strong>Die einzige Ableitung.</strong> <code>empty_streak</code>, <code>interval_days</code>, <code>nest.next_due_at</code>, <code>spot.next_due_at</code>. Jeder Schreiber ruft sie auf; niemand rechnet selbst.</td></tr>
+      <tr><td class="f">visit.pb.js</td><td><code>POST /api/eiermann/visit</code> — der ganze Besuch in einer Transaktion, idempotenzgeschlüsselt. Erzwingt die Gelege-Invariante und ruft danach <code>lib_rhythm.js</code>.</td></tr>
+      <tr><td class="f">protected_guard.pb.js</td><td>Weist jede Ei-Mutation an einem geschützten Nest zurück. Der sicherheitskritische Hook.</td></tr>
+      <tr><td class="f">follow_ups.pb.js</td><td>Legt die Halbgelege-Nachkontrolle an und löst sie auf, wenn ein späterer Check am selben Nest den Tausch vollendet.</td></tr>
+      <tr><td class="f">area_photo.pb.js</td><td>Fotowechsel: alt nach <code>previous_photo</code>, <code>pins_need_review</code> setzen, beim Bestätigen aufräumen.</td></tr>
+      <tr><td class="f">nest_pins.pb.js</td><td>Klemmt <code>pin_x</code>/<code>pin_y</code> auf 0…1 und weist einen Pin auf einem Bereich ohne Foto ab.</td></tr>
+      <tr><td class="f">spot_phase.pb.js</td><td>Phasenübergänge: Schließgrund ist beim Schließen verpflichtend, <code>closed_at</code> serverseitig, <code>paused_until</code> plausibel, Wiederanlauf per <code>cronAdd</code>.</td></tr>
+      <tr><td class="f">report.pb.js</td><td><code>GET /api/eiermann/reports/period</code> → Typst-PDF; <code>?format=summary</code> die Förderer-Rahmung, <code>?format=csv</code> dieselben Spalten als Tabelle. Eine Route, weil isolierte Handler den Sammelcode nicht teilen könnten.</td></tr>
+      <tr><td class="f">stats.pb.js</td><td><code>GET /api/eiermann/stats</code> — der ganze Statistik-Screen in einer Antwort, aus demselben <code>lib_stats.js</code> wie der Bericht.</td></tr>
+      <tr><td class="f">lib_stats.js</td><td>Besitzt den Zeitraum (<code>?year=</code>, <code>?month=</code>, <code>?tzOffsetMinutes=</code>), den <code>visit_rows</code>-Lesevorgang und jede Aggregation. Ein <code>require()</code>-Modul ist das Einzige, was isolierte Handler teilen können.</td></tr>
+      <tr><td class="f">geteilt</td><td><code>lib_org.js</code>, <code>lib_org_scope.js</code>, <code>org_scope.pb.js</code>, <code>lib_audit.js</code>, <code>audit_*.pb.js</code>, <code>lib_authorship.js</code>, <code>authorship.pb.js</code>, <code>lib_time.js</code>, <code>lib_geocode.js</code>, <code>geocode.pb.js</code>, <code>info.pb.js</code>, <code>web_headers.pb.js</code>, <code>rate_limits.pb.js</code>, <code>settings.pb.js</code>, <code>bootstrap_coordinator.pb.js</code>, <code>oauth2_provisioning.pb.js</code>.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Zugriffsregeln</h4>
+  <p>Die Access Rules sind die eigentliche Sicherheitsgrenze, nicht die UI. Das Muster ist einfacher als in federfall, weil hier <em>nicht</em> privat-per-Default gilt: alles innerhalb der Org ist für jedes aktive Mitglied lesbar — das ist gerade der Punkt des Gedächtnisses. Was Koordination vorbehalten bleibt: Spots und Bereiche löschen, Rhythmen überschreiben, Team verwalten, Audit-Log lesen, exportieren, ein Nest von <code>protected</code> zurücksetzen. <code>nest_eggs</code> ist für Clients gar nicht schreibbar — nur der Besuchs-Endpoint schreibt dort. Und jede Regel, die das Auth-Prädikat kopiert, endet auf <code>&amp;&amp; @request.auth.is_active = true</code>; die Regel-Testsuite fegt darüber und schlägt bei einer Auslassung fehl.</p>
+
+  <h4>Tests</h4>
+  <ul>
+    <li><strong>Regeltests in Python</strong> gegen ein <em>laufendes</em> PocketBase (<code>tests/run.sh</code>). Migrationen und Hooks lassen sich in der Flutter-Suite nicht prüfen. Mit Registry-Sweeps nach federfalls Vorbild: jede Collection mit einer <code>nest</code>- oder <code>spot</code>-Relation muss in der Lösch-Wirkungs-Registry stehen, sonst schlägt der Test fehl — in <em>beide</em> Richtungen.</li>
+    <li><strong>Cron-Tests separat</strong> (<code>tests/run_cron.sh</code>): <code>cronAdd</code>-Jobs sind für die Regelsuite unsichtbar, weil nichts sie auslösen kann. Ein Wegwerf-Container gegen eine Kopie von <code>pb_hooks</code> mit umgeschriebenem Zeitplan. Betrifft hier den Pause-Wiederanlauf und den Geocode-Cache-Purge.</li>
+    <li><strong>Flutter-Widget- und Unit-Tests</strong> mit <code>mocktail</code>-Overrides der Repository-Provider; Abdeckungsschwelle in CI.</li>
+    <li><strong>Sweep-Tests als Regelwerk</strong>: der Datumsformatierer-Sweep und der Font-Fallback-Test werden aus dem geteilten Paket mitgeliefert und laufen in Eiermann von Tag eins.</li>
+  </ul>
+</section>
+
+<section id="shared">
+  <p class="eyebrow"><span class="num">09</span> Das geteilte Paket</p>
+  <h2>Was geteilt wird — und die eine Sache, die nicht geht</h2>
+  <p>Vorschlag für Namen und Zuschnitt: ein eigenes Repository <code>zugvogel</code> mit vier Paketen, das beide Apps über einen <strong>gepinnten Git-Ref</strong> einbinden. Gepinnt ist der entscheidende Teil: federfall bewegt sich nur, wenn du es bewegst — ein Commit in der Bibliothek kann eine laufende App nicht überraschen.</p>
+  <div class="cards">
+    <div class="card"><h4>zugvogel_data</h4><p><code>Repository&lt;T&gt;</code> / <code>ReadOnlyRepository&lt;T&gt;</code>, <code>PbFilter</code> + <code>filterExpr</code> (Filter-Injection ist ein Compilerfehler), Keyset-<code>page()</code>, Multipart-Dateifelder, <code>fileUrl</code>, <code>RepositoryException</code>, Idempotenz-Helfer. 421 Zeilen, die das Wort „federfall“ genau einmal enthalten: im eigenen Import.</p></div>
+    <div class="card"><h4>zugvogel_core</h4><p><code>GeoPoint</code> (inkl. der <code>{0,0}</code>-ist-null-Regel), Record-Mapper-Konverter, das <code>wire</code>-Enum-Muster, <code>Result</code>, <code>ErrorMessage</code>, <code>parallelWait</code>, Logging.</p></div>
+    <div class="card"><h4>zugvogel_pb_client</h4><p>PocketBase-Client-Provider, Token-Speicher, User-Agent-Client, Server-URL-Speicher, Erreichbarkeitsprobe, <code>/info</code>-Leser, <strong>Versionskompatibilität</strong>, Auth-Status, Session-Refresh, Sign-out, Realtime-Abos, Konnektivität, <code>MapConfig</code>.</p></div>
+    <div class="card"><h4>zugvogel_ui</h4><p>Datumsfeld + <code>formatLocalDate</code> (samt Sweep-Test), Async/Empty/Error/Loading-Ansichten, Textfeld, Primär- und Destruktivaktionen, Detail-Header, Fotostreifen und Bildzuschnitt, Kartenlayer + Attribution + Zoomverhalten, Charts, <code>PagedListTail</code>, Layout-Helfer, Theme-Gerüst, Font-Bündel.</p></div>
+    <div class="card"><h4>zugvogel_hooks</h4><p>Die JS-Hook-Bibliothek: <code>lib_org.js</code>, <code>lib_org_scope.js</code>, <code>lib_audit.js</code>, <code>lib_authorship.js</code>, <code>lib_time.js</code>, <code>lib_geocode.js</code> plus die generischen <code>*.pb.js</code> (Geocode-Proxy, Info, Web-Header/CSP, Rate-Limits, Settings, OAuth2-Provisionierung).</p></div>
+    <div class="card"><h4>zugvogel_report</h4><p><code>report_common.typ</code>, das Typst-Vendor-Verzeichnis, der <code>shared_strings.json</code>-Mechanismus, und die Python-Testharness-Skripte als Vorlage.</p></div>
+  </div>
+
+  <h3>Drei Regeln, die das breite Teilen tragfähig machen</h3>
+  <p>Ein breites geteiltes Paket, das UI enthält, verschweißt zwei Produktdesigns — es sei denn, die Grenze wird explizit gezogen. Deshalb:</p>
+  <ol>
+    <li><strong>Keine Strings im Paket.</strong> Kein Widget importiert eine <code>l10n</code>-Klasse. Texte kommen über ein injiziertes <code>ZugvogelStrings</code>-Objekt, das jede App aus ihren eigenen ARB-Dateien füllt. Ein Widget, das „Abbrechen“ selbst kennt, ist ein Fehler.</li>
+    <li><strong>Keine Farben im Paket.</strong> Widgets lesen <code>Theme.of(context).colorScheme</code> und eine <code>ZugvogelSemantics</code>-<code>ThemeExtension</code> für gut/warnend/kritisch. Eiermanns Palette und federfalls sind unabhängig.</li>
+    <li><strong>Keine Konfiguration im Paket.</strong> Kein <code>AppEnvironment</code>-Zugriff, keine Kompilierzeit-Defines. Was gebraucht wird, wird hereingegeben.</li>
+  </ol>
+  <p>Praktisch heißt das: Eiermann darf ein Widget so lange kopieren, wie noch unklar ist, ob es generisch ist. Befördert wird erst, wenn beide Apps dasselbe brauchen und die zwei Kopien identisch wären.</p>
+
+  <div class="note warn">
+    <span class="lab">Migrationen lassen sich nicht teilen — Hooks schon</span>
+    <p>Das ist die Einschränkung, die beim breiten Teilen zuerst zubeißt. Eine PocketBase-Migration ist keine Bibliotheksfunktion, sondern ein <em>historisches Faktum</em>: federfall hat <code>organisations</code> und die <code>users</code>-Erweiterung 2024 unter <code>1700000001</code> angelegt und diese Datei kann nicht rückwirkend durch eine geteilte ersetzt werden. Deshalb:</p>
+    <ul>
+      <li><strong>Hooks, Typst, Tests, CI</strong> werden echt geteilt — sie sind ersetzbare Dateien ohne Zustand, und federfall kann sie sofort übernehmen.</li>
+      <li><strong>Migrationen</strong> werden als <em>Vorlagen</em> geteilt und von Eiermann als eigene, numerierte Dateien eingecheckt. Kopiert, nicht verlinkt.</li>
+      <li>Ausgeliefert wird das Backend-Material über ein <strong>Basis-Image</strong>: <code>ghcr.io/…/zugvogel-pb-base:vX.Y.Z</code> bringt die geteilten Hooks und die Typst-Basis mit, und jedes App-Dockerfile beginnt darauf. Damit ist die Bibliotheksversion im Image sichtbar und nicht in einem Submodul versteckt.</li>
+      <li>Die geteilten Hooks belegen einen <strong>reservierten Namensraum</strong> (<code>zv_*.pb.js</code>), damit ein App-Hook sie nie versehentlich überschreibt.</li>
+    </ul>
+  </div>
+
+  <h3>Reihenfolge</h3>
+  <p>Die Extraktion ist ein mechanischer Umzug der Dateien mit null <code>federfall</code>-Referenzen, und federfalls bestehende Suite ist der Beweis, dass er stimmt: sie muss danach unverändert grün sein. Das passiert <strong>vor</strong> Eiermanns erster Zeile Feature-Code, weil das Paket sonst nie entsteht — aber nur mit dem, was heute schon stabil ist. Alles andere wandert erst, wenn Eiermann es benutzt hat.</p>
+</section>
+
+<section id="repo">
+  <p class="eyebrow"><span class="num">10</span> Repo-Layout</p>
+  <h2>Pub-Workspace, wie fluttermann</h2>
+  <pre class="mock">eiermann/
+├── AGENTS.md · CLAUDE.md · README.md · ONBOARDING.md
+├── analysis_options.yaml        very_good_analysis, streng
+├── pubspec.yaml                 Pub-Workspace-Wurzel
+├── Dockerfile                   FROM zugvogel-pb-base + Web-Build
+├── docker-compose.yml           .override.yml · .oidc.yml
+├── release-please-config.json   Version = App↔Server-Wire-Contract
+├── .github/workflows/           ci · release-please (Docker-Matrix + APKs)
+│
+├── apps/eiermann/
+│   ├── dart_defines/            development · staging · production
+│   ├── l10n.yaml
+│   └── lib/
+│       ├── bootstrap.dart · app/
+│       ├── config/              app_environment · map_config
+│       ├── core/                auth · pocketbase · server · realtime · error
+│       ├── data/                repository_providers.dart
+│       ├── features/
+│       │   ├── map/             die Karte, Cluster, Filter
+│       │   ├── spots/           Detail, Phasen, Kontakte, Verlauf
+│       │   │   ├── areas/       Foto, Pins, Prüfdurchlauf
+│       │   │   └── nests/       Nest-Sheet, Ei-Slots, Artenwechsel
+│       │   ├── visits/          Besuchsablauf, Übersprungen-mit-Grund
+│       │   ├── findings/        tote Tauben, Küken, Arten, Bauliches
+│       │   ├── tours/           Vorlagen und Läufe
+│       │   ├── prospects/       der Erkundungsfunnel
+│       │   ├── dashboard/ statistics/ reports/ admin/
+│       │   ├── auth/ server_setup/ startup/ profile/
+│       ├── l10n/arb/            app_de.arb (primär) · app_en.arb
+│       ├── routing/ theme/ ui/
+│   └── test/
+│
+├── packages/
+│   ├── eiermann_models/         freezed + fromRecord, wire-Enums
+│   └── eiermann_data/           PbRepository-Ableitungen je Collection
+│
+└── backend/pocketbase/
+    ├── pb_migrations/           numeriert, eingecheckt, nie handeditiert
+    ├── pb_hooks/                App-Hooks (geteilte kommen aus dem Basis-Image)
+    ├── typst/                   report.typ · summary.typ · shared_strings.json
+    └── tests/                   run.sh · run_cron.sh · test_rules.py · test_cron.py</pre>
+  <div class="note">
+    <span class="lab">Der Fehler, der hier schon einmal Geld gekostet hat</span>
+    <p><code>flutter analyze</code> wird <strong>von der Repo-Wurzel</strong> ausgeführt. Ein Lauf innerhalb von <code>apps/eiermann</code> analysiert nur die App — so sind in federfall neun Befunde in <code>federfall_data</code> unbemerkt ausgeliefert worden. In den Paketen selbst stürzt <code>dart analyze</code> außerdem den Analyse-Server; der Wurzellauf <em>ist</em> ihr Lint-Gate.</p>
+  </div>
+</section>
+
+<section id="lessons">
+  <p class="eyebrow"><span class="num">11</span> Übernommene Lehren</p>
+  <h2>Zwanzig Fallen, die hier von Anfang an zu sind</h2>
+  <p>Das ist der eigentliche Wert daran, die zweite App auf dieselbe Architektur zu setzen. Jede Zeile ist in federfall bezahlt worden.</p>
+  <div class="scroller wide">
+  <table>
+    <thead><tr><th class="t">#</th><th>Falle</th><th>Regel in Eiermann</th></tr></thead>
+    <tbody>
+      <tr><td class="t">01</td><td>PocketBase-Zeitstempel kommen UTC; <code>DateFormat</code> und <code>MaterialLocalizations</code> rechnen <em>nicht</em> um — in CET zeigt alles nach 22:00 UTC den Vortag. Fällt auf einer UTC-Maschine und in CI nicht auf.</td><td><code>formatLocalDate</code> ist die einzige Stelle, die ein <code>DateTime</code> in Text verwandelt. Ein Sweep-Test schlägt bei jedem anderen Formatierer fehl.</td></tr>
+      <tr><td class="t">02</td><td><code>record.get("settings")</code> liefert JS ein Byte-Array; jeder Property-Zugriff ist <code>undefined</code> und der Code fällt still in seinen Default.</td><td>Genau ein JSON-Feld in der Datenbank, genau ein Leser: <code>lib_org.js</code>. Ein zweiter <code>JSON.parse</code> im Repo ist ein Review-Stopper.</td></tr>
+      <tr><td class="t">03</td><td>Berechnete View-Spalten fallen auf Typ <code>json</code> zurück; <code>getString()</code> liefert <code>"Wert"</code> <em>mit</em> Anführungszeichen. Nur serverseitige Leser sehen das, und es scheitert leise.</td><td>Die Collection nach <code>field.type()</code> fragen und json-Spalten dekodieren — nie pro Wert schnüffeln, eine Stadt namens <code>true</code> parst auch als JSON.</td></tr>
+      <tr><td class="t">04</td><td>Jeder Hook-Handler läuft in einem isolierten JSVM; Helfer auf Dateiebene sind im Handler <em>nicht</em> sichtbar.</td><td><code>require()</code> immer <em>innerhalb</em> des Handlers, in der <code>${__hooks}</code>-Form. Deshalb ist ein Modul die einzige Möglichkeit, Code zwischen Bericht und Statistik zu teilen.</td></tr>
+      <tr><td class="t">05</td><td>Nutzereingabe in einen Filterstring interpoliert = Filter-Injection.</td><td>Die Query-Oberfläche akzeptiert nur <code>PbFilter</code>, und den gibt es ausschließlich aus <code>filterExpr</code>. Der Fehler ist ein Compilerfehler.</td></tr>
+      <tr><td class="t">06</td><td><code>?page=</code> über eine Liste, die während des Lesens wächst, überspringt und dupliziert Zeilen.</td><td>Keyset-Paginierung überall, plus das <code>PagedListTail</code>-Muster mit <code>loadMore</code>/<code>retryPage</code>. Suchfelder sind entprellt, weil ein Tastendruck ein Request ist.</td></tr>
+      <tr><td class="t">07</td><td>Ein Dart-Enum umbenennen bricht das Mapping auf die gespeicherten Strings.</td><td>Jedes Enum trägt einen <code>wire</code>-Wert: den exakten String, den PocketBase speichert. Umbenennungen sind wire-sicher.</td></tr>
+      <tr><td class="t">08</td><td>Ein nie gesetzter PocketBase-GeoPoint kommt als <code>{lon:0, lat:0}</code> — ein realer Ort im Golf von Guinea.</td><td><code>GeoPoint.fromPb</code> behandelt <code>{0,0}</code> als <code>null</code>.</td></tr>
+      <tr><td class="t">09</td><td>Web hat keine Systemfonts: die Engine holt für jedes ungedeckte Zeichen einen Noto-Schnipsel von <code>fonts.gstatic.com</code>, die CSP blockt ihn, und die Engine versucht es bei <em>jedem</em> Layout erneut — ein Pfeil in einem ARB-String erzeugte einen endlosen Fehlerstrom.</td><td>Fonts gebündelt <em>und</em> in <code>fontFamilyFallback</code> eingetragen; ein Test pinnt beide Hälften. Ein neues Nicht-ASCII-Zeichen ist nur sicher, wenn der Satz es deckt.</td></tr>
+      <tr><td class="t">10</td><td>Kartenquelle als Kompilierzeit-Konstante: ein selbst gehosteter Server kann seine eigene Quelle nicht vorgeben, und ein halb angewandtes Override nennt den falschen Anbieter — ein Lizenzproblem.</td><td>Die Kartenkonfiguration kommt zur Laufzeit von <code>/info</code> und ist alles-oder-nichts. Die CSP wird aus <em>denselben</em> URLs abgeleitet, damit der Server nicht blockt, was er selbst vorschreibt. Das Layer ist auf die aufgelöste Konfiguration gekeyed.</td></tr>
+      <tr><td class="t">11</td><td>Ein einfacher Feldbezug in einer UPDATE-Rule löst gegen den <em>gespeicherten</em> Datensatz auf — die Rule prüft das alte Ziel und ignoriert das ankommende.</td><td>Was nur ein Hook sehen kann, prüft ein Hook. Access Rules sind trotzdem die Sicherheitsgrenze; Hooks sind die Invarianten.</td></tr>
+      <tr><td class="t">12</td><td>Mehrere Datensätze in mehreren Requests: ein Abbruch in der Mitte hinterlässt einen Zustand, der von einer Absicht nicht zu unterscheiden ist.</td><td>Ein Besuch ist eine Route, eine Transaktion, ein Idempotenzschlüssel.</td></tr>
+      <tr><td class="t">13</td><td>Client und Server driften auseinander; der Nutzer sieht unerklärliche Fehler.</td><td>Die Major-Version <em>ist</em> der Wire-Contract. Wire-brechende Commits sind <code>feat!:</code>. Die Prüfung <strong>schlägt offen fehl</strong> — unerreichbares <code>/info</code> oder ein Dev-Build blockiert nie — und die Meldung nennt, welche Seite sich bewegen muss.</td></tr>
+      <tr><td class="t">14</td><td><code>cronAdd</code>-Jobs sind für die Regelsuite unsichtbar: nichts kann sie auslösen, also testet sie niemand.</td><td>Eigener Harness mit umgeschriebenem Zeitplan gegen eine Kopie der Hooks. Ein Fenster in Tagen lässt sich nicht per Backdating erreichen (<code>created</code> gehört dem Server) — also wird das Fenster im Test verschwindend klein gemacht.</td></tr>
+      <tr><td class="t">15</td><td>Ein Audit-Eintrag, der Ids nachschlägt, erzählt die Vergangenheit falsch: das Ziel kann gelöscht oder umbenannt sein.</td><td>Das Log speichert Text-Schnappschüsse zum Zeitpunkt des Ereignisses. Eine Id ohne Label daneben ist ein Bug. Werte bleiben <code>wire</code>-Strings und werden erst im Client übersetzt.</td></tr>
+      <tr><td class="t">16</td><td>Mehrere Ableitungen desselben Zustands driften. Und: After-Success-Hooks lesen dasselbe Objekt erneut — zwei Speichervorgänge erzeugen zwei Übergänge aus einem veralteten Original.</td><td>Eine Ableitung (<code>lib_rhythm.js</code>), alle Schreiber rufen sie. Der überlebende Datensatz wird <em>einmal</em> gespeichert.</td></tr>
+      <tr><td class="t">17</td><td>Kaskadierendes Löschen: eine vergessene Collection wird nicht zurückgelassen, sondern <em>zerstört</em> — und die Antwort ist ein 200.</td><td>Jede Collection mit einer <code>nest</code>- oder <code>spot</code>-Relation steht in der Lösch-Registry, und die Testsuite schlägt in beide Richtungen fehl: bei einem Eintrag ohne Kaskade und bei einer Kaskade ohne Eintrag.</td></tr>
+      <tr><td class="t">18</td><td>Gepflegte Codelisten veralten: sie enthalten Totes und es fehlt Neues.</td><td>Vokabular als View über die tatsächlich erfassten DISTINCT-Werte pro Org. Baut sich aus dem Gebrauch, braucht kein Seeding, bietet nichts Totes an. Preis, dort genannt, wo er auftritt: zwei Schreibweisen sind zwei Zeilen, und nichts normalisiert hinter dem Rücken.</td></tr>
+      <tr><td class="t">19</td><td>Codegen als optionaler Schritt: veraltete <code>.g.dart</code>-Dateien erzeugen Fehler, die nach etwas anderem aussehen.</td><td>Nach jeder ARB-Änderung <code>flutter gen-l10n</code>, nach jedem <code>@riverpod</code>/<code>@freezed</code> <code>build_runner build</code>. Generiertes ist gitignoriert und wird gebaut, nicht eingecheckt.</td></tr>
+      <tr><td class="t">20</td><td>Handgedrehte Versionen und Tags laufen der Realität davon.</td><td>release-please treibt die Version aus Conventional Commits. <code>pubspec.yaml</code> wird nie von Hand angefasst. Das Merge der stehenden Release-PR baut Image und signierte APKs.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="phases">
+  <p class="eyebrow"><span class="num">12</span> Phasenplan</p>
+  <h2>Neun Phasen, jede endet benutzbar</h2>
+  <p>Die Reihenfolge ist echt: jede Phase braucht die vorige. Nach Phase 4 ist die App im Feld nützlich, auch wenn nichts danach existiert — das ist der Schnitt, auf den es ankommt.</p>
+  <ol class="phases">
+    <li><span class="pn">00</span><div>
+      <h4>Extraktion</h4>
+      <p><code>zugvogel</code> anlegen und mit dem füllen, was heute schon stabil und frei von federfall-Bezügen ist. federfall auf die Bibliothek umstellen, bestehende Suite unverändert grün. Basis-Image bauen.</p>
+      <span class="dep">Beweis: federfalls Tests laufen ohne Änderung.</span>
+    </div></li>
+    <li><span class="pn">01</span><div>
+      <h4>Fundament</h4>
+      <p>Repo, Pub-Workspace, <code>analysis_options</code>, CI, Docker, release-please. PocketBase mit Organisation, Nutzern, Rollen, Access-Rule-Grundgerüst, Bootstrap-Koordination. Server-Einrichtung, Login, Versionsprüfung, Startup-Weiche, l10n de/en, Theme.</p>
+      <span class="dep">Danach: man kann sich anmelden und sieht eine leere App.</span>
+    </div></li>
+    <li><span class="pn">02</span><div>
+      <h4>Spots und Karte</h4>
+      <p><code>spots</code>, Geocode-Proxy mit Cache, Karte mit Laufzeitkonfiguration, Pin-Korrektur, Phasen und Erkundungsstufen, <code>spot_contacts</code>, Zugangsnotiz, <code>spot_overview</code>-View, Spotliste mit Keyset-Paginierung.</p>
+      <span class="dep">Danach: Häuser sind erfasst, auffindbar und mit Kontakten hinterlegt — der Übergabe-Schmerz ist zur Hälfte gelöst.</span>
+    </div></li>
+    <li><span class="pn">03</span><div>
+      <h4>Bereiche und Nester</h4>
+      <p><code>areas</code> mit Foto-Upload und -Zuschnitt, normalisierte Pins, Bereichs-Editor, <code>nests</code> mit Art und Positionshinweis, der Fotowechsel-Prüfdurchlauf, <code>protected_guard.pb.js</code>.</p>
+      <span class="dep">Danach: die visuelle Nestkarte steht. Der Artenschutz-Riegel ist vor dem ersten Ei da, nicht danach.</span>
+    </div></li>
+    <li><span class="pn">04</span><div>
+      <h4>Gelege, Besuche, Rhythmus</h4>
+      <p><code>nest_eggs</code>, <code>nest_checks</code>, <code>visits</code>, der transaktionale Besuchs-Endpoint mit Idempotenz, Nest-Sheet mit Ei-Slots, Übersprungen-mit-Grund, <code>lib_rhythm.js</code>, <code>follow_ups</code>, das Dashboard.</p>
+      <span class="dep">Der Schnitt: ab hier ersetzt die App den WhatsApp-Verlauf. Alle drei benannten Probleme sind gelöst.</span>
+    </div></li>
+    <li><span class="pn">05</span><div>
+      <h4>Touren</h4>
+      <p>Vorlagen, geordnete Spotlisten, Läufe mit Fortschritt, Abweichen, Wiederaufnahme nach App-Neustart, plus der improvisierte Modus „überfällig in meiner Nähe“.</p>
+      <span class="dep">Danach: „Tour 1 starten“ funktioniert wörtlich.</span>
+    </div></li>
+    <li><span class="pn">06</span><div>
+      <h4>Funde</h4>
+      <p>Tote Tauben, Küken, geschützte Arten, bauliche Veränderungen. <code>species_labels</code>-View. Der Pfad von einer baulichen Veränderung zum Schließen eines Spots.</p>
+    </div></li>
+    <li><span class="pn">07</span><div>
+      <h4>Zahlen</h4>
+      <p><code>visit_rows</code>-View, <code>lib_stats.js</code>, <code>/stats</code>, der Statistik-Screen, Typst-Berichte in beiden Rahmungen plus CSV, Zeitraumauswahl mit Vorjahresvergleich.</p>
+      <span class="dep">Danach: der Nachweis, der eine Genehmigung oder eine Förderung am Leben hält.</span>
+    </div></li>
+    <li><span class="pn">08</span><div>
+      <h4>Verwaltung und Politur</h4>
+      <p>Team-Einladungen, Org-Settings-UI für die Rhythmuszahlen, Audit-Log, Pause-Wiederanlauf-Cron, OIDC zuschaltbar, Web-Build und CSP, iOS-Signierung und Store-Einreichung.</p>
+      <span class="dep">iOS ist bewusst hier: es ist Vertrieb, nicht Produkt.</span>
+    </div></li>
+  </ol>
+  <p style="font-size:0.875rem;color:var(--muted)">Nachverfolgt wird das in beads (<code>bd</code>), wie in fluttermann — nicht in Markdown-Listen.</p>
+</section>
+
+<section id="risks">
+  <p class="eyebrow"><span class="num">13</span> Risiken &amp; Offenes</p>
+  <h2>Was noch weh tun kann</h2>
+  <div class="scroller wide">
+  <table>
+    <thead><tr><th>Punkt</th><th>Einschätzung</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Artbestimmung</strong></td><td>Das größte reale Risiko, und die App kann es nur einrahmen, nicht lösen. Der Riegel schützt, was jemand markiert hat. Empfehlung: <code>unknown</code> als sichtbare offene Frage führen und in der Onboarding-Dokumentation ein kurzes Bildblatt zur Unterscheidung von Dohle und Stadttaube mitgeben — außerhalb der App, aber verlinkt.</td></tr>
+      <tr><td><strong>Kein Offline</strong></td><td>Bewusst gewählt und mit dem Idempotenzschlüssel gut abgefedert, aber die Maske überlebt kein Beenden der App. Wenn das im Feld dreimal weh tut, ist die kleinste Erweiterung ein persistenter Entwurf des Besuchs-Bodys auf dem Gerät — <em>nicht</em> ein Offline-Cache der ganzen Datenbank.</td></tr>
+      <tr><td><strong>Nest-Identität</strong></td><td>„Neues Nest, keine Verkettung“ ist die einfachste Regel und zersplittert die Geschichte einer Ecke. Wenn sich herausstellt, dass „diese Ecke wird immer wieder bebaut“ die wichtige Erkenntnis ist, ist die Nachrüstung ein nullbares <code>predecessor</code>-Feld plus eine View — additiv, nicht wire-brechend.</td></tr>
+      <tr><td><strong>Keine Stunden, keine Anwesenheit</strong></td><td>Förderberichte können keine Ehrenamtsstunden ausweisen. Falls ein Förderer das verlangt, ist die kleinste Ergänzung ein <code>participants</code>-Feld und zwei Zeitstempel am Tourlauf — nicht am Besuch, weil sonst jeder Spot zur Stechuhr wird.</td></tr>
+      <tr><td><strong>Breites geteiltes Paket</strong></td><td>Die drei Injektionsregeln sind das, was es tragfähig macht; wenn sie erodieren, verschweißen die zwei Produktdesigns. Konkretes Warnsignal: der erste Pull Request, der ein Widget in <code>zugvogel_ui</code> ändert, <em>damit</em> Eiermann anders aussieht. Dann gehört das Widget zurück in die App.</td></tr>
+      <tr><td><strong>iOS</strong></td><td>Ein Apple-Developer-Konto, Signierung, Review und eine dritte Plattform mit eigenen Eigenheiten — dauerhaft. Deshalb in Phase 8 und nicht in Phase 1.</td></tr>
+      <tr><td><strong>Rechtlicher Rahmen</strong></td><td>Gelegetausch braucht das Einverständnis der Eigentümerseite, und in vielen Kommunen läuft er unter einem Stadttaubenkonzept. Die App führt Kontakte und Erkundungsstände, aber sie ist ausdrücklich <em>kein</em> Nachweis einer Erlaubnis — das war die Entscheidung „Kontakte und Status, keine Papiere“. Wenn eine Behörde später Dokumente sehen will, ist das ein Dateifeld und ein Ablaufdatum am Spot.</td></tr>
+      <tr><td><strong>Noch offen</strong></td><td>Die konkreten Rhythmuszahlen für den Start (die Defaults im Konzept sind Vorschläge); wer der erste Berichtsempfänger ist und in welcher Form; ob „Bereich“ im UI wirklich so heißen soll.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <hr class="rule">
+  <p style="font-size:0.9375rem;color:var(--ink-soft)">Als nächstes umsetzbar: Phase 00 und 01 — die Extraktion von <code>zugvogel</code> und das Fundament von Eiermann. Beides ist mechanisch genug, um es sofort anzufangen, und beides ist Voraussetzung für alles andere.</p>
+</section>
+
+</main>
+</div>
