@@ -222,6 +222,40 @@ class H:
         )
         return d["items"] if s == 200 else []
 
+    def reads_nothing(self, collection, token=None, record_id=None):
+        """Whether [token] gets NO data out of [collection]. Use for a refusal.
+
+        This exists because asserting `status >= 400` on a read is wrong half the
+        time, and wrong in the direction that passes. PocketBase FILTERS a list
+        rather than refusing it: an anonymous `GET /records` on a fully private
+        collection returns **200 with an empty items array**. So a test that
+        checks only the status code passes on a database that is completely
+        public, and reports the security model as intact.
+        
+        A single-record view DOES refuse with a 4xx. Both shapes are handled
+        here so a call site cannot pick the wrong one.
+        """
+        if record_id is not None:
+            status, _ = self.req(
+                "GET", f"/api/collections/{collection}/records/{record_id}", token
+            )
+            return status >= 400
+        status, body = self.req("GET", f"/api/collections/{collection}/records", token)
+        if status >= 400:
+            return True
+        return not ((body or {}).get("items") or [])
+
+    @staticmethod
+    def ok(status):
+        """Whether [status] is a success.
+
+        Spelled out because PocketBase answers a DELETE with **204**, not 200,
+        and `status == 200` on a delete is a test that fails on a working
+        server — which is worse than no test, because somebody then "fixes" the
+        rule.
+        """
+        return 200 <= status < 300
+
     def collections(self, token):
         """Every collection the schema reports. The input to every sweep."""
         s, d = self.req("GET", "/api/collections?perPage=200", token)

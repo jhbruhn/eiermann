@@ -96,12 +96,10 @@ _, roleless_token = h.login("roleless@eiermann.test")
 
 print("\n[nothing is readable anonymously]")
 for collection in ("users", "organisations", "geocode_cache", "idempotency_keys"):
-    status, body = h.req("GET", f"/api/collections/{collection}/records")
-    items = (body or {}).get("items")
     h.check(
         f"anonymous list of {collection} returns no rows",
-        status >= 400 or not items,
-        f"status {status}, {len(items or [])} items — a 200 with rows is the leak",
+        h.reads_nothing(collection),
+        "a 200 with rows in it is the leak — a list is filtered, not refused",
     )
 
 status, _ = h.req("GET", f"/api/collections/users/records/{member['id']}")
@@ -303,12 +301,263 @@ for collection in ("geocode_cache", "idempotency_keys"):
         )
 
 
+# ── Spots: the centre of the product ───────────────────────────────────────
+#
+# Every member walks the shared route, so everything in the org is readable by
+# everybody in it — a Spot only one person can see is a Spot that gets visited
+# twice or not at all. What is NOT shared is the destructive route: deleting a
+# Spot destroys its whole dossier, and that stays the coordination's.
+
+print("\n[spots]")
+
+spot = h.mk(
+    member_token,
+    "spots",
+    {
+        "org": ORG,
+        "name": "Bahnhofstraße 12",
+        "street": "Bahnhofstraße 12",
+        "city": "Oldenburg",
+        "phase": "active",
+        "access_note": "Klingel Hausmeister, Schlüssel im Kasten links",
+    },
+)
+h.check("a member can add a building they walked past", spot.get("id") is not None)
+
+h.check(
+    "another member sees it immediately",
+    any(s["id"] == spot["id"] for s in h.listf(coord_token, "spots", "id != ''")),
+    "a Spot only its author can see is the handover problem, not a fix for it",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/spots/records/{spot['id']}", member_token,
+    {"access_note": "Neuer Schlüsselkasten rechts"},
+)
+h.check("any member can correct the access note", status == 200, f"status {status}")
+
+# The rhythm's output is the server's. A client that can write it can make a
+# nest look visited without anybody going there — the one lie this data model
+# must not be able to tell.
+h.req(
+    "PATCH", f"/api/collections/spots/records/{spot['id']}", member_token,
+    {"next_due_at": "2099-01-01 00:00:00.000Z"},
+)
+_, after = h.req("GET", f"/api/collections/spots/records/{spot['id']}", coord_token)
+h.check(
+    "NOBODY can write next_due_at through the API",
+    not (after or {}).get("next_due_at"),
+    "it is derived; a writable due date is a Spot that can claim to be done",
+)
+
+h.req(
+    "PATCH", f"/api/collections/spots/records/{spot['id']}", member_token,
+    {"org": "org00000other"},
+)
+_, after = h.req("GET", f"/api/collections/spots/records/{spot['id']}", coord_token)
+h.check("a Spot cannot be re-tenanted", (after or {}).get("org") == ORG)
+
+status, _ = h.req("DELETE", f"/api/collections/spots/records/{spot['id']}", member_token)
+h.check(
+    "a member cannot DELETE a Spot",
+    status >= 400,
+    "closing keeps the dossier; deleting destroys the Erkundung history, every "
+    "visit and every check",
+)
+
+h.check(
+    "a Spot yields nothing to an anonymous caller",
+    h.reads_nothing("spots"),
+    "a list is FILTERED, not refused — the leak is a 200 with rows in it",
+)
+
+status, body = h.req("GET", "/api/collections/spots/records", roleless_token)
+h.check(
+    "a role-less account sees no Spots",
+    not (body or {}).get("items"),
+    f"{len((body or {}).get('items') or [])} items",
+)
+
+
+# ── Contacts: the app's only holding of third-party PII ─────────────────────
+
+print("\n[spot contacts]")
+
+contact = h.mk(
+    member_token,
+    "spot_contacts",
+    {
+        "org": ORG,
+        "spot": spot["id"],
+        "role": "caretaker",
+        "name": "Herr Kröger",
+        "phone": "0441 123456",
+        "is_primary": True,
+    },
+)
+h.check("a member can record a caretaker", contact.get("id") is not None)
+h.check(
+    "the whole team can read the phone number",
+    any(c["id"] == contact["id"] for c in h.listf(coord_token, "spot_contacts", "id != ''")),
+    "'ask the coordinator for the number' is the failure this app removes",
+)
+
+h.req(
+    "PATCH", f"/api/collections/spot_contacts/records/{contact['id']}", member_token,
+    {"spot": "someotherspot"},
+)
+_, after = h.req(
+    "GET", f"/api/collections/spot_contacts/records/{contact['id']}", coord_token
+)
+h.check(
+    "a contact cannot be moved to another Spot",
+    (after or {}).get("spot") == spot["id"],
+    "an update rule resolves `spot` against the STORED record, so a "
+    "re-parenting write would be authorised against the old one",
+)
+
+h.check(
+    "a contact is not readable anonymously",
+    h.reads_nothing("spot_contacts", record_id=contact["id"]),
+)
+
+status, body = h.req("GET", "/api/collections/spot_contacts/records", roleless_token)
+h.check("a role-less account sees no contacts", not (body or {}).get("items"))
+
+# Deleting a Spot takes its contacts with it. That cascade IS the retention
+# policy: unlike federfall's finders there is no scrub cron here, because a
+# caretaker's number is needed for as long as the Spot exists — and a scrub
+# would delete the thing the collection is for.
+doomed = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Wird gelöscht", "phase": "prospect"},
+)
+doomed_contact = h.mk(
+    coord_token,
+    "spot_contacts",
+    {"org": ORG, "spot": doomed["id"], "role": "owner", "name": "Zum Löschen"},
+)
+status, _ = h.req("DELETE", f"/api/collections/spots/records/{doomed['id']}", coord_token)
+h.check("a coordinator CAN delete a Spot", h.ok(status), f"status {status}")
+status, _ = h.req(
+    "GET", f"/api/collections/spot_contacts/records/{doomed_contact['id']}", coord_token
+)
+h.check(
+    "...and the cascade takes the PII with it",
+    status >= 400,
+    "the cascade IS the retention policy here; an orphaned contact would be "
+    "personal data nothing is left to expire",
+)
+
+
+# ── The overview view ──────────────────────────────────────────────────────
+#
+# A view does NOT inherit its source's rules. Forgetting that is how a carefully
+# scoped table becomes readable through a view over it, so the scope is asserted
+# on the view itself and not assumed from `spots`.
+
+print("\n[spot_overview]")
+
+status, body = h.req("GET", "/api/collections/spot_overview/records", member_token)
+h.check("a member reads the overview", status == 200, f"status {status}")
+rows = (body or {}).get("items") or []
+h.check("...and it has rows", bool(rows))
+
+status, body = h.req("GET", "/api/collections/spot_overview/records")
+h.check(
+    "the view is NOT readable anonymously",
+    status >= 400 or not (body or {}).get("items"),
+    "a view does not inherit the rules of the table under it",
+)
+
+status, body = h.req("GET", "/api/collections/spot_overview/records", roleless_token)
+h.check("a role-less account sees no overview rows", not (body or {}).get("items"))
+
+status, _ = h.req(
+    "POST", "/api/collections/spot_overview/records", coord_token,
+    {"org": ORG, "name": "nope"},
+)
+h.check(
+    "the view is not writable, by anybody",
+    status >= 400,
+    f"status {status}",
+)
+
+# The urgency ladder is what the map colours by, so its ordering is a contract.
+active_spot = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Überfällig", "phase": "active"},
+)
+h.req(
+    "PATCH", f"/api/collections/spots/records/{active_spot['id']}", T,
+    {"next_due_at": h.stamp(days=-3)},
+)
+prospect = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Erkundung", "phase": "prospect"}
+)
+closed = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Vernetzt", "phase": "closed", "closed_reason": "netted"},
+)
+
+
+def urgency_of(spot_id):
+    _, body = h.req(
+        "GET", f"/api/collections/spot_overview/records/{spot_id}", member_token
+    )
+    raw = (body or {}).get("urgency")
+    # A computed view column comes back typed as json, so this may be a
+    # string-encoded number. Reading it with int() straight would work today and
+    # break the day PocketBase changes its inference.
+    return int(str(raw).strip('"')) if raw is not None else None
+
+
+h.check("an overdue Spot ranks most urgent", urgency_of(active_spot["id"]) == 0)
+h.check("a prospect ranks below every active Spot", urgency_of(prospect["id"]) == 4)
+h.check("a closed Spot ranks last", urgency_of(closed["id"]) == 6)
+
+no_date = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Neu, noch kein Nest", "phase": "active"}
+)
+h.check(
+    "an active Spot with NO due date is not treated as overdue",
+    urgency_of(no_date["id"]) == 3,
+    "it is waiting for its first nest, not overdue — painting every new "
+    "building red is how a colour stops being read",
+)
+
+_, body = h.req(
+    "GET",
+    "/api/collections/spot_overview/records?sort=urgency&perPage=100",
+    member_token,
+)
+ranks = [int(str(i.get("urgency")).strip('"')) for i in (body or {}).get("items") or []]
+h.check("the view can be SORTED by urgency", ranks == sorted(ranks), str(ranks))
+
+_, body = h.req(
+    "GET", f"/api/collections/spot_overview/records/{spot['id']}", member_token
+)
+count = (body or {}).get("contact_count")
+h.check(
+    "the overview counts contacts, so a list row costs no extra query",
+    int(str(count).strip('"')) == 1,
+    f"contact_count={count!r}",
+)
+
+
 # ── Sweeps: the properties that must hold for collections not written yet ───
 
 print("\n[sweeps over the live schema]")
 cols = h.collections(T)
 h.check("the schema lists collections at all", bool(cols))
 
+# users and organisations have their own bespoke rules asserted above;
+# the two infrastructure tables are deliberately opaque. Everything ELSE has to
+# satisfy the sweeps — including collections nobody has written yet, which is
+# the entire point of expressing these as sweeps.
 DOMAIN_EXEMPT = {"users", "organisations", "geocode_cache", "idempotency_keys"}
 
 
