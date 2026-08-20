@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "eiermann",
+  "project_id": "fc5ea901-6c6f-4cc2-a83e-af3c628ee303"
+}
