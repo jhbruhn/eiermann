@@ -9,3 +9,6 @@ library;
 export 'package:zugvogel_data/zugvogel_data.dart';
 
 export 'src/repositories/auth_repository.dart';
+export 'src/repositories/spot_contacts_repository.dart';
+export 'src/repositories/spot_overview_repository.dart';
+export 'src/repositories/spots_repository.dart';

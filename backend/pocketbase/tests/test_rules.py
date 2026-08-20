@@ -548,6 +548,92 @@ h.check(
 )
 
 
+# ── Custom routes ──────────────────────────────────────────────────────────
+#
+# The rule suite covers collections; these routes are the part of the API that
+# no access rule describes, and until this section existed nothing called them
+# at all. The geocode proxy shipped broken for exactly that reason.
+
+print("\n[custom routes]")
+
+import os
+
+HOOKS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pb_hooks")
+offenders = h.hook_scope_offenders(HOOKS)
+h.check(
+    "no hook declares a binding at file level",
+    not offenders,
+    "each handler runs in its own JSVM context, so these are NOT in scope "
+    f"inside it — a 400 at request time: {offenders}",
+)
+
+status, body = h.req("GET", "/api/eiermann/info")
+h.check("/info is readable anonymously", status == 200, f"status {status}")
+h.check(
+    "...and names the service, so a client can refuse the wrong server",
+    (body or {}).get("service") == "eiermann",
+    f"service={(body or {}).get('service')!r}",
+)
+
+status, _ = h.req("GET", "/api/eiermann/geocode?q=Oldenburg")
+h.check(
+    "the geocode proxy refuses an anonymous caller",
+    status == 401,
+    f"status {status} — an open proxy burns somebody else's upstream budget",
+)
+
+# This suite deliberately CANNOT reach a real geocoder: run.sh points
+# EIERMANN_NOMINATIM_URL at a closed port. That is not a limitation to work
+# around, it is what makes the next two assertions mean anything — a refused
+# connection separates "the input was rejected" (400) from "the input was
+# accepted and the upstream then failed" (502). Without that separation a
+# coordinate-validation test passes on a route that rejects everything.
+#
+# The live path is exercised against the dev stack, which does reach Nominatim.
+
+status, body = h.req(
+    "GET", "/api/eiermann/geocode?q=Bahnhofstra%C3%9Fe%2012%2C%20Oldenburg",
+    member_token,
+)
+h.check(
+    "a well-formed query reaches the upstream and fails as a 502",
+    status == 502,
+    f"status {status}, {str(body)[:120]} — an uncaught throw here would be a "
+    "400, which tells the client its address was malformed when it was fine",
+)
+
+status, body = h.req(
+    "GET", "/api/eiermann/geocode/reverse?lat=53.1435&lon=8.2146", member_token
+)
+h.check(
+    "valid coordinates likewise get past validation to a 502",
+    status == 502,
+    f"status {status}, {str(body)[:120]}",
+)
+
+status, _ = h.req("GET", "/api/eiermann/geocode", member_token)
+h.check(
+    "a query-less geocode call is a 400, not a 500",
+    status == 400,
+    f"status {status}",
+)
+
+status, _ = h.req(
+    "GET", "/api/eiermann/geocode/reverse?lat=notanumber&lon=8.2", member_token
+)
+h.check(
+    "a non-numeric coordinate is rejected",
+    status == 400,
+    f"status {status} — it would otherwise reach the upstream URL as text",
+)
+
+h.check(
+    "the geocode cache is not client-readable",
+    h.reads_nothing("geocode_cache", member_token),
+    "it holds every address anybody has searched for",
+)
+
+
 # ── Sweeps: the properties that must hold for collections not written yet ───
 
 print("\n[sweeps over the live schema]")

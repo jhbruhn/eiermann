@@ -246,6 +246,48 @@ class H:
         return not ((body or {}).get("items") or [])
 
     @staticmethod
+    def hook_scope_offenders(hooks_dir):
+        """File-level bindings in `*.pb.js` under [hooks_dir], as `file:line`.
+
+        Every PocketBase hook handler runs in its OWN JSVM context. A binding
+        declared at file level is therefore not in scope inside the handler, and
+        a handler that references one throws `ReferenceError: <name> is not
+        defined` at REQUEST time — which PocketBase reports as a generic 400.
+
+        That failure shape is why this is a sweep and not a code review. The
+        file parses, the server boots without a word, the route registers, and
+        nothing goes wrong until somebody calls it. eiermann's geocode proxy
+        held a file-level `const config = () => ({...})` from the day it was
+        written; it was found weeks later by curling the route, and the symptom
+        was a 400 on a valid request — indistinguishable from bad input.
+
+        So: put every helper behind `require(`${__hooks}/…`)` INSIDE the
+        handler, and inline or re-require constants there too. Repeating a
+        literal across three handlers is the price of the runtime.
+
+        The `zv_*.js` libraries are exempt: they are modules, loaded by
+        `require` into the handler's own context, where file-level bindings are
+        exactly how a module is supposed to work.
+        """
+        import os
+        import re
+
+        # A declaration in column 0. Nested ones are inside something, and
+        # inside something is where they belong.
+        decl = re.compile(r"^(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)")
+        offenders = []
+        for name in sorted(os.listdir(hooks_dir)):
+            if not name.endswith(".pb.js"):
+                continue
+            path = os.path.join(hooks_dir, name)
+            with open(path) as handle:
+                for number, line in enumerate(handle, start=1):
+                    match = decl.match(line)
+                    if match:
+                        offenders.append(f"{name}:{number} {match.group(1)}")
+        return offenders
+
+    @staticmethod
     def ok(status):
         """Whether [status] is a success.
 
