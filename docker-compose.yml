@@ -1,0 +1,53 @@
+# Production-shaped stack: one container, the full image, a named volume for the
+# data directory.
+#
+# One container on purpose. PocketBase serves the API, the Admin UI and the SPA
+# from the same origin, which is what lets the web build store its token under
+# that origin's CSP and talk to the API with no CORS at all. Splitting them would
+# buy nothing and cost both.
+services:
+  eiermann:
+    build:
+      context: .
+      target: full
+    image: eiermann:local
+    restart: unless-stopped
+    ports:
+      # Overridable, because Compose APPENDS port lists rather than replacing
+      # them — an override file that names a second port makes the stack try to
+      # bind both, and it fails on whichever is taken. Export EIERMANN_PORT when
+      # something else already owns 8090 (a sibling project's dev stack, say).
+      - "${EIERMANN_PORT:-8090}:8090"
+    volumes:
+      - pb_data:/pb/pb_data
+    environment:
+      # The operator's way in on a fresh instance: creates or repairs a
+      # coordinator on boot. Remove both once the team exists — the account
+      # stays, and leaving credentials in a compose file is how they end up in a
+      # backup somebody can read.
+      EIERMANN_COORDINATOR_EMAIL: ${EIERMANN_COORDINATOR_EMAIL:-}
+      EIERMANN_COORDINATOR_PASSWORD: ${EIERMANN_COORDINATOR_PASSWORD:-}
+      # Absolute URL of this instance, for the links in reset mail.
+      EIERMANN_APP_URL: ${EIERMANN_APP_URL:-http://localhost:8090}
+      # SMTP, so password reset can actually deliver. Without a host the server
+      # reports passwordReset:false through /info and the app hides the link,
+      # rather than offering a button that silently does nothing.
+      EIERMANN_SMTP_HOST: ${EIERMANN_SMTP_HOST:-}
+      EIERMANN_SMTP_PORT: ${EIERMANN_SMTP_PORT:-587}
+      EIERMANN_SMTP_USERNAME: ${EIERMANN_SMTP_USERNAME:-}
+      EIERMANN_SMTP_PASSWORD: ${EIERMANN_SMTP_PASSWORD:-}
+      EIERMANN_SMTP_TLS: ${EIERMANN_SMTP_TLS:-true}
+      EIERMANN_SMTP_SENDER_ADDRESS: ${EIERMANN_SMTP_SENDER_ADDRESS:-}
+      # Behind a reverse proxy, name its forwarding header — otherwise every
+      # rate limit is shared by all users, because the only client IP PocketBase
+      # can see is the proxy's.
+      EIERMANN_TRUSTED_PROXY_HEADERS: ${EIERMANN_TRUSTED_PROXY_HEADERS:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  pb_data:

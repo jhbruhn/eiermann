@@ -1,0 +1,85 @@
+name: Release Please
+
+# The version is the APP↔SERVER WIRE CONTRACT, and that is the whole reason this
+# repo versions at all.
+#
+# `zv_info.js` reports the running image's major.minor, and the client refuses to
+# talk to a server whose MAJOR differs (zugvogel's checkServerCompatibility). So a
+# `!`/BREAKING CHANGE commit is not a formality — it is the statement that an
+# older app must stop talking to this server. Which means:
+#
+#   * bump-minor-pre-major is FALSE. A breaking change bumps the MAJOR even
+#     pre-1.0, because the major is what the compatibility check reads. Letting a
+#     wire break hide in a minor would let an incompatible pair through silently,
+#     which is precisely the failure the check exists to prevent.
+#   * the operator's container and the users' installed app update
+#     independently, and an unattended APK updater makes the app the newer of the
+#     two more often than not. The check has to name which side is behind; the
+#     version is how it knows.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  docker:
+    name: Publish the image
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release-please.outputs.tag_name }}
+
+      # EIERMANN_VERSION is baked into the image env, so /api/eiermann/info can
+      # report it without any source file needing a release-time edit — the
+      # running image IS the source of truth for the version it claims.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: full
+          push: true
+          build-args: |
+            EIERMANN_VERSION=${{ needs.release-please.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

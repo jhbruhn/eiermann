@@ -1,0 +1,8 @@
+# Workspace-root analyzer config.
+#
+# The native analysis-server plugin system (analyzer ^12) requires `plugins:` to
+# be declared at the pub-workspace root, so riverpod_lint is enabled here and
+# applies to every member. Per-package lint rules live in each package's own
+# analysis_options.yaml.
+plugins:
+  riverpod_lint: ^3.1.4

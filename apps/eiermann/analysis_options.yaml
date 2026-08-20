@@ -1,0 +1,14 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+# NOTE: riverpod_lint is enabled via the `plugins:` key in the workspace-root
+# analysis_options.yaml (../../analysis_options.yaml) — the native
+# analysis-server plugin system only allows `plugins:` at the workspace root.
+
+analyzer:
+  exclude:
+    - lib/l10n/gen/*
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+linter:
+  rules:
+    public_member_api_docs: false

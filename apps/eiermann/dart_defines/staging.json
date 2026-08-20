@@ -1,0 +1,10 @@
+{
+  "FLAVOR": "staging",
+  "APP_NAME": "[STAGING] Eiermann",
+  "POCKETBASE_URL": "",
+  "MAP_MODE": "raster",
+  "MAP_STYLE_URL": "https://tiles.openfreemap.org/styles/liberty",
+  "MAP_TILE_URL": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "MAP_ATTRIBUTION": "© OpenStreetMap contributors",
+  "MAP_ATTRIBUTION_URL": "https://www.openstreetmap.org/copyright"
+}

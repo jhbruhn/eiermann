@@ -1,0 +1,14 @@
+arb-dir: lib/l10n/arb
+template-arb-file: app_de.arb
+output-localization-file: app_localizations.dart
+output-dir: lib/l10n/gen
+nullable-getter: false
+
+# German is the TEMPLATE, not English: every string in this app is written in
+# German first, because that is the language the people using it speak in the
+# field. An English file that leads would make every new string a translation of
+# a translation.
+
+# Needed to ensure the formatter does not run on the generated files.
+# See https://github.com/dart-lang/dart_style/issues/864 for more information
+header: "// dart format off\n// coverage:ignore-file"

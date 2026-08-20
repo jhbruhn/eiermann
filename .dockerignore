@@ -1,0 +1,19 @@
+# Everything the build does not need, so a source edit does not invalidate the
+# dependency layer and the context stays small.
+.git
+.github
+.beads
+.dolt
+docs
+**/build/
+**/.dart_tool/
+**/.flutter-plugins*
+**/coverage/
+backend/pocketbase/pb_data/
+backend/pocketbase/tests/
+**/*.g.dart
+**/*.freezed.dart
+apps/*/lib/l10n/gen/
+apps/*/android
+apps/*/ios
+apps/*/linux

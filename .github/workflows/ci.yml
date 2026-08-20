@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # In lockstep with apps/eiermann's `flutter: ^3.44.0` AND with zugvogel's CI:
+  # the shared library is compiled by THIS toolchain, so a version it has not
+  # been built against is a break discovered here rather than there.
+  FLUTTER_VERSION: "3.44.3"
+
+jobs:
+  dart:
+    name: format · analyze · test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Resolves the whole pub workspace from the repo root, zugvogel's pinned
+      # git refs included.
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+        working-directory: apps/eiermann
+
+      # Format the hand-written source BEFORE any generated file exists, so the
+      # check never trips over generator output.
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      # build_runner only generates for the package it runs in, so each member
+      # with codegen needs its own step.
+      - name: Generate code (eiermann_models)
+        run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: packages/eiermann_models
+
+      - name: Generate code (app)
+        run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: apps/eiermann
+
+      # From the REPO ROOT, so the workspace is analysed as one thing. Running
+      # it per package hides a member that only breaks in combination.
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test eiermann_models
+        run: dart test
+        working-directory: packages/eiermann_models
+
+      - name: Test eiermann_data
+        run: dart test
+        working-directory: packages/eiermann_data
+
+      - name: Test the app
+        run: flutter test --coverage
+        working-directory: apps/eiermann
+
+      # No coverage floor yet, deliberately: there is barely any code to cover
+      # and a number over a skeleton is theatre. The gate goes in with the first
+      # domain screens — see eiermann-h7q.9.
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: apps/eiermann/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 7
+
+  backend:
+    name: backend · rule & hook tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Builds the pinned PocketBase image, applies the migrations to a
+      # throwaway instance, and asserts the access-rule matrix plus the hooks
+      # that close what the rules cannot. This is the job that would catch a
+      # privilege escalation.
+      - name: Run the PocketBase rule suite
+        run: backend/pocketbase/tests/run.sh
+
+  docker:
+    name: docker · full image builds
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # The rule suite above only ever builds `--target backend`, so the `full`
+      # target's Flutter web stage is otherwise unexercised until a release
+      # needs it. Build-only, so a break surfaces on the PR rather than on
+      # release day.
+      - name: Build the full image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          tags: eiermann:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

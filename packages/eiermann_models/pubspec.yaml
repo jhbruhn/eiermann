@@ -1,0 +1,27 @@
+name: eiermann_models
+description: >-
+  Immutable domain models for Eiermann plus PocketBase RecordModel → model
+  mappers. Pure Dart; no Flutter dependency.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+
+# Part of the Eiermann pub workspace (see ../../pubspec.yaml).
+resolution: workspace
+
+dependencies:
+  freezed_annotation: ^3.1.0
+  pocketbase: ^0.24.0
+  zugvogel_core:
+    git:
+      url: https://github.com/jhbruhn/zugvogel.git
+      ref: 3498c5de40f4571a14658f6de2811d433e176891
+      path: packages/zugvogel_core
+
+dev_dependencies:
+  build_runner: ^2.15.0
+  freezed: ^3.2.6-dev.1
+  test: ^1.25.0
+  very_good_analysis: ^10.3.0

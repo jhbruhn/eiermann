@@ -1,0 +1,52 @@
+# Local development. Applied automatically on top of docker-compose.yml.
+#
+# Three differences from production, each with a reason:
+#
+#  * the LEAN backend target — no Flutter web build, so a change to a hook or a
+#    migration rebuilds in seconds instead of minutes. The app runs from
+#    `flutter run` against it.
+#  * the migrations and hooks are BIND-MOUNTED, so editing one and restarting
+#    picks it up. Baked copies would mean a rebuild per hook edit.
+#  * automigrate ON, so a new migration file applies on restart.
+#
+# The published port is NOT set here: Compose appends port lists rather than
+# replacing them, so naming one would make the stack try to bind both and fail
+# on whichever is taken. Export EIERMANN_PORT instead —
+# `EIERMANN_PORT=8091 docker compose up -d` — which is also what you want when a
+# sibling project's dev stack already owns 8090.
+services:
+  eiermann:
+    build:
+      target: backend
+    volumes:
+      - ./backend/pocketbase/pb_migrations:/pb/pb_migrations
+      - ./backend/pocketbase/pb_hooks:/pb/pb_hooks
+      - pb_data:/pb/pb_data
+    # `migrate up` as its OWN step, then serve. Not just for tidiness: the
+    # coordinator-bootstrap hook runs in onBootstrap, and on a fresh data
+    # directory `--automigrate` had not yet created the collections it queries —
+    # so it failed on the first boot and quietly worked on the second. Applying
+    # migrations first makes that ordering explicit instead of emergent.
+    #
+    # --dev prints logs AND SQL to stdout. Without it PocketBase writes its log
+    # records to an internal table, so `docker compose logs` shows nothing and a
+    # failing hook is indistinguishable from a hook that never ran. The SQL noise
+    # is the price; grep for "eiermann:" to see just this app's lines.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        pocketbase migrate up
+        --dir=/pb/pb_data --migrationsDir=/pb/pb_migrations
+        && exec pocketbase serve
+        --http=0.0.0.0:8090
+        --dir=/pb/pb_data
+        --migrationsDir=/pb/pb_migrations
+        --hooksDir=/pb/pb_hooks
+        --automigrate=1
+        --dev
+    environment:
+      # A dev instance gets a coordinator without anybody having to remember to
+      # set one. Never do this in production: the password is in a committed
+      # file.
+      EIERMANN_COORDINATOR_EMAIL: dev@eiermann.local
+      EIERMANN_COORDINATOR_PASSWORD: DevPass12345!

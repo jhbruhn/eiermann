@@ -1,0 +1,10 @@
+{
+  "FLAVOR": "development",
+  "APP_NAME": "[DEV] Eiermann",
+  "POCKETBASE_URL": "http://localhost:8091",
+  "MAP_MODE": "raster",
+  "MAP_STYLE_URL": "https://tiles.openfreemap.org/styles/liberty",
+  "MAP_TILE_URL": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "MAP_ATTRIBUTION": "© OpenStreetMap contributors",
+  "MAP_ATTRIBUTION_URL": "https://www.openstreetmap.org/copyright"
+}

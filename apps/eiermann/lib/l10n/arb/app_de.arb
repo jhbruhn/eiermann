@@ -1,0 +1,86 @@
+{
+  "@@locale": "de",
+  "appTitle": "Eiermann",
+  "@appTitle": {
+    "description": "The app name shown in the task switcher."
+  },
+  "actionCancel": "Abbrechen",
+  "actionRetry": "Erneut versuchen",
+  "actionSave": "Speichern",
+  "discardChangesTitle": "Änderungen verwerfen?",
+  "discardChangesMessage": "Deine ungespeicherten Änderungen gehen verloren.",
+  "discardConfirm": "Verwerfen",
+  "discardKeepEditing": "Weiter bearbeiten",
+  "loadingLabel": "Wird geladen…",
+  "emptyGeneric": "Hier ist noch nichts",
+  "offlineNotice": "Offline – keine Änderungen möglich",
+  "errorGenericTitle": "Etwas ist schiefgelaufen",
+  "errorOffline": "Du bist offline – prüfe deine Verbindung und versuche es erneut. Deine Eingabe bleibt erhalten.",
+  "errorUnauthorized": "Dazu bist du nicht berechtigt",
+  "errorNotFound": "Nicht gefunden",
+  "errorValidation": "Die Daten konnten nicht gespeichert werden",
+  "errorUnknownOutcome": "Der Server hat nicht rechtzeitig geantwortet – deine Änderung wurde möglicherweise trotzdem gespeichert. Prüfe die Liste, bevor du es erneut versuchst, um Duplikate zu vermeiden.",
+  "@errorUnknownOutcome": {
+    "description": "Shown for a write whose outcome cannot be known. Must NOT read as 'not reached, try again' — a blind retry can duplicate data."
+  },
+  "errorLoadFailed": "Konnte nicht geladen werden – keine Verbindung zum Server",
+  "fieldRequired": "Dieses Feld ist erforderlich",
+  "fieldInvalidEmail": "Bitte eine gültige E-Mail-Adresse eingeben",
+  "fieldInvalidUrl": "Bitte eine gültige URL eingeben",
+  "fieldMinLength": "Mindestens {min} Zeichen erforderlich",
+  "@fieldMinLength": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "fieldIntMin": "Bitte eine Zahl von mindestens {min} eingeben",
+  "@fieldIntMin": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "photoAddAction": "Fotos hinzufügen",
+  "photoCaptureAction": "Foto aufnehmen",
+  "imageCropTitle": "Ausschnitt wählen",
+  "imageCropFailed": "Bild konnte nicht zugeschnitten werden.",
+  "imagePrevious": "Vorheriges Bild",
+  "imageNext": "Nächstes Bild",
+  "imageShareAction": "Teilen",
+  "imageShareFailed": "Bild konnte nicht geteilt werden.",
+  "setupTitle": "Server einrichten",
+  "setupExplanation": "Eiermann verbindet sich mit dem Server deiner Organisation. Gib die Adresse ein, die du bekommen hast.",
+  "setupUrlLabel": "Serveradresse",
+  "setupUrlHint": "z. B. tauben.example.org",
+  "setupConnectAction": "Verbinden",
+  "setupErrorInvalidUrl": "Das sieht nicht wie eine Adresse aus",
+  "setupErrorUnreachable": "Der Server ist nicht erreichbar. Prüfe die Adresse und deine Verbindung.",
+  "setupErrorWrongService": "Da antwortet etwas, aber es ist kein Eiermann-Server.",
+  "setupErrorInsecure": "Diese Adresse ist unverschlüsselt (http). Dein Passwort würde im Klartext übertragen — bitte eine https-Adresse verwenden.",
+  "@setupErrorInsecure": {
+    "description": "Shown when an explicit http:// URL is given for a non-loopback host."
+  },
+  "setupChangeServerAction": "Anderen Server verwenden",
+  "authSignInTitle": "Anmelden",
+  "authEmailLabel": "E-Mail",
+  "authPasswordLabel": "Passwort",
+  "authSignInAction": "Anmelden",
+  "authSignOutAction": "Abmelden",
+  "authSignOutConfirm": "Möchtest du dich wirklich abmelden?",
+  "authForgotPasswordAction": "Passwort vergessen?",
+  "authResetSentTitle": "E-Mail unterwegs",
+  "authResetSentMessage": "Wenn zu dieser Adresse ein Konto gehört, ist eine E-Mail zum Zurücksetzen auf dem Weg.",
+  "@authResetSentMessage": {
+    "description": "Deliberately does not confirm whether the account exists — that would let anyone enumerate the team's addresses."
+  },
+  "authErrorInvalidCredentials": "E-Mail oder Passwort stimmt nicht",
+  "authErrorDeactivated": "Dieses Konto ist deaktiviert. Wende dich an die Koordination.",
+  "authVersionClientTooOld": "Diese App ist zu alt für den Server. Bitte aktualisiere die App.",
+  "authVersionServerTooOld": "Der Server ist zu alt für diese App. Bitte wende dich an die Person, die den Server betreibt.",
+  "@authVersionServerTooOld": {
+    "description": "Names the OPERATOR, not the user: telling this user to update their app would be a dead end, because their app is already the newer of the two."
+  }
+}

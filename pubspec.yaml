@@ -1,0 +1,15 @@
+# Eiermann — Dart pub workspace root.
+#
+# Not a publishable package; it ties the monorepo members together so they share
+# one dependency resolution and one lockfile.
+# See https://dart.dev/tools/pub/workspaces
+name: eiermann_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+
+workspace:
+  - apps/eiermann
+  - packages/eiermann_models
+  - packages/eiermann_data
