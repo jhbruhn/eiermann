@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:eiermann/features/areas/area_photo.dart';
 import 'package:eiermann/features/areas/area_sheet.dart';
 import 'package:eiermann/features/areas/areas_providers.dart';
+import 'package:eiermann/features/areas/pin_canvas.dart';
 import 'package:eiermann/features/nests/nest_list.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -135,13 +136,11 @@ class AreaCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Tapping the photo goes to the pin editor, not to a viewer: the
-          // pins ARE what this picture is for, and the viewer is one tap
-          // further in from there.
-          AreaPhoto(
-            area: area,
-            onTap: () => context.push(Routes.areaEditor(area.id)),
-          ),
+          // The picture with its pins ON it — this is the half of the dossier
+          // the concept wants standing in the first second: you orient yourself
+          // physically before reading a word. Tapping goes to the editor, not
+          // to a viewer: the pins are what this picture is for.
+          _Preview(area: area, nests: nests),
           Padding(
             padding: const EdgeInsets.all(ZugvogelSpacing.md),
             child: Column(
@@ -230,6 +229,40 @@ class AreaCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The Bereich photo with its nests drawn on it, or the no-photo state.
+///
+/// Read-only on purpose. The pins take no part in hit testing, so a tap
+/// anywhere on the picture opens the editor — where they can be moved — and the
+/// lines under the photo are the tappable way into a single nest. A pin that
+/// swallowed the tap would leave the reader with no way in at all.
+class _Preview extends StatelessWidget {
+  const _Preview({required this.area, this.nests});
+
+  final Area area;
+  final List<NestState>? nests;
+
+  @override
+  Widget build(BuildContext context) {
+    void open() => context.push(Routes.areaEditor(area.id));
+    final rows = nests;
+    // Without a photo there is nothing to draw pins on, and `AreaPhoto` owns
+    // that state — including the tap that starts the capture flow.
+    if (!area.hasPhoto || rows == null || rows.isEmpty) {
+      return AreaPhoto(area: area, onTap: open);
+    }
+    return InkWell(
+      onTap: open,
+      child: PinCanvas(
+        // Canvas mode, so the box IS the image: with the 16:10 letterbox the
+        // card uses otherwise, every pin would sit slightly off its nest.
+        photo: AreaPhoto(area: area, showAsCanvas: true),
+        nests: PinnedNest.fromStates(rows),
+        dense: true,
       ),
     );
   }

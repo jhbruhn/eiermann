@@ -1,4 +1,4 @@
-import 'package:eiermann/features/areas/area_editor_screen.dart';
+import 'package:eiermann/features/areas/pin_canvas.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +11,10 @@ import '../../support/harness.dart';
 /// canvas takes its height from the picture, so without this there would be
 /// nothing to divide by and every coordinate would be meaningless.
 const _canvasSize = Size(300, 200);
+
+/// A pin as the canvas takes it — mapped through the shared rule, so an
+/// unpinned nest (0/0) drops out here exactly as it does in the app.
+List<PinnedNest> pins(List<Nest> nests) => PinnedNest.fromNests(nests);
 
 Nest nest({
   required String id,
@@ -30,8 +34,8 @@ Nest nest({
 
 void main() {
   late List<({double x, double y})> taps;
-  late List<(Nest, ({double x, double y}))> moves;
-  late List<Nest> opened;
+  late List<(PinnedNest, ({double x, double y}))> moves;
+  late List<PinnedNest> opened;
 
   setUp(() {
     taps = [];
@@ -55,7 +59,7 @@ void main() {
                 width: _canvasSize.width,
                 height: _canvasSize.height,
               ),
-              nests: nests,
+              nests: pins(nests),
               onTap: taps.add,
               onMoved: (nest, to) => moves.add((nest, to)),
               onOpen: opened.add,

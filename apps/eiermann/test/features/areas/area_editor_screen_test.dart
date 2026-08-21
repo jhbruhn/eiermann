@@ -1,6 +1,7 @@
 import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/areas/area_editor_screen.dart';
+import 'package:eiermann/features/areas/pin_canvas.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';

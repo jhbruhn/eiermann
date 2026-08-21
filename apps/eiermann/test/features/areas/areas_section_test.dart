@@ -4,6 +4,7 @@ import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/areas/areas_providers.dart';
 import 'package:eiermann/features/areas/areas_section.dart';
+import 'package:eiermann/features/areas/pin_canvas.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
@@ -251,6 +252,90 @@ void main() {
       findsNothing,
     );
     verify(() => nestStates.forSpot('s1')).called(1);
+  });
+
+  testWidgets('the pins are drawn ON the preview photo', (tester) async {
+    // The concept's first second: the picture with the nests marked on it, so
+    // you orient yourself physically before reading a word.
+    await pump(
+      tester,
+      [withPhoto],
+      nestRows: [
+        NestState(
+          id: 'n1',
+          label: 'N1',
+          area: withPhoto.id,
+          urgency: 3,
+          spot: 's1',
+          pinX: 0.4,
+          pinY: 0.6,
+        ),
+      ],
+    );
+    await settle(tester);
+
+    expect(find.byType(PinCanvas), findsOneWidget);
+    // Twice: once as a pin on the photo, once as a line under it.
+    expect(find.text('N1'), findsNWidgets(2));
+  });
+
+  testWidgets('an UNPINNED nest gets a line but no marker', (tester) async {
+    // 0/0 is what an unpinned nest arrives as. A marker there would claim the
+    // top-left corner of the attic.
+    await pump(
+      tester,
+      [withPhoto],
+      nestRows: [
+        NestState(
+          id: 'n1',
+          label: 'N1',
+          area: withPhoto.id,
+          urgency: 3,
+          spot: 's1',
+          pinX: 0,
+          pinY: 0,
+        ),
+      ],
+    );
+    await settle(tester);
+
+    expect(find.text('N1'), findsOneWidget);
+  });
+
+  testWidgets('the pins do not swallow the tap into the editor', (
+    tester,
+  ) async {
+    // The pins are read-only here; the whole picture is the way in. A pin that
+    // took the tap would leave the reader with no way to move it.
+    await pump(
+      tester,
+      [withPhoto],
+      nestRows: [
+        NestState(
+          id: 'n1',
+          label: 'N1',
+          area: withPhoto.id,
+          urgency: 3,
+          spot: 's1',
+          pinX: 0.5,
+          pinY: 0.5,
+        ),
+      ],
+    );
+    await settle(tester);
+
+    final pin = find.descendant(
+      of: find.byType(PinCanvas),
+      matching: find.text('N1'),
+    );
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find.ancestor(of: pin, matching: find.byType(IgnorePointer)).first,
+          )
+          .ignoring,
+      isTrue,
+    );
   });
 
   group('the photo flow', () {

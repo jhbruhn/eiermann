@@ -91,21 +91,24 @@ abstract class Nest with _$Nest {
   );
 }
 
+/// The pin a pair of stored coordinates describes, or null for none.
+///
+/// ONE derivation, called by every reader — `nests` rows and `nest_state` rows
+/// alike. Two copies of this rule would drift, and the rule is subtle enough
+/// that a drift would be invisible: a pin needs BOTH coordinates, and (0, 0)
+/// reads as none (see [kPinMin] for the measurement). Half a pin is not a
+/// position — an x with no y would be drawn along the top edge of the photo,
+/// which is a claim about the building nobody made.
+({double x, double y})? pinOf(double? x, double? y) {
+  if (x == null || y == null) return null;
+  if (x == 0 && y == 0) return null;
+  return (x: x, y: y);
+}
+
 /// Where the nest sits on its Bereich's photo, as normalised coordinates.
 extension NestPin on Nest {
-  /// The pin, or null when this nest has none.
-  ///
-  /// A pin needs BOTH coordinates, and (0, 0) reads as none — see [kPinMin]
-  /// for the measurement behind that. The record is returned as one value
-  /// because half a pin is not a position: an x with no y would be drawn at the
-  /// top edge of the photo, which is a claim about the building nobody made.
-  ({double x, double y})? get pin {
-    final x = pinX;
-    final y = pinY;
-    if (x == null || y == null) return null;
-    if (x == 0 && y == 0) return null;
-    return (x: x, y: y);
-  }
+  /// The pin, or null when this nest has none. See [pinOf].
+  ({double x, double y})? get pin => pinOf(pinX, pinY);
 
   bool get hasPin => pin != null;
 

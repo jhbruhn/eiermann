@@ -1,4 +1,5 @@
 import 'package:eiermann_models/src/enums.dart';
+import 'package:eiermann_models/src/models/nest.dart' show pinOf;
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:zugvogel_core/zugvogel_core.dart';
@@ -81,6 +82,12 @@ extension NestStateReading on NestState {
   bool get isEmpty => eggCount == 0;
 
   bool get isProtected => species == NestSpecies.protected;
+
+  /// Where this nest sits on its Bereich's photo, through the same derivation
+  /// the `nests` rows use — see [pinOf].
+  ({double x, double y})? get pin => pinOf(pinX, pinY);
+
+  bool get hasPin => pin != null;
 
   bool get isGone => status == NestStatus.gone;
 
