@@ -11,10 +11,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # In lockstep with apps/eiermann's `flutter: ^3.47.0` AND with zugvogel's CI:
+  # In lockstep with apps/eiermann's `flutter: ^3.44.0` AND with zugvogel's CI:
   # the shared library is compiled by THIS toolchain, so a version it has not
   # been built against is a break discovered here rather than there.
-  FLUTTER_VERSION: "3.47.1"
+  FLUTTER_VERSION: "3.44.3"
 
 jobs:
   dart:

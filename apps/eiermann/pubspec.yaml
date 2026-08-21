@@ -5,7 +5,7 @@ publish_to: none
 
 environment:
   sdk: ^3.12.0
-  flutter: ^3.47.0
+  flutter: ^3.44.0
 
 # Part of the Eiermann pub workspace (see ../../pubspec.yaml).
 resolution: workspace
@@ -51,22 +51,22 @@ dependencies:
   zugvogel_core:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 0ec964186e75633136b47b8144aeb2f7ed14e884
+      ref: 030c35addc1622daf167212ec5c87c16fdff4696
       path: packages/zugvogel_core
   zugvogel_data:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 0ec964186e75633136b47b8144aeb2f7ed14e884
+      ref: 030c35addc1622daf167212ec5c87c16fdff4696
       path: packages/zugvogel_data
   zugvogel_pb_client:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 0ec964186e75633136b47b8144aeb2f7ed14e884
+      ref: 030c35addc1622daf167212ec5c87c16fdff4696
       path: packages/zugvogel_pb_client
   zugvogel_ui:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 0ec964186e75633136b47b8144aeb2f7ed14e884
+      ref: 030c35addc1622daf167212ec5c87c16fdff4696
       path: packages/zugvogel_ui
 
 dev_dependencies:
