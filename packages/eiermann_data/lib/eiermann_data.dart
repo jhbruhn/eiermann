@@ -12,6 +12,7 @@ export 'src/repositories/areas_repository.dart';
 export 'src/repositories/auth_repository.dart';
 export 'src/repositories/follow_ups_repository.dart';
 export 'src/repositories/geocoding_repository.dart';
+export 'src/repositories/history_repositories.dart';
 export 'src/repositories/nest_eggs_repository.dart';
 export 'src/repositories/nest_state_repository.dart';
 export 'src/repositories/nests_repository.dart';

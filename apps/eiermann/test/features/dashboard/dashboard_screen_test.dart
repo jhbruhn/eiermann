@@ -18,6 +18,8 @@ class _MockFollowUps extends Mock implements FollowUpsRepository {}
 
 class _MockTourRuns extends Mock implements TourRunsRepository {}
 
+class _MockFindings extends Mock implements FindingsRepository {}
+
 SpotOverview overview({
   required String id,
   required int urgency,
@@ -52,6 +54,7 @@ void main() {
   late _MockOverview repo;
   late _MockFollowUps followUps;
   late _MockTourRuns runs;
+  late _MockFindings findings;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -61,8 +64,10 @@ void main() {
     repo = _MockOverview();
     followUps = _MockFollowUps();
     runs = _MockTourRuns();
+    findings = _MockFindings();
     when(followUps.open).thenAnswer((_) async => []);
     when(() => runs.openFor(any())).thenAnswer((_) async => null);
+    when(() => findings.countSince(any())).thenAnswer((_) async => 0);
   });
 
   Future<void> pump(
@@ -70,16 +75,21 @@ void main() {
     List<SpotOverview> rows, {
     List<FollowUp> open = const [],
     TourRun? openRun,
+    int? recentFindings = 0,
   }) async {
     when(() => repo.search(any())).thenAnswer((_) async => rows);
     when(followUps.open).thenAnswer((_) async => open);
     when(() => runs.openFor(any())).thenAnswer((_) async => openRun);
+    when(() => findings.countSince(any())).thenAnswer(
+      (_) async => recentFindings ?? (throw const RepositoryException('nope')),
+    );
     await tester.pumpApp(
       const DashboardScreen(),
       overrides: [
         spotOverviewRepositoryProvider.overrideWith((ref) async => repo),
         followUpsRepositoryProvider.overrideWith((ref) async => followUps),
         tourRunsRepositoryProvider.overrideWith((ref) async => runs),
+        findingsRepositoryProvider.overrideWith((ref) async => findings),
         currentUserProvider.overrideWith(
           (ref) async => const AppUser(
             id: 'u1',
@@ -332,5 +342,50 @@ void main() {
     await pump(tester, [overview(id: 's1', urgency: SpotUrgency.overdue.rank)]);
 
     expect(find.textContaining('fortsetzen'), findsNothing);
+  });
+
+  group('the Funde number', () {
+    testWidgets('counts a WINDOW, and is a way in', (tester) async {
+      // An all-time total only grows, so it stops carrying information after
+      // the first season. And a number on this screen has to be openable: "7
+      // Funde" that leads nowhere is a fact nobody can act on.
+      await pump(
+        tester,
+        [overview(id: 's1', urgency: SpotUrgency.overdue.rank)],
+        recentFindings: 7,
+      );
+
+      final card = tile(de.dashboardFindingsLabel);
+      expect(card, findsOneWidget);
+      expect(find.descendant(of: card, matching: find.text('7')), findsOne);
+      expect(tester.widget<KpiCard>(card).onTap, isNotNull);
+    });
+
+    testWidgets('zero keeps its tile and loses its tap', (tester) async {
+      // Zero is a real reading, and the tile stays so the grid does not reflow.
+      // A promised destination that turns out to be an empty list is worse than
+      // a number plainly reporting nothing.
+      await pump(tester, [overview(id: 's1', urgency: 0)]);
+
+      final card = tile(de.dashboardFindingsLabel);
+      expect(find.descendant(of: card, matching: find.text('0')), findsOne);
+      expect(tester.widget<KpiCard>(card).onTap, isNull);
+    });
+
+    testWidgets('a failed read draws a dash, not an error over the grid', (
+      tester,
+    ) async {
+      // This tile comes from a DIFFERENT request than the four beside it, and
+      // one server hiccup must not make the whole dashboard look broken.
+      await pump(tester, [
+        overview(id: 's1', urgency: 0),
+      ], recentFindings: null);
+
+      final card = tile(de.dashboardFindingsLabel);
+      expect(find.descendant(of: card, matching: find.text('—')), findsOne);
+      expect(tester.widget<KpiCard>(card).onTap, isNull);
+      // The rank tiles still read their own numbers.
+      expect(tile(de.spotUrgencyOverdue), findsOneWidget);
+    });
   });
 }

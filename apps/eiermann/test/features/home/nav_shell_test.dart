@@ -31,6 +31,12 @@ class _MockTours extends Mock implements ToursRepository {}
 
 class _MockTourRuns extends Mock implements TourRunsRepository {}
 
+class _MockVisitHistory extends Mock implements VisitHistoryRepository {}
+
+class _MockChecks extends Mock implements NestChecksRepository {}
+
+class _MockFindings extends Mock implements FindingsRepository {}
+
 SpotOverview row({
   required String id,
   required String name,
@@ -56,6 +62,9 @@ void main() {
   late _MockNestStates nestStates;
   late _MockTours tours;
   late _MockTourRuns tourRuns;
+  late _MockVisitHistory visitHistory;
+  late _MockChecks checks;
+  late _MockFindings findings;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -70,6 +79,15 @@ void main() {
     nestStates = _MockNestStates();
     tours = _MockTours();
     tourRuns = _MockTourRuns();
+    visitHistory = _MockVisitHistory();
+    checks = _MockChecks();
+    findings = _MockFindings();
+    when(
+      () => visitHistory.pageForSpot(any(), after: any(named: 'after')),
+    ).thenAnswer((_) async => const PbPage(items: []));
+    when(() => checks.forVisits(any())).thenAnswer((_) async => []);
+    when(() => findings.forVisits(any())).thenAnswer((_) async => []);
+    when(() => findings.countSince(any())).thenAnswer((_) async => 0);
     when(() => tours.all()).thenAnswer((_) async => []);
     when(() => tourRuns.openFor(any())).thenAnswer((_) async => null);
     when(() => nestStates.forSpot(any())).thenAnswer((_) async => []);
@@ -110,6 +128,13 @@ void main() {
           // read never resolves makes `pumpAndSettle` hang rather than fail.
           toursRepositoryProvider.overrideWith((ref) async => tours),
           tourRunsRepositoryProvider.overrideWith((ref) async => tourRuns),
+          // The dossier's chronology and the dashboard's Funde number: a read
+          // that never resolves makes `pumpAndSettle` hang rather than fail.
+          visitHistoryRepositoryProvider.overrideWith(
+            (ref) async => visitHistory,
+          ),
+          nestChecksRepositoryProvider.overrideWith((ref) async => checks),
+          findingsRepositoryProvider.overrideWith((ref) async => findings),
           currentUserProvider.overrideWith(
             (ref) async => const AppUser(
               id: 'u1',

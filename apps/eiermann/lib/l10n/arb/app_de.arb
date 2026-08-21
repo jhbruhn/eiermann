@@ -872,6 +872,29 @@
   },
   "skipReasonOther": "Sonstiges",
   "skipReasonUnreadable": "Unbekannter Grund",
+  "spotHistoryTitle": "Chronologie",
+  "@spotHistoryTitle": {
+    "description": "ONE list of visits, checks, findings and phase changes — not three sections. Three lists ordered by three dates make the reader join them by hand to answer 'what happened on the 14th'."
+  },
+  "spotHistoryEmpty": "Noch kein Besuch erfasst. Die Chronologie beginnt mit dem ersten.",
+  "spotHistoryNoDate": "Ohne Datum",
+  "@spotHistoryNoDate": {
+    "description": "A visit whose date this build could not read. Named rather than left blank, so the row does not look like a rendering gap."
+  },
+  "spotHistoryUnknownNest": "Nest unbekannt",
+  "@spotHistoryUnknownNest": {
+    "description": "A check whose nest could not be resolved — deleted, or not readable. Names the gap instead of printing an id nobody can act on."
+  },
+  "dashboardFindingsLabel": "Funde (30 Tage)",
+  "@dashboardFindingsLabel": {
+    "description": "A window, not an all-time total: an all-time count only grows and stops carrying information after the first season."
+  },
+  "findingsFeedEmptyTitle": "Keine Funde",
+  "findingsFeedEmptyMessage": "Hier stehen tote Vögel, Küken, andere Arten und bauliche Veränderungen — erfasst im Besuchsablauf.",
+  "findingsUnknownSpot": "Gebäude unbekannt",
+  "@findingsUnknownSpot": {
+    "description": "Same reason as spotHistoryUnknownNest: the building is what this list is read by, and an id in its place is unreadable."
+  },
   "findingKindDeadBird": "Toter Vogel",
   "@findingKindDeadBird": {
     "description": "Deliberately not 'Tote Taube': the same field records a jackdaw, and a label that names the species would make the entry lie about what was seen."

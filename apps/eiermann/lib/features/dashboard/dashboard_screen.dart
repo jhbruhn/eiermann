@@ -1,3 +1,4 @@
+import 'package:eiermann/features/history/history_providers.dart';
 import 'package:eiermann/features/home/sign_out_action.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
@@ -88,6 +89,10 @@ class _Tiles extends ConsumerWidget {
     }
 
     final counts = countByUrgency(rows);
+    // `.value`, so a failed or still-loading read draws a dash rather than an
+    // error: this tile sits beside four that came from a DIFFERENT request, and
+    // one server hiccup must not make the grid look broken.
+    final findings = ref.watch(recentFindingsCountProvider).value;
     return RefreshIndicator(
       onRefresh: () => ref.refresh(allSpotsProvider.future),
       child: ListView(
@@ -108,10 +113,39 @@ class _Tiles extends ConsumerWidget {
             child: KpiGrid([
               for (final rank in DashboardScreen._ranks)
                 _tile(context, rank, counts[rank] ?? 0),
+              // The fifth tile is not a rank and does not come from
+              // `spot_overview`: it is a count of RECORDED EVENTS over a
+              // window, and the one number here that says something is going
+              // ON rather than something being due. It sits last because the
+              // four above it are work waiting; this one is work done.
+              _findingsTile(context, findings),
             ]),
           ),
         ],
       ),
+    );
+  }
+
+  /// The Funde of the last weeks, as one number.
+  ///
+  /// A window and not an all-time total: an all-time count only grows, so it
+  /// stops carrying information after the first season, and a tile nobody reads
+  /// is worse than no tile. Thirty days is short enough that a change in it
+  /// means something.
+  ///
+  /// It taps through to the Funde list, because a number on this screen has to
+  /// be a way IN — "7 Funde" that cannot be opened is a fact nobody can act on.
+  /// At zero it loses the tap, like every other tile here. So does a count that
+  /// could not be read: there is no list to promise.
+  KpiCard _findingsTile(BuildContext context, int? count) {
+    final l10n = context.l10n;
+    return KpiCard(
+      icon: Icons.pest_control_outlined,
+      label: l10n.dashboardFindingsLabel,
+      value: count == null ? '—' : '$count',
+      onTap: count == null || count == 0
+          ? null
+          : () => context.push(Routes.findings),
     );
   }
 

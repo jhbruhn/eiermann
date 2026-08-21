@@ -3,6 +3,7 @@ import 'package:eiermann/features/areas/area_editor_screen.dart';
 import 'package:eiermann/features/auth/login_screen.dart';
 import 'package:eiermann/features/auth/pending_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
+import 'package:eiermann/features/findings/findings_screen.dart';
 import 'package:eiermann/features/home/nav_shell.dart';
 import 'package:eiermann/features/server_setup/setup_screen.dart';
 import 'package:eiermann/features/spots/prospects_screen.dart';
@@ -44,6 +45,14 @@ abstract final class Routes {
   /// leads somewhere a web reader can keep — and so the pipeline is a place
   /// rather than a mode of the Spot list.
   static const prospects = '/prospects';
+
+  /// Every Fund in the org, newest first — where the dashboard's Funde number
+  /// leads.
+  ///
+  /// Its own location, like the Erkundung funnel and for the same reason: a
+  /// number on the dashboard has to be a way IN, and a count that cannot be
+  /// opened is a fact nobody can act on.
+  static const findings = '/findings';
 
   /// The Touren screen: the templates, and the way into a round.
   ///
@@ -256,6 +265,12 @@ List<RouteBase> appRoutes() {
     GoRoute(
       path: Routes.prospects,
       builder: (_, _) => const ProspectsScreen(),
+    ),
+    // The Funde list: over the shell for the same reason as the funnel — where
+    // a dashboard number leads is a place, not a tab.
+    GoRoute(
+      path: Routes.findings,
+      builder: (_, _) => const FindingsScreen(),
     ),
     // The template editor and the running round: over the shell, like the
     // dossier, so no branch can be parked on either. The run especially — a

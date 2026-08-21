@@ -14,6 +14,7 @@ re-reads.
 """
 import os
 import sys
+import urllib.parse
 
 import zv_shared_assertions as shared_assertions
 from zv_harness import (
@@ -2198,6 +2199,131 @@ h.check(
     due and due_row.get("urgency") == expected,
     f"due {due!r} against today {today!r} ranked {due_row.get('urgency')}, "
     f"expected {expected}",
+)
+
+
+# ── The shapes the chronology actually asks for ────────────────────────────
+#
+# eiermann-3is.5. These are not access-rule assertions: the rules above already
+# cover who may read `visits`, `nest_checks` and `findings`. What is asserted
+# here is that the QUERIES the dossier's chronology sends parse and return
+# something — and that is worth a test because every one of them fails as a
+# generic 400 that a widget test with a mocked repository cannot see.
+#
+# Three shapes, one per way the client can be wrong:
+#
+#   * keyset paging on `visited_at`, which is a DATE field compared as a string;
+#   * an OR chain standing in for the `IN` PocketBase does not have;
+#   * `expand` across a relation whose own collection has its own rules.
+#
+# The last one is the one that would have hurt: an expand the rules refuse comes
+# back as a row with the key simply absent, so the label goes missing and the
+# chronology prints "Nest unbekannt" for every line — a silent, plausible,
+# completely wrong screen.
+
+print("\n[die Chronologie liest]")
+
+_, page = h.req(
+    "GET",
+    "/api/collections/visits/records?filter="
+    + urllib.parse.quote(f"spot='{vhost['id']}'")
+    + "&sort=-visited_at,-id&perPage=20&skipTotal=1",
+    member_token,
+)
+chrono_visits = (page or {}).get("items") or []
+h.check(
+    "the visits of one building page by the date the visit HAPPENED",
+    bool(chrono_visits),
+    f"{page} — not by `created`: the flow holds everything in memory until the "
+    "last button, so an evening entry is an afternoon visit, and a chronology "
+    "ordered by the write date reorders itself for a reason nothing on screen "
+    "explains",
+)
+h.check(
+    "...newest first",
+    [v.get("visited_at") for v in chrono_visits]
+    == sorted((v.get("visited_at") for v in chrono_visits), reverse=True),
+    str([v.get("visited_at") for v in chrono_visits]),
+)
+
+# The OR chain, over the whole page at once. One request and not one per row: a
+# chronology that fetched per visit is twenty requests for a screen.
+ids = [v["id"] for v in chrono_visits]
+# Percent-encoded here because this suite builds its URLs by hand; the Dart SDK
+# does it for the app. The chain itself is what is under test.
+or_chain = urllib.parse.quote(" || ".join(f"visit='{i}'" for i in ids))
+_, checks_page = h.req(
+    "GET",
+    f"/api/collections/nest_checks/records?filter={or_chain}"
+    "&sort=checked_at,nest&expand=nest&perPage=200",
+    member_token,
+)
+chrono_checks = (checks_page or {}).get("items") or []
+h.check(
+    "an OR chain stands in for the IN that PocketBase does not have",
+    bool(chrono_checks),
+    f"{checks_page} — a filter that does not parse comes back as a generic 400, "
+    "and a widget test against a mocked repository cannot see it",
+)
+h.check(
+    "...and every check carries its nest LABEL, not just an id",
+    all(
+        (c.get("expand") or {}).get("nest", {}).get("label")
+        for c in chrono_checks
+    ),
+    f"{[c.get('expand') for c in chrono_checks][:2]} — an expand the rules "
+    "refuse is not an error: the key is simply absent, the label goes missing, "
+    "and the chronology prints 'Nest unbekannt' on every line. Silent, "
+    "plausible and completely wrong",
+)
+
+_, finds_page = h.req(
+    "GET",
+    f"/api/collections/findings/records?filter={or_chain}"
+    "&sort=found_at&expand=nest&perPage=200",
+    member_token,
+)
+h.check(
+    "the Funde of the same page come back the same way",
+    bool((finds_page or {}).get("items")),
+    str(finds_page),
+)
+
+# The org-wide list behind the dashboard number, and the number itself.
+_, recent = h.req(
+    "GET",
+    "/api/collections/findings/records?sort=-found_at,-id&expand=spot,nest"
+    "&perPage=30&skipTotal=1",
+    member_token,
+)
+recent_items = (recent or {}).get("items") or []
+h.check(
+    "the org-wide Funde list names the BUILDING",
+    bool(recent_items)
+    and all(
+        (f.get("expand") or {}).get("spot", {}).get("name") for f in recent_items
+    ),
+    f"{[f.get('expand') for f in recent_items][:2]} — this list spans "
+    "buildings, and the building is the first thing somebody needs from it",
+)
+
+_, counted = h.req(
+    "GET",
+    "/api/collections/findings/records?perPage=1"
+    "&filter=" + urllib.parse.quote(f"found_at>='{h.stamp(days=-30)}'"),
+    member_token,
+)
+h.check(
+    "the dashboard's number is a SERVER-side count over a window",
+    (counted or {}).get("totalItems", 0) > 0,
+    f"{counted} — one number is the whole answer, so pulling every row over "
+    "the wire to call length on it is the same request with a payload nobody "
+    "reads",
+)
+h.check(
+    "...and a guest counts nothing",
+    h.reads_nothing("findings", guest_token),
+    "the count goes through the same list rule as the rows",
 )
 
 

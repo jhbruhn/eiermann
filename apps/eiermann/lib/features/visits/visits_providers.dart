@@ -1,4 +1,5 @@
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/history/history_providers.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
 import 'package:eiermann_models/eiermann_models.dart';
@@ -51,6 +52,10 @@ void invalidateAfterVisit(WidgetRef ref) {
     ..invalidate(nestEggsProvider)
     ..invalidate(openFollowUpsProvider)
     ..invalidate(openFollowUpsForSpotProvider);
+  // The chronology, the Funde list and the dashboard's Funde number: a visit IS
+  // a history entry, and a chronology that still ends at the previous visit
+  // reads as a write that did not happen.
+  invalidateHistoryViews(ref);
   // `species_labels` is covered by invalidateNestViews above, and it has to be:
   // a species typed on a FUND is in the same vocabulary as one typed on a nest.
 }

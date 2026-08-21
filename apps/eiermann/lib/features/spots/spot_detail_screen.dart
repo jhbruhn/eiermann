@@ -1,4 +1,5 @@
 import 'package:eiermann/features/areas/areas_section.dart';
+import 'package:eiermann/features/history/spot_history_section.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/features/rhythm/due_explanation.dart';
 import 'package:eiermann/features/spots/spot_access_sheet.dart';
@@ -89,6 +90,14 @@ class SpotDetailScreen extends ConsumerWidget {
                   child: Text(note),
                 ),
               ],
+              const SizedBox(height: ZugvogelSpacing.lg),
+              // LAST on the page, and that is the ordering the dossier is
+              // built on: everything above is something somebody acts on
+              // before going in, and the history is what you read afterwards.
+              // Being last also means the dossier's own scroll drives its
+              // paging — the tail only builds once somebody has reached it, so
+              // opening a Spot costs one page and not the whole history.
+              SpotHistorySection(spotId: spotId),
             ],
           ),
         ),

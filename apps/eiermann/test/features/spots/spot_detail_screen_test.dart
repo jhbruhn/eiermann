@@ -20,6 +20,12 @@ class _MockNestStates extends Mock implements NestStateRepository {}
 
 class _MockFollowUps extends Mock implements FollowUpsRepository {}
 
+class _MockVisitHistory extends Mock implements VisitHistoryRepository {}
+
+class _MockChecks extends Mock implements NestChecksRepository {}
+
+class _MockFindings extends Mock implements FindingsRepository {}
+
 void main() {
   late AppLocalizations de;
   late _MockSpots spots;
@@ -27,6 +33,9 @@ void main() {
   late _MockAreas areas;
   late _MockNestStates nestStates;
   late _MockFollowUps followUps;
+  late _MockVisitHistory visitHistory;
+  late _MockChecks checks;
+  late _MockFindings findings;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -44,6 +53,16 @@ void main() {
     // The dossier reads the Bereiche now. Empty by default: what the Bereich
     // block itself does has its own test file.
     when(() => areas.forSpot(any())).thenAnswer((_) async => []);
+    visitHistory = _MockVisitHistory();
+    checks = _MockChecks();
+    findings = _MockFindings();
+    // The chronology is the last block on the dossier. Empty by default: what
+    // it draws has its own test file.
+    when(
+      () => visitHistory.pageForSpot(any(), after: any(named: 'after')),
+    ).thenAnswer((_) async => const PbPage(items: []));
+    when(() => checks.forVisits(any())).thenAnswer((_) async => []);
+    when(() => findings.forVisits(any())).thenAnswer((_) async => []);
   });
 
   const spot = Spot(
@@ -108,6 +127,11 @@ void main() {
         areasRepositoryProvider.overrideWith((ref) async => areas),
         nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
         followUpsRepositoryProvider.overrideWith((ref) async => followUps),
+        visitHistoryRepositoryProvider.overrideWith(
+          (ref) async => visitHistory,
+        ),
+        nestChecksRepositoryProvider.overrideWith((ref) async => checks),
+        findingsRepositoryProvider.overrideWith((ref) async => findings),
         currentUserProvider.overrideWith(
           (ref) async => const AppUser(
             id: 'u1',

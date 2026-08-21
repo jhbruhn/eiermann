@@ -81,6 +81,28 @@ Future<SpotOverviewRepository> spotOverviewRepository(Ref ref) async =>
 Future<NestEggsRepository> nestEggsRepository(Ref ref) async =>
     NestEggsRepository(await _client(ref));
 
+/// The recorded Besuche, Pruefungen and Funde — the three reads behind the
+/// dossier's chronology.
+///
+/// [visitHistoryRepository] is a SECOND repository over `visits`, beside
+/// [visitsRepository], and the split is the type doing work: that one writes
+/// through a route because the collection has no create rule, and this one is
+/// read-only, so "save a visit" cannot be spelled through it at all.
+@Riverpod(keepAlive: true)
+Future<VisitHistoryRepository> visitHistoryRepository(Ref ref) async =>
+    VisitHistoryRepository(await _client(ref));
+
+/// The checks, which no client may write: `nest_eggs` and every nest's rhythm
+/// state are derived from them.
+@Riverpod(keepAlive: true)
+Future<NestChecksRepository> nestChecksRepository(Ref ref) async =>
+    NestChecksRepository(await _client(ref));
+
+/// The Funde.
+@Riverpod(keepAlive: true)
+Future<FindingsRepository> findingsRepository(Ref ref) async =>
+    FindingsRepository(await _client(ref));
+
 /// The transactional visit endpoint. Not a collection repository, because
 /// `visits` has no create rule: there is no per-record path to writing a visit.
 @Riverpod(keepAlive: true)
