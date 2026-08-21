@@ -38,20 +38,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "==> Ensuring image $IMAGE exists"
+echo "==> Building image $IMAGE"
 # The lean PocketBase-only target of the repo Dockerfile (no Flutter web build).
-docker image inspect "$IMAGE" >/dev/null 2>&1 || \
-  docker build --target backend -t "$IMAGE" -f "$ROOT/Dockerfile" "$ROOT"
-
-# pb_hooks and typst are MOUNTED, not taken from the baked image. The image is
-# cached by tag (see the inspect-or-build above), so a hook or template edit
-# would otherwise be silently tested against whatever was in the image the day
-# it was first built.
 #
-# The mount also matters for the migrate/superuser steps below: onBootstrap
-# hooks run for EVERY command, and one that persists state (the rate-limit hook
-# writes settings.rateLimits) can poison the fresh data dir before the hooks
-# under test ever run.
+# UNCONDITIONALLY, every run. The hooks and migrations are baked into the image
+# now, so an inspect-or-build would test whatever was in it the day it was first
+# built — a hook edit would look like a rule that does not work, or worse, like
+# one that does. The layer is cached, so a run with nothing changed costs
+# seconds.
+docker build --target backend -t "$IMAGE" -f "$ROOT/Dockerfile" "$ROOT"
+
 # Only the data directory is mounted. The hooks, migrations and Typst files are
 # BAKED, and the suite now runs against the image's own copies.
 #

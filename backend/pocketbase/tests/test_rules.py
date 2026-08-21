@@ -339,6 +339,9 @@ h.check("any member can correct the access note", status == 200, f"status {statu
 # The rhythm's output is the server's. A client that can write it can make a
 # nest look visited without anybody going there — the one lie this data model
 # must not be able to tell.
+_, before = h.req(
+    "GET", f"/api/collections/spots/records/{spot['id']}", coord_token
+)
 h.req(
     "PATCH", f"/api/collections/spots/records/{spot['id']}", member_token,
     {"next_due_at": "2099-01-01 00:00:00.000Z"},
@@ -346,8 +349,16 @@ h.req(
 _, after = h.req("GET", f"/api/collections/spots/records/{spot['id']}", coord_token)
 h.check(
     "NOBODY can write next_due_at through the API",
-    not (after or {}).get("next_due_at"),
-    "it is derived; a writable due date is a Spot that can claim to be done",
+    (after or {}).get("next_due_at") == (before or {}).get("next_due_at"),
+    f"{(before or {}).get('next_due_at')!r} → "
+    f"{(after or {}).get('next_due_at')!r} — it is derived; a writable due date "
+    "is a Spot that can claim to be done",
+)
+h.check(
+    "...and the value it kept is the DERIVED one, not nothing",
+    "2099" not in str((after or {}).get("next_due_at") or ""),
+    "an assertion that the field is merely EMPTY would pass on a server that "
+    "had stopped deriving it at all",
 )
 
 h.req(
@@ -519,14 +530,23 @@ h.check("an overdue Spot ranks most urgent", urgency_of(active_spot["id"]) == 0)
 h.check("a prospect ranks below every active Spot", urgency_of(prospect["id"]) == 4)
 h.check("a closed Spot ranks last", urgency_of(closed["id"]) == 6)
 
-no_date = h.mk(
+# A brand-new active Spot with no nest yet. It is DUE — the base period from
+# the day it was added — but never overdue on that day: painting every new
+# building red is how a colour stops being read. Rank 2 is "due within a week",
+# which for a base interval of 7 days is exactly where day one lands.
+#
+# The view's rank-3 branch for an active Spot with an EMPTY next_due_at is not
+# asserted here, because since the create hook derives the date it can no longer
+# be reached through the API. It stays in the view as the defensive answer for a
+# row that somehow has no date: reading a missing date as urgent would be worse.
+fresh_active = h.mk(
     coord_token, "spots", {"org": ORG, "name": "Neu, noch kein Nest", "phase": "active"}
 )
 h.check(
-    "an active Spot with NO due date is not treated as overdue",
-    urgency_of(no_date["id"]) == 3,
-    "it is waiting for its first nest, not overdue — painting every new "
-    "building red is how a colour stops being read",
+    "a Spot created active is due inside its first rhythm, and NOT overdue",
+    urgency_of(fresh_active["id"]) == 2,
+    f"urgency {urgency_of(fresh_active['id'])} — a building nobody has looked "
+    "at properly must surface, without being red on the day it was added",
 )
 
 _, body = h.req(
@@ -759,6 +779,92 @@ status, _ = h.req(
     {"org": ORG, "name": "Quatschphase", "phase": "verschimmelt"},
 )
 h.check("an unknown phase is rejected", status == 400, f"status {status}")
+
+# The phase decides whether a Spot has a due date AT ALL, so every transition
+# has to re-derive it. Nothing else in this collection can move the date, and
+# nothing but the rhythm library computes it: the hook calls the same
+# recomputeSpotDue the visit endpoint does.
+#
+# Left alone, both directions state something false. A paused Spot keeps the
+# date it had and its row reads "Pausiert · fällig am 3. August"; a Spot
+# activated out of an Erkundung has no date at all and sits in the list as "Im
+# Rhythmus" with nothing behind it.
+
+
+def due_of(spot_id):
+    _, body = h.req("GET", f"/api/collections/spots/records/{spot_id}", coord_token)
+    return str((body or {}).get("next_due_at") or "")
+
+
+fresh = h.mk(
+    member_token,
+    "spots",
+    {"org": ORG, "name": "Sofort fällig", "phase": "active"},
+)
+h.check(
+    "a Spot CREATED active is due from its first second",
+    bool(fresh.get("next_due_at")),
+    "a building with no nests recorded is a building nobody has looked at "
+    "properly — the one thing it must not do is drop out of the list",
+)
+h.check(
+    "...and the CREATE RESPONSE already says so",
+    str(fresh.get("next_due_at") or "") == due_of(fresh["id"]),
+    f"body {fresh.get('next_due_at')!r} vs row {due_of(fresh['id'])!r} — the "
+    "date has to be set BEFORE the write: a record mutated after e.next() never "
+    "reaches the reply, so the client would be told the value it just replaced",
+)
+
+seeded = h.mk(
+    member_token,
+    "spots",
+    {"org": ORG, "name": "Erst reden", "phase": "prospect"},
+)
+h.check(
+    "a Spot created as an Erkundung is not due at all",
+    not seeded.get("next_due_at"),
+    "it needs a conversation, not a visit",
+)
+
+status, body = move(fresh["id"], phase="paused", pause_reason="Gerüst")
+h.check("pausing succeeds", h.ok(status), f"status {status}")
+h.check(
+    "...and CLEARS the due date",
+    not due_of(fresh["id"]),
+    "a paused Spot drops out of every due list — a stale date next to "
+    "'Pausiert' is two statements that cannot both be true",
+)
+h.check(
+    "...in the response body too",
+    not (body or {}).get("next_due_at"),
+    f"body next_due_at={(body or {}).get('next_due_at')!r}",
+)
+
+status, _ = move(fresh["id"], phase="active")
+h.check("resuming succeeds", h.ok(status), f"status {status}")
+h.check(
+    "...and gives the date back",
+    bool(due_of(fresh["id"])),
+    "coming back from a pause means coming back into the rhythm",
+)
+
+status, _ = move(fresh["id"], phase="closed", closed_reason="netted")
+h.check("closing succeeds", h.ok(status), f"status {status}")
+h.check(
+    "...and clears the due date as well",
+    not due_of(fresh["id"]),
+    "a closed Spot is not due; it stays on the map, visually distinct",
+)
+
+before = due_of(seeded["id"])
+status, _ = move(seeded["id"], name="Erst reden, dann rein")
+h.check("renaming a Spot succeeds", h.ok(status), f"status {status}")
+h.check(
+    "an edit that does NOT move the phase leaves the date alone",
+    due_of(seeded["id"]) == before,
+    f"{before!r} → {due_of(seeded['id'])!r} — re-deriving on every write would "
+    "put a second save behind every form",
+)
 
 
 # ── Areas and nests ────────────────────────────────────────────────────────

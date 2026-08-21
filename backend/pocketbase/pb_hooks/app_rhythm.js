@@ -234,7 +234,25 @@ function createHalfClutchFollowUp(app, nest, check, settings) {
 }
 
 /**
- * Recomputes and saves `spots.next_due_at` for [spotId].
+ * When a Spot was "added", for the fallback that counts from it.
+ *
+ * `created` is a zero value on a record that has not been written yet, and that
+ * is exactly when this runs for a Spot being created: the create hook computes
+ * the date BEFORE the write, so the single save carries it and the response body
+ * matches the row. Anything that is not a plausible timestamp therefore reads as
+ * now — which is what "when it was added" means for a Spot being added.
+ */
+function addedAt(spot) {
+  const created = String(spot.get("created") || "");
+  const parsed = new Date(created.replace(" ", "T"));
+  if (isNaN(parsed.getTime()) || parsed.getUTCFullYear() < 2000) {
+    return new DateTime().string();
+  }
+  return created;
+}
+
+/**
+ * The date [spot] SHOULD carry — computed, not written.
  *
  * The minimum of every active nest's due date and every open follow-up's. The
  * follow-up usually wins, which is the point of it: a Halbgelege is due before
@@ -245,22 +263,20 @@ function createHalfClutchFollowUp(app, nest, check, settings) {
  * done: a building with no nests recorded is a building nobody has looked at
  * properly, and the one thing it must not do is disappear from the list.
  *
- * A paused or closed Spot has no due date at all. `paused_until` brings it back
- * by itself (the cron), which is why pausing is safe to use liberally.
+ * A paused or closed Spot has no due date at all — and neither has an Erkundung,
+ * which needs a conversation rather than a visit. `paused_until` brings a paused
+ * one back by itself (the cron), which is why pausing is safe to use liberally.
+ *
+ * Split out of [recomputeSpotDue] so a *request* hook can put the date on the
+ * record it is about to save instead of saving it a second time afterwards. A
+ * record mutated after `e.next()` never reaches the response body — the reply is
+ * already on the wire — so a second save would answer the client with the value
+ * it just replaced.
  */
-function recomputeSpotDue(app, spotId) {
-  let spot;
-  try {
-    spot = app.findRecordById("spots", String(spotId));
-  } catch (_) {
-    return null;
-  }
-
+function spotDueFor(app, spot) {
   const phase = String(spot.get("phase") || "");
   if (phase === "paused" || phase === "closed" || phase === "prospect") {
-    spot.set("next_due_at", "");
-    app.save(spot);
-    return spot;
+    return "";
   }
 
   const settings = settingsFor(app, spot.get("org"));
@@ -310,11 +326,30 @@ function recomputeSpotDue(app, spotId) {
     );
     const from = visits.length
       ? String(visits[0].get("visited_at") || "")
-      : String(spot.get("created") || "");
+      : addedAt(spot);
     due = addDays(from, settings.baseIntervalDays);
   }
 
-  spot.set("next_due_at", due);
+  return due;
+}
+
+/**
+ * Writes [spotDueFor]'s answer to the stored Spot [spotId], for a caller that
+ * has already saved whatever else it changed — the visit endpoint, and anything
+ * that alters a nest or a follow-up.
+ *
+ * A hook that is still holding the record it is about to write should call
+ * [spotDueFor] instead and set the field itself: two saves of one Spot from one
+ * request is the "two transitions from one stale original" shape.
+ */
+function recomputeSpotDue(app, spotId) {
+  let spot;
+  try {
+    spot = app.findRecordById("spots", String(spotId));
+  } catch (_) {
+    return null;
+  }
+  spot.set("next_due_at", spotDueFor(app, spot));
   app.save(spot);
   return spot;
 }
@@ -332,5 +367,6 @@ module.exports = {
   applyCheck: applyCheck,
   resolveFollowUps: resolveFollowUps,
   createHalfClutchFollowUp: createHalfClutchFollowUp,
+  spotDueFor: spotDueFor,
   recomputeSpotDue: recomputeSpotDue,
 };

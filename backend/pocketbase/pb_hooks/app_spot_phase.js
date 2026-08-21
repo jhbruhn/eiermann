@@ -135,4 +135,33 @@ function apply(record, previous) {
   }
 }
 
-module.exports = { apply, ALLOWED, LABEL };
+/**
+ * Puts the Spot's derived `next_due_at` on [record], ready for the write that is
+ * about to happen.
+ *
+ * The phase decides whether a Spot has a due date at all — a paused, closed or
+ * prospecting one has none, an active one has the minimum over its nests and
+ * open follow-ups — so every transition has to re-derive it. This computes
+ * nothing itself: it asks the rhythm library, which is what the visit endpoint
+ * asks too. A second implementation of the same date is a bug even while it
+ * agrees.
+ *
+ * Left out, both directions state something false. A paused Spot keeps the date
+ * it had and its row in the list reads "Pausiert · fällig am 3. August" — two
+ * statements that cannot both be true. A Spot activated out of an Erkundung has
+ * no date at all, so it sits there as "Im Rhythmus" with nothing behind it and
+ * never becomes due.
+ *
+ * Call BEFORE `e.next()`, so the field rides along on the one save. After it the
+ * reply is already on the wire: a record mutated then, or saved a second time,
+ * answers the client with the value it just replaced — measured, and it is what
+ * this function used to do.
+ */
+function setDue(app, record) {
+  record.set(
+    "next_due_at",
+    require(`${__hooks}/app_rhythm.js`).spotDueFor(app, record),
+  );
+}
+
+module.exports = { apply, setDue, ALLOWED, LABEL };
