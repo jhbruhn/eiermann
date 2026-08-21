@@ -8,6 +8,7 @@ import 'package:eiermann/features/spots/spots_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/router.dart';
 import 'package:eiermann/ui/app_map.dart';
+import 'package:eiermann/ui/device_location.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -37,6 +38,26 @@ class SpotsMapScreen extends ConsumerStatefulWidget {
 
 class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
   final _map = MapController();
+  final _searchController = TextEditingController();
+  Timer? _searchTimer;
+
+  /// The term the map is currently reading for — the DEBOUNCED one, never the
+  /// field's live text. See [kSpotSearchDebounce]: one keystroke is one query.
+  String _query = '';
+
+  /// Show only this rank, or all of them.
+  ///
+  /// Screen state and deliberately not a route parameter, unlike the list's
+  /// rank (`Routes.spotsByUrgency`). That one is in the URL because a dashboard
+  /// tile links to it; nothing links to a filtered map, and a camera position
+  /// is not in the URL either — so a location that claimed to describe this
+  /// screen would describe half of it.
+  SpotUrgency? _rank;
+
+  /// Where the reader is, once they asked. Null until then: a map that showed a
+  /// position nobody asked for would be tracking somebody.
+  LocationFix? _me;
+  bool _locating = false;
 
   /// The camera's current zoom, so the clustering can follow it.
   ///
@@ -47,6 +68,8 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
+    _searchController.dispose();
     _map.dispose();
     super.dispose();
   }
@@ -59,30 +82,269 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
     if (zoom.round() != _zoom.round()) setState(() => _zoom = zoom);
   }
 
+  void _onSearchChanged(String text) {
+    _searchTimer?.cancel();
+    _searchTimer = Timer(kSpotSearchDebounce, () {
+      if (mounted) setState(() => _query = text);
+    });
+  }
+
+  /// Puts the camera where the reader is.
+  ///
+  /// Moves the camera and drops a marker rather than filtering the pins to a
+  /// radius: "in meiner Nähe" is answered by SEEING which buildings are around
+  /// you, and a radius filter would hide the one 300 metres away that is the
+  /// actual reason to walk. It also has an honest failure — a refused
+  /// permission leaves every pin where it was.
+  Future<void> _locateMe() async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _locating = true);
+    try {
+      final fix = await ref.read(deviceLocationProvider).current();
+      if (!mounted) return;
+      setState(() => _me = fix);
+      // After the setState, so the marker exists by the time the camera
+      // arrives — moving first draws a jump to an empty patch of map.
+      _map.move(LatLng(fix.lat, fix.lon), kMapPinnedZoom - 3);
+    } on LocationUnavailable catch (refusal) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(_locationMessage(l10n, refusal.reason))),
+      );
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final pins = ref.watch(allSpotsProvider);
+    final pins = ref.watch(spotsMatchingProvider(_query));
+    // The rows already known, which during a search is the PREVIOUS result:
+    // the chips are built from these, so they do not flicker away between
+    // keystrokes. The map itself waits for the answer (below), exactly as the
+    // list does.
+    final known = pins.value ?? const <SpotOverview>[];
+    final visible = known.where(_matchesRank).toList();
+    // "No building here" is only true when nothing is narrowing the view. With
+    // a search or a chip on, an empty answer means the FILTER found nothing —
+    // and calling an org full of buildings empty is the one thing this screen
+    // must not do.
+    final unnarrowed = _query.trim().isEmpty && _rank == null;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.spotsMapTitle),
         actions: const [SignOutAction()],
       ),
-      body: AsyncValueView(
-        value: pins,
-        onRetry: () => ref.invalidate(allSpotsProvider),
-        data: (rows) => _Map(
-          rows: rows,
-          controller: _map,
-          zoom: _zoom,
-          onMapEvent: _onMapEvent,
-        ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: AsyncValueView(
+              value: pins,
+              onRetry: () => ref.invalidate(spotsMatchingProvider(_query)),
+              data: (rows) => _Map(
+                rows: rows.where(_matchesRank).toList(),
+                me: _me,
+                controller: _map,
+                zoom: _zoom,
+                onMapEvent: _onMapEvent,
+              ),
+            ),
+          ),
+          // The controls sit ABOVE the map's own async state, not inside it:
+          // rebuilt through the loading view, the search field would lose focus
+          // on every request and the reader could type one term at a time.
+          Positioned(
+            top: ZugvogelSpacing.sm,
+            left: ZugvogelSpacing.sm,
+            right: ZugvogelSpacing.sm,
+            child: _Controls(
+              controller: _searchController,
+              onSearchChanged: _onSearchChanged,
+              counts: countByUrgency(known),
+              rank: _rank,
+              onRank: (rank) => setState(() => _rank = rank),
+              notice: _notice(l10n, known: known, visible: visible),
+            ),
+          ),
+          if (pins.hasValue && known.isEmpty && unnarrowed)
+            Center(
+              child: Card(
+                margin: const EdgeInsets.all(ZugvogelSpacing.lg),
+                child: Padding(
+                  padding: const EdgeInsets.all(ZugvogelSpacing.md),
+                  child: Text(l10n.spotsEmptyTitle),
+                ),
+              ),
+            ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showSpotSheet(context),
-        icon: const Icon(Icons.add),
-        label: Text(l10n.spotsEmptyAction),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'locate',
+            onPressed: _locating ? null : () => unawaited(_locateMe()),
+            tooltip: l10n.spotsMapNearMeAction,
+            child: _locating
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.my_location),
+          ),
+          const SizedBox(height: ZugvogelSpacing.sm),
+          FloatingActionButton.extended(
+            heroTag: 'add',
+            onPressed: () => showSpotSheet(context),
+            icon: const Icon(Icons.add),
+            label: Text(l10n.spotsEmptyAction),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _matchesRank(SpotOverview row) => _rank == null || row.level == _rank;
+
+  /// What the map cannot show, in the order that answers the reader's question.
+  ///
+  /// The order is the point. An empty map has three different causes and only
+  /// one of them is "there is nothing here": the chip narrowed it away, the
+  /// search did, or the buildings that match have no pin. Each says so itself:
+  /// a map that went quiet would read as a complete picture of the work.
+  String? _notice(
+    AppLocalizations l10n, {
+    required List<SpotOverview> known,
+    required List<SpotOverview> visible,
+  }) {
+    // The chip emptied it: rows came back, none of them at the selected rank.
+    if (visible.isEmpty && known.isNotEmpty) return l10n.spotsFilterEmpty;
+    // The search did: the server matched nothing at all.
+    if (visible.isEmpty && _query.trim().isEmpty) return null;
+    if (visible.isEmpty) return l10n.spotsNoMatches;
+    final unpinned = visible.where((row) => row.geo == null).length;
+    // Named, not hidden. Four buildings quietly missing from a map is a map
+    // that lies about how much work there is.
+    return unpinned > 0 ? l10n.spotsMapUnpinned(unpinned) : null;
+  }
+
+  /// The sentence for a refusal. Each case offers a different next move, which
+  /// is the whole reason [LocationRefusal] has cases at all.
+  String _locationMessage(AppLocalizations l10n, LocationRefusal reason) =>
+      switch (reason) {
+        LocationRefusal.serviceOff => l10n.spotsMapLocationServiceOff,
+        LocationRefusal.denied => l10n.spotsMapLocationDenied,
+        LocationRefusal.deniedForever => l10n.spotsMapLocationBlocked,
+        LocationRefusal.unavailable => l10n.spotsMapLocationUnavailable,
+      };
+}
+
+/// The map's controls: a search field, the rank chips, and what is not drawn.
+///
+/// One card over the map rather than an app-bar row, because both controls act
+/// on what is UNDER them and the connection has to be visible. It is also the
+/// only place a phone has room for seven chips.
+class _Controls extends StatelessWidget {
+  const _Controls({
+    required this.controller,
+    required this.onSearchChanged,
+    required this.counts,
+    required this.rank,
+    required this.onRank,
+    this.notice,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onSearchChanged;
+
+  /// How many Spots sit at each rank, over the searched rows — so a chip's
+  /// number always describes the set the map is drawing from.
+  final Map<SpotUrgency, int> counts;
+
+  final SpotUrgency? rank;
+  final ValueChanged<SpotUrgency?> onRank;
+
+  /// What the map cannot show: unpinned buildings, or nothing matching.
+  final String? notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(ZugvogelSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: controller,
+              onChanged: onSearchChanged,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: l10n.spotsSearchHint,
+                isDense: true,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            if (counts.isNotEmpty) ...[
+              const SizedBox(height: ZugvogelSpacing.sm),
+              // Horizontally scrollable: there are seven ranks, and wrapping
+              // them onto three lines would put the map behind the controls on
+              // a phone.
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    // Ranks in their own order, most urgent first — the order
+                    // the list sorts by, so the two screens read the same way.
+                    for (final level in SpotUrgency.values)
+                      // A chip exists for a rank that has rows — and for the
+                      // SELECTED one even when it has none. Dropping it would
+                      // take away the only way to switch it off: a search that
+                      // matched nothing at that rank would leave the map
+                      // filtered by a chip that is no longer on screen.
+                      if (counts[level] ?? (rank == level ? 0 : null)
+                          case final count?) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            right: ZugvogelSpacing.xs,
+                          ),
+                          child: FilterChip(
+                            selected: rank == level,
+                            avatar: Icon(
+                              spotUrgencyIcon(level),
+                              size: 18,
+                              color: spotUrgencyColor(context, level),
+                            ),
+                            // The count is on the chip, so the filter says how
+                            // much work it is about to show before it is
+                            // tapped.
+                            label: Text(
+                              '${spotUrgencyLabel(l10n, level)} · $count',
+                            ),
+                            // Tapping the selected chip clears it. One gesture
+                            // for both directions; the reader does not have to
+                            // find a separate "all" chip.
+                            onSelected: (selected) =>
+                                onRank(selected ? level : null),
+                          ),
+                        ),
+                      ],
+                  ],
+                ),
+              ),
+            ],
+            if (notice case final line?) ...[
+              const SizedBox(height: ZugvogelSpacing.xs),
+              Text(line, style: theme.textTheme.bodySmall),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -91,86 +353,69 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
 class _Map extends StatelessWidget {
   const _Map({
     required this.rows,
+    required this.me,
     required this.controller,
     required this.zoom,
     required this.onMapEvent,
   });
 
+  /// The rows the map draws: searched on the server, then narrowed to the
+  /// selected rank here. The rank is filtered locally on purpose — it is the
+  /// value the view already computed and the pin is already coloured by, so a
+  /// second query for it could only disagree with the colour on screen. The
+  /// search is the other way round: the columns a term is tried against exist
+  /// only in the view's filter, so re-implementing that match in Dart would be
+  /// the second definition.
   final List<SpotOverview> rows;
+
+  /// Where the reader is, if they asked.
+  final LocationFix? me;
+
   final MapController controller;
   final double zoom;
   final void Function(MapEvent) onMapEvent;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    // A Spot with no pin is not drawable, and silently dropping it would make
-    // the map look complete when it is not. The count is stated instead.
+    // A Spot with no pin is not drawable. The count is stated by the controls
+    // above rather than dropped in silence.
     final pinned = rows.where((row) => row.geo != null).toList();
-    final unpinned = rows.length - pinned.length;
     final points = pinned.map((row) => LatLng(row.geo!.lat, row.geo!.lon));
     final bounds = points.isEmpty
         ? null
         : LatLngBounds.fromPoints(points.toList());
 
-    return Stack(
-      children: [
-        FlutterMap(
-          mapController: controller,
-          // NOT keyed on the data. `initialCameraFit` applies once per State,
-          // so re-keying on every refresh would yank the camera back to the
-          // whole city each time somebody added a contact — while never
-          // re-framing is exactly right: a reader who panned to a district
-          // stays there.
-          options: MapOptions(
-            initialCameraFit: bounds == null ? null : appCameraFit(bounds),
-            // What the tile layer loads on mount, before the fit applies. Over
-            // the pins and on a whole zoom level, so those requests are not
-            // spent on the wrong part of the country.
-            initialCenter: bounds?.center ?? kMapFallbackCentre,
-            initialZoom: bounds == null ? kMapFallbackZoom : kMapPinnedZoom - 2,
-            maxZoom: kMapMaxZoom,
-            interactionOptions: const InteractionOptions(
-              flags: MapWheelZoom.flags,
-            ),
-            onMapEvent: onMapEvent,
-          ),
-          children: [
-            const AppMapTileLayer(),
-            const MapWheelZoom(),
-            MarkerLayer(markers: _markers(context)),
-            const MapAttribution(),
-          ],
+    return FlutterMap(
+      mapController: controller,
+      // NOT keyed on the data. `initialCameraFit` applies once per State, so
+      // re-keying on every refresh would yank the camera back to the whole city
+      // each time somebody added a contact — or each time a filter chip was
+      // tapped, which is the worse one: the reader loses the district they
+      // panned to for asking a question about it.
+      options: MapOptions(
+        initialCameraFit: bounds == null ? null : appCameraFit(bounds),
+        // What the tile layer loads on mount, before the fit applies. Over the
+        // pins and on a whole zoom level, so those requests are not spent on
+        // the wrong part of the country.
+        initialCenter: bounds?.center ?? kMapFallbackCentre,
+        initialZoom: bounds == null ? kMapFallbackZoom : kMapPinnedZoom - 2,
+        maxZoom: kMapMaxZoom,
+        interactionOptions: const InteractionOptions(
+          flags: MapWheelZoom.flags,
         ),
-        if (rows.isEmpty)
-          Center(
-            child: Card(
-              margin: const EdgeInsets.all(ZugvogelSpacing.lg),
-              child: Padding(
-                padding: const EdgeInsets.all(ZugvogelSpacing.md),
-                child: Text(l10n.spotsEmptyTitle),
-              ),
-            ),
-          )
-        else if (unpinned > 0)
-          Positioned(
-            top: ZugvogelSpacing.sm,
-            left: ZugvogelSpacing.sm,
-            right: ZugvogelSpacing.sm,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(ZugvogelSpacing.md),
-                // Named, not hidden. A map that quietly omits four buildings
-                // reads as a complete picture of the group's work.
-                child: Text(l10n.spotsMapUnpinned(unpinned)),
-              ),
-            ),
-          ),
+        onMapEvent: onMapEvent,
+      ),
+      children: [
+        const AppMapTileLayer(),
+        const MapWheelZoom(),
+        MarkerLayer(markers: _markers(context)),
+        const MapAttribution(),
       ],
     );
   }
 
-  /// One marker per cluster, which for most of the map is one marker per Spot.
+  /// One marker per cluster, which for most of the map is one marker per Spot,
+  /// plus the reader's own position when they asked for it.
   List<Marker> _markers(BuildContext context) {
     return [
       for (final cluster in _clusters(rows, zoom))
@@ -185,7 +430,36 @@ class _Map extends StatelessWidget {
               ? _SpotPin(cluster.rows.single)
               : _ClusterPin(cluster),
         ),
+      if (me case final fix?)
+        Marker(
+          point: LatLng(fix.lat, fix.lon),
+          width: 28,
+          height: 28,
+          // A dot, not a pin: it marks a point rather than a building, and the
+          // difference is what keeps somebody from reading their own position
+          // as a Spot nobody has recorded yet.
+          child: _MeDot(),
+        ),
     ];
+  }
+}
+
+/// Where the reader is: a dot, with a ring so it survives a dark aerial tile.
+class _MeDot extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: context.l10n.spotsMapYouAreHere,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.primary,
+          shape: BoxShape.circle,
+          border: Border.all(color: colors.surface, width: 3),
+          boxShadow: const [BoxShadow(blurRadius: 3)],
+        ),
+      ),
+    );
   }
 }
 

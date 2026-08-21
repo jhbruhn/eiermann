@@ -11,10 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
-/// How long the search field waits for the typing to stop before asking the
-/// server. The search is a query, not a pass over a local list.
-const _searchDebounce = Duration(milliseconds: 300);
-
 /// The Spot list — every building, most urgent first.
 ///
 /// Reads `spot_overview` and ONLY that: one query per page, never one per row.
@@ -58,7 +54,7 @@ class _SpotsListState extends ConsumerState<SpotsList> {
 
   void _onSearchChanged(String text) {
     _searchTimer?.cancel();
-    _searchTimer = Timer(_searchDebounce, () {
+    _searchTimer = Timer(kSpotSearchDebounce, () {
       if (mounted) setState(() => _query = text);
     });
   }

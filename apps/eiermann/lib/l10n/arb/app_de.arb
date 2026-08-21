@@ -579,6 +579,27 @@
       }
     }
   },
+  "spotsMapNearMeAction": "In meiner Nähe",
+  "@spotsMapNearMeAction": {
+    "description": "Moves the camera to the reader's position and marks it. It does NOT filter the pins to a radius: seeing which buildings are around you is the answer, and a radius would hide the one 300 m away that is the reason to walk."
+  },
+  "spotsMapYouAreHere": "Dein Standort",
+  "spotsMapLocationServiceOff": "Die Ortung ist auf diesem Gerät ausgeschaltet.",
+  "@spotsMapLocationServiceOff": {
+    "description": "Location services are off device-wide. Granting the permission would change nothing, so this case is named separately from a refusal."
+  },
+  "spotsMapLocationDenied": "Ohne Standortfreigabe kann die Karte nicht zu dir springen. Du findest ein Gebäude auch über die Suche.",
+  "@spotsMapLocationDenied": {
+    "description": "Refused for this request. Says the way that still works, because the map is usable without a position — this is a convenience, not a gate."
+  },
+  "spotsMapLocationBlocked": "Der Standortzugriff ist für diese App blockiert. Das lässt sich nur in den Systemeinstellungen ändern.",
+  "@spotsMapLocationBlocked": {
+    "description": "Denied permanently — Android's 'don't ask again', or a blocked site permission on the web. Asking again is not the offer to make; naming where it can be changed is."
+  },
+  "spotsMapLocationUnavailable": "Kein Standort gefunden. In einem Treppenhaus oder Dachboden kommt oft keiner an — draußen erneut versuchen.",
+  "@spotsMapLocationUnavailable": {
+    "description": "Permitted and no fix arrived. Names the most likely reason, because this app is used exactly where GPS does not reach."
+  },
   "spotAddressAsLabel": "Aus dem Pin ausgefüllt, soweit die Karte etwas wusste — nur leere Felder. Was du selbst schreibst, bleibt stehen: ein Lichtschacht zwischen zwei Blöcken hat keine eigene Adresse, und „Ecke Bahnhofstraße / Am Wall\" ist dort besser als die Hausnummer des Nachbarn.",
   "@spotAddressAsLabel": {
     "description": "States both halves of the fill rule. Filling saves retyping in the ordinary case; not overwriting is what keeps the form honest for a Spot that has no address of its own."

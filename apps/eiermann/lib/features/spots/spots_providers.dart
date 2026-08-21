@@ -7,6 +7,16 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'spots_providers.g.dart';
 
+/// How long a search field waits for the typing to stop before asking the
+/// server.
+///
+/// One constant for both screens that search: the list and the map run the
+/// SAME query (`spot_overview`'s own search filter), so two debounce values
+/// would be two different answers to "has the reader stopped typing" for one
+/// question. 300 ms is the usual floor at which a fast typist stops generating
+/// a request per keystroke without the field feeling laggy.
+const kSpotSearchDebounce = Duration(milliseconds: 300);
+
 /// What the Spot list currently shows for one search term.
 @immutable
 class SpotFeedState {
@@ -144,6 +154,26 @@ Future<List<SpotOverview>> allSpots(Ref ref) async {
   return repo.search('');
 }
 
+/// Every Spot matching [search], unpaged — the map's read.
+///
+/// Unpaged for the same reason [allSpots] is: the map draws all of them, and a
+/// search that returned only the first page would hide a pin the reader is
+/// looking straight at.
+///
+/// The empty query delegates to [allSpots] rather than repeating its request,
+/// so opening the map after the dashboard still costs nothing — and the two
+/// screens cannot disagree about what "everything" is. A non-empty query is its
+/// own read because the matching itself is the server's: the columns a term is
+/// tried against live in `spot_overview`'s search filter, and a Dart
+/// reimplementation would be a second definition of "matches" that drifts from
+/// the list's.
+@riverpod
+Future<List<SpotOverview>> spotsMatching(Ref ref, String search) async {
+  if (search.trim().isEmpty) return ref.watch(allSpotsProvider.future);
+  final repo = await ref.watch(spotOverviewRepositoryProvider.future);
+  return repo.search(search);
+}
+
 /// How many Spots sit at each urgency rank.
 ///
 /// A pure count over rows already loaded, not a query per tile: three
@@ -179,5 +209,10 @@ Map<SpotUrgency, int> countByUrgency(List<SpotOverview> rows) {
 void invalidateSpotViews(WidgetRef ref) {
   ref
     ..invalidate(spotFeedProvider)
-    ..invalidate(allSpotsProvider);
+    ..invalidate(allSpotsProvider)
+    // The whole family: a reader who searched on the map is looking at
+    // `spotsMatching('bahnhof')`, and refreshing only the unfiltered read would
+    // leave the Spot they just created off the screen it was created from —
+    // which is the exact bug this function was written for.
+    ..invalidate(spotsMatchingProvider);
 }

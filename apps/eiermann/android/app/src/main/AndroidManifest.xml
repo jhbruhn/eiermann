@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- "In meiner Nähe" on the map: the camera jumps to the reader's position
+         so they can see which buildings are around them. COARSE as well as
+         FINE, and both are optional at runtime — the map works without a
+         position, and the button says which refusal it hit rather than
+         insisting. Declared here because a runtime request for an undeclared
+         permission is refused by Android without a dialog, which would look
+         exactly like a user who said no. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="eiermann"
         android:name="${applicationName}"
