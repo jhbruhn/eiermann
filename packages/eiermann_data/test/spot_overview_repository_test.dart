@@ -214,6 +214,54 @@ void main() {
       expect(filter, contains(' && '));
     });
 
+    test('one urgency rank is bound as a NUMBER too', () async {
+      // Same trap as the keyset, and the tile on the dashboard is where it
+      // would show: `urgency = '0'` compares TEXT against the INTEGER the view
+      // computed, matches nothing, and the filtered list comes back empty while
+      // the tile beside it counts three.
+      stubList((_) => ResultList(items: [row('s1', urgency: 0, name: 'A')]));
+
+      await repo.dueFirst(urgency: 0);
+
+      final filter = capturedFilter()!;
+      expect(filter, contains('urgency = 0'));
+      expect(filter, isNot(contains("urgency = '0'")));
+    });
+
+    test(
+      'a rank, a search term and a cursor combine into one filter',
+      () async {
+        stubList(
+          (_) => ResultList(
+            items: [
+              row('s1', urgency: 0, name: 'Alt'),
+              row('s2', urgency: 0, name: 'Bahn'),
+            ],
+          ),
+        );
+        final first = await repo.dueFirst(
+          query: 'bahn',
+          urgency: 0,
+          perPage: 2,
+        );
+
+        await repo.dueFirst(
+          query: 'bahn',
+          urgency: 0,
+          after: first.cursor,
+          perPage: 2,
+        );
+
+        final filter = capturedFilter()!;
+        expect(filter, contains("name ~ 'bahn'"));
+        expect(filter, contains('urgency = 0'));
+        // The resume predicate is still there: a filtered page has to page too,
+        // and a rank that swallowed the cursor would restart at the top of the
+        // rank on every scroll.
+        expect(filter, contains('urgency > 0'));
+      },
+    );
+
     test('maps every row through fromRecord', () async {
       stubList(
         (_) => ResultList(

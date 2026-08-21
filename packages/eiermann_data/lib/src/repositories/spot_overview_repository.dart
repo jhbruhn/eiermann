@@ -78,6 +78,12 @@ class SpotOverviewRepository extends PbReadOnlyRepository<SpotOverview> {
       '(urgency > {:u} || (urgency = {:u} && (name > {:n} '
       '|| (name = {:n} && id > {:i}))))';
 
+  /// One urgency rank, as an INT for the same reason the keyset binds one —
+  /// `urgency` is a computed view column, so PocketBase reports it as `json`,
+  /// SQLite gives it no affinity, and a quoted `'0'` compares as TEXT against
+  /// an INTEGER and matches nothing at all.
+  static const _urgencyExpr = 'urgency = {:lvl}';
+
   /// The columns [search] matches, in the order a reader would try them.
   static const _searchExpr =
       '(name ~ {:q} || street ~ {:q} || city ~ {:q} || postal_code ~ {:q})';
@@ -99,9 +105,14 @@ class SpotOverviewRepository extends PbReadOnlyRepository<SpotOverview> {
   /// comes back empty and the list silently ends after fifty Spots. Verified
   /// against the running server. Binding the rank as an int is the fix, and it
   /// needs a cursor that can carry one.
+  ///
+  /// [urgency] narrows the page to a single rank — what the dashboard's tiles
+  /// link into. It is a filter, not a sort: the order stays `urgency,name,id`
+  /// so one code path pages both the whole list and one rank of it.
   Future<SpotOverviewPage> dueFirst({
     SpotOverviewCursor? after,
     String query = '',
+    int? urgency,
     int perPage = 50,
   }) {
     return guard(() async {
@@ -109,7 +120,11 @@ class SpotOverviewRepository extends PbReadOnlyRepository<SpotOverview> {
         page: 1,
         perPage: perPage,
         skipTotal: true,
-        filter: _filter(query: query, after: after)?.expression,
+        filter: _filter(
+          query: query,
+          after: after,
+          urgency: urgency,
+        )?.expression,
         sort: _dueFirstSort,
       );
       final items = result.items.map(fromRecord).toList();
@@ -141,22 +156,28 @@ class SpotOverviewRepository extends PbReadOnlyRepository<SpotOverview> {
     sort: 'name',
   );
 
-  /// The bound filter for a query and an optional resume point, or null when
-  /// neither applies.
+  /// The bound filter for a query, one urgency rank and an optional resume
+  /// point, or null when none of them applies.
   ///
   /// Built through [filterExpr] with the values as params, never interpolated:
   /// [query] is whatever somebody typed into a search field, and a filter
   /// expression is a query language.
-  PbFilter? _filter({String query = '', SpotOverviewCursor? after}) {
+  PbFilter? _filter({
+    String query = '',
+    SpotOverviewCursor? after,
+    int? urgency,
+  }) {
     final trimmed = query.trim();
-    if (trimmed.isEmpty && after == null) return null;
+    if (trimmed.isEmpty && after == null && urgency == null) return null;
     return filterExpr(
       [
         if (trimmed.isNotEmpty) _searchExpr,
+        if (urgency != null) _urgencyExpr,
         if (after != null) _keysetExpr,
       ].join(' && '),
       {
         if (trimmed.isNotEmpty) 'q': trimmed,
+        'lvl': ?urgency,
         if (after != null) ...{
           'u': after.urgency,
           'n': after.name,
