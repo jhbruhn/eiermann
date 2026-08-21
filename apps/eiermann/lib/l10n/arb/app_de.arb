@@ -166,8 +166,9 @@
   },
   "spotNoteTitle": "Notiz",
   "spotDetailEditAction": "Spot bearbeiten",
-  "spotPausedUntil": "Pausiert bis {date}",
+  "spotPausedUntil": "Pause voraussichtlich bis {date}",
   "@spotPausedUntil": {
+    "description": "Deliberately not 'Pausiert bis' — until the auto-resume cron exists a human ends the pause, and afterwards the planned end is still only a plan. The word holds in both worlds.",
     "placeholders": {
       "date": {
         "type": "String"
@@ -201,5 +202,71 @@
         "type": "int"
       }
     }
+  },
+  "spotPhaseChangeAction": "Phase ändern",
+  "spotPhaseNoMoves": "Aus dieser Phase kennt diese App keinen Weg heraus — vermutlich ist der Server neuer als die App.",
+  "@spotPhaseNoMoves": {
+    "description": "Shown instead of the transition menu when the stored phase has no name in this build. Offering a guessed move would offer a refusal."
+  },
+  "spotMoveActivate": "Aktivieren",
+  "spotMoveResume": "Pause beenden",
+  "spotMoveReopen": "Wieder öffnen",
+  "spotMovePause": "Pausieren",
+  "spotMoveClose": "Abschließen",
+  "spotMoveEditPause": "Pause bearbeiten",
+  "@spotMoveEditPause": {
+    "description": "Not a transition — paused → paused. It exists so correcting a pause's reason or end date does not have to be spelled as resume-then-pause-again, which would write two phase changes nobody made."
+  },
+  "spotPauseEditTitle": "Pause bearbeiten",
+  "spotCloseReasonNone": "Kein zusätzlicher Grund",
+  "spotActivateTitle": "Spot aktivieren",
+  "spotActivateIntro": "Aktiv heißt: der Spot kommt in den Rhythmus und taucht in den Fälligkeitslisten auf.",
+  "spotActivateConsentTitle": "Es liegt eine Zusage vor",
+  "spotActivateConsentHint": "Die Erkundung steht auf „{stage}“. Mit dem Häkchen wird die Zusage festgehalten — die Erkundung springt auf „Erlaubt“.",
+  "@spotActivateConsentHint": {
+    "description": "Says out loud that ticking the box writes prospect_stage. Naming the current stage matters: the reader may have expected it to be 'Erlaubt' already.",
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "spotActivateConsentRequired": "Ohne Zusage bleibt der Spot in der Erkundung. Ein Gebäude ohne Erlaubnis zu betreten ist das eine rechtliche Risiko in dieser Arbeit.",
+  "@spotActivateConsentRequired": {
+    "description": "Refusal shown when the box is unticked. Names the stake rather than saying 'required field' — the server enforces the same rule."
+  },
+  "spotResumeTitle": "Pause beenden",
+  "spotResumeIntro": "Der Spot kommt zurück in den Rhythmus. Grund und geplantes Ende der Pause werden dabei gelöscht: sie beschreiben den aktuellen Zustand, nicht die Geschichte.",
+  "spotReopenTitle": "Spot wieder öffnen",
+  "spotReopenIntro": "Der Spot kommt zurück in den Rhythmus. Abschlussgrund und Abschlussdatum werden gelöscht.",
+  "spotReopenClosedBecause": "Abgeschlossen war er wegen: {reason}.",
+  "@spotReopenClosedBecause": {
+    "description": "Names what is about to be erased, so reopening is not a decision made blind.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "spotPauseTitle": "Spot pausieren",
+  "spotPauseIntro": "Ein pausierter Spot fällt aus allen Fälligkeitslisten heraus und hat keinen Termin mehr. Auf der Karte bleibt er.",
+  "spotPauseFieldReason": "Grund der Pause",
+  "spotPauseFieldReasonHint": "z. B. Gerüst bis Ende Oktober, Hausmeister im Urlaub",
+  "spotPauseReasonWhy": "Ein Spot, der ohne Grund still wird, ist von einem vergessenen nicht zu unterscheiden.",
+  "@spotPauseReasonWhy": {
+    "description": "Why the reason is mandatory. The server refuses a pause without one; this says why before the refusal has to."
+  },
+  "spotPauseFieldUntil": "Voraussichtlich bis",
+  "spotPauseFieldUntilPlaceholder": "Offen",
+  "spotCloseTitle": "Spot abschließen",
+  "spotCloseIntro": "Abgeschlossen heißt: keine Besuche mehr, kein Termin. Die ganze Geschichte bleibt erhalten, und auf der Karte bleibt der Spot sichtbar — anders eingefärbt.",
+  "spotCloseFieldReason": "Grund für den Abschluss",
+  "spotCloseReasonWhy": "In einem halben Jahr ist sonst nicht mehr erkennbar, ob es sich lohnt, erneut zu fragen. Vernetzt und abgelehnt sind entgegengesetzte Antworten.",
+  "@spotCloseReasonWhy": {
+    "description": "Why the closing reason is mandatory: 'closed' alone cannot answer the only question anybody asks of a closed Spot."
+  },
+  "spotCloseRefusedNote": "Die Erkundung steht auf „Abgelehnt“ — das ist der Grund. Ein zusätzlicher Abschlussgrund ist möglich, aber nicht nötig.",
+  "@spotCloseRefusedNote": {
+    "description": "The one closing that needs no reason. None of the four values describes an owner who simply said no."
   }
 }

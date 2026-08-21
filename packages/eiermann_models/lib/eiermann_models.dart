@@ -11,3 +11,4 @@ export 'src/models/organisation.dart';
 export 'src/models/spot.dart';
 export 'src/models/spot_contact.dart';
 export 'src/models/spot_overview.dart';
+export 'src/spot_transitions.dart';

@@ -92,8 +92,12 @@ function apply(record, previous) {
       // Which is fine here: the client is holding the record it just tried to
       // update, so it already knows the stage. The message only has to stand
       // alone for whoever reads the raw error.
+      // „Erlaubt" is the word the client puts on that stage
+      // (`prospectStagePermitted`). This message is now user-visible copy, so
+      // naming the stage anything else sends somebody looking through the
+      // Erkundung for a word that is not there.
       throw new BadRequestError(
-        'Ein Spot wird erst aktiv, wenn die Erkundung bei "Zusage" steht.',
+        'Ein Spot wird erst aktiv, wenn die Erkundung bei „Erlaubt" steht.',
       );
     }
   }

@@ -19,6 +19,44 @@ String spotPhaseLabel(AppLocalizations l10n, SpotPhase? phase) =>
       null => l10n.spotPhaseUnknown,
     };
 
+/// The icon beside a phase — the second, non-colour signal, and the same
+/// vocabulary the urgency ranks use so a reader learns one set of shapes.
+IconData spotPhaseIcon(SpotPhase? phase) => switch (phase) {
+  SpotPhase.prospect => Icons.forum_outlined,
+  SpotPhase.active => Icons.check_circle_outline,
+  SpotPhase.paused => Icons.pause_circle_outline,
+  SpotPhase.closed => Icons.block,
+  null => Icons.help_outline,
+};
+
+/// What the button for moving a Spot from [from] to [to] should say.
+///
+/// A verb, not a destination: "Aktivieren" reads as something to do, and
+/// "Aktiv" reads as a state that is already the case. Three of them arrive at
+/// the same phase and none of them can borrow the others' word — resuming a
+/// pause, reopening a closing and activating an Erkundung are different acts
+/// with different consequences, and the menu is where the difference has to be
+/// legible.
+String spotPhaseMoveLabel(
+  AppLocalizations l10n,
+  SpotPhase from,
+  SpotPhase to,
+) => switch ((from, to)) {
+  (SpotPhase.paused, SpotPhase.active) => l10n.spotMoveResume,
+  (SpotPhase.closed, SpotPhase.active) => l10n.spotMoveReopen,
+  (_, SpotPhase.active) => l10n.spotMoveActivate,
+  // paused → paused: not a transition, and the label says so. It exists so
+  // correcting a pause's end date is not spelled as resume-then-pause-again.
+  (SpotPhase.paused, SpotPhase.paused) => l10n.spotMoveEditPause,
+  (_, SpotPhase.paused) => l10n.spotMovePause,
+  (_, SpotPhase.closed) => l10n.spotMoveClose,
+  // Unreachable through the transition graph — nothing leads back to an
+  // Erkundung, because permission once obtained is not un-learned. Named
+  // rather than thrown: an exhaustive switch that throws turns a graph the
+  // server widened into a crash instead of a plain word.
+  (_, SpotPhase.prospect) => l10n.spotPhaseProspect,
+};
+
 String prospectStageLabel(AppLocalizations l10n, ProspectStage stage) =>
     switch (stage) {
       ProspectStage.untouched => l10n.prospectStageUntouched,

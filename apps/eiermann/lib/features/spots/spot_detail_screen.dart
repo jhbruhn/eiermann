@@ -1,5 +1,6 @@
 import 'package:eiermann/features/spots/spot_contact_sheet.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
+import 'package:eiermann/features/spots/spot_phase_chip.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -106,8 +107,11 @@ class _Header extends StatelessWidget {
     return DetailHeader(
       title: spot.name,
       subtitle: spot.addressLine,
-      chipLabel: spotPhaseLabel(l10n, spot.phase),
-      chipAlert: spot.phase == SpotPhase.closed,
+      // The phase rides in `trailing` rather than in `chipLabel`, because here
+      // it is not a badge: it is the control that changes the phase, and the
+      // built-in chip is text. Top-end, beside the name — the phase is the
+      // second thing anybody wants off this screen, after which building it is.
+      trailing: SpotPhaseChip(spot),
       footer: footnotes.isEmpty
           ? null
           : Text(

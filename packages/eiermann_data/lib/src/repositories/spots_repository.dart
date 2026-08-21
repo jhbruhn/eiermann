@@ -50,4 +50,37 @@ class SpotsRepository extends PbRepository<Spot> {
     if (prospectStage != null) 'prospect_stage': prospectStage.wire,
     'org': ?org,
   };
+
+  /// The body ONE PHASE TRANSITION sends: the phase, and the fields that
+  /// transition has to carry.
+  ///
+  /// Separate from [body] because [body] is a *form's* body — it writes
+  /// every field the form owns, empty ones included, so that clearing a
+  /// field actually clears it. Routing a phase change through it would wipe
+  /// the address off a Spot somebody only meant to pause.
+  ///
+  /// The reasons are sent as `''` rather than omitted when the target IS the
+  /// phase they belong to: re-editing a pause has to be able to remove its
+  /// planned end date, and PocketBase reads an absent key as "leave it as it
+  /// was". For any other target they are left out entirely — the lifecycle hook
+  /// clears them itself, and a client that also cleared them would be a second
+  /// copy of that rule, drifting the day one of the two changes.
+  ///
+  /// [prospectStage] belongs to one move: activating an Erkundung that has not
+  /// recorded its yes yet. The server refuses `prospect -> active` without it.
+  static Map<String, dynamic> phaseBody({
+    required SpotPhase phase,
+    String? pauseReason,
+    DateTime? pausedUntil,
+    ClosedReason? closedReason,
+    ProspectStage? prospectStage,
+  }) => {
+    'phase': phase.wire,
+    if (phase == SpotPhase.paused) ...{
+      'pause_reason': pauseReason ?? '',
+      'paused_until': pausedUntil?.toUtc().toIso8601String() ?? '',
+    },
+    if (phase == SpotPhase.closed) 'closed_reason': closedReason?.wire ?? '',
+    if (prospectStage != null) 'prospect_stage': prospectStage.wire,
+  };
 }

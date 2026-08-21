@@ -611,8 +611,10 @@ h.check(
 message = str((body or {}).get("message") or "")
 h.check(
     "the refusal message is German and self-sufficient",
-    "Zusage" in message,
-    message,
+    "Erlaubt" in message,
+    f"{message!r} — and it names the stage with the SAME word the client puts "
+    "on it, or the reader goes looking through the Erkundung for a word that "
+    "is not there",
 )
 h.check(
     "...and carries no wire value in its prose",
