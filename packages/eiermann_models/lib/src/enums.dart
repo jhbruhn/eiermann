@@ -312,6 +312,37 @@ enum VisitOutcome implements WireEnum {
   static VisitOutcome? fromWire(Object? v) => wireEnum(values, v);
 }
 
+/// Why a Besuch was skipped (`visits.skip_reason`).
+///
+/// Mandatory when the outcome is [VisitOutcome.skipped], and the reason it is
+/// mandatory is the same one that makes a pause need one: "not checked" without
+/// a cause cannot say whether anybody tried. Two of these are about the
+/// building and two about the day, and the difference is what a coordinator
+/// acts on — [noKey] and [accessBlocked] are a conversation with the
+/// Hausmeister, [nobodyThere] and [noTime] are just a return visit.
+enum SkipReason implements WireEnum {
+  /// Rang, nobody opened.
+  nobodyThere('nobody_there'),
+
+  /// The key was not where it should have been.
+  noKey('no_key'),
+
+  /// The way up was locked, blocked, walled off.
+  accessBlocked('access_blocked'),
+  noTime('no_time'),
+
+  /// Scaffolding, roofers, a building site. Often worth pausing the Spot for.
+  construction('construction'),
+  other('other');
+
+  const SkipReason(this.wire);
+
+  @override
+  final String wire;
+
+  static SkipReason? fromWire(Object? v) => wireEnum(values, v);
+}
+
 /// Why a Nachkontrolle exists (`follow_ups.reason`).
 enum FollowUpReason implements WireEnum {
   /// A Halbgelege — the automatic one.

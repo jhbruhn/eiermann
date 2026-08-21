@@ -1896,6 +1896,88 @@ h.check(
     "direction the rhythm must never drift",
 )
 
+# The Ist-Gelege is derived state, so a check that says "nothing in there" has
+# to leave nothing in there. Without this the dossier reads "1 Kunstei" for a
+# nest somebody just recorded as empty, and the packing count tells the next
+# volunteer to bring nothing.
+#
+# On the nests this section already built rather than on fresh ones: the factory
+# rate limit is 20 creates per 5 seconds (zv_rate_limits.js), and a suite that
+# spends them on fixtures it does not need fails later, elsewhere, as a 429 that
+# reads like a broken rule.
+
+
+def egg_kinds(nest_id):
+    _, eggs = h.req(
+        "GET",
+        f"/api/collections/nest_eggs/records?filter=nest='{nest_id}'"
+        "&sort=slot_index&perPage=200",
+        member_token,
+    )
+    return [e["kind"] for e in (eggs or {}).get("items") or []]
+
+
+h.check(
+    "the swap left a dummy in the nest to begin with",
+    egg_kinds(ladder_nest["id"]) == ["dummy"],
+    f"{egg_kinds(ladder_nest['id'])} — the rest of this block means nothing "
+    "without something in there to clear",
+)
+
+# The two states that must NOT clear it. `untouched` is the one a screen would
+# notice; `not_reachable` is the observation-versus-non-observation rule the
+# ladder follows as well — deleting the contents of a nest nobody looked into is
+# the same mistake as advancing the interval on it.
+for state in ("untouched", "not_reachable"):
+    status, _ = post_visit(
+        member_token,
+        {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+         "checks": [{"nest": ladder_nest["id"], "state": state}]},
+    )
+    h.check(
+        f"a {state} check leaves the Ist-Gelege alone",
+        status == 200 and egg_kinds(ladder_nest["id"]) == ["dummy"],
+        f"status {status}, eggs {egg_kinds(ladder_nest['id'])}",
+    )
+
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "checks": [{"nest": ladder_nest["id"], "state": "empty"}]},
+)
+h.check("an empty check is accepted", status == 200, f"status {status}")
+h.check(
+    "an EMPTY check clears the Ist-Gelege",
+    egg_kinds(ladder_nest["id"]) == [],
+    f"{egg_kinds(ladder_nest['id'])} — 'nothing in the nest' and 'one Kunstei "
+    "in the nest' cannot both be true; that count feeds the dossier line AND "
+    "the Attrappen somebody packs",
+)
+
+# `gone` too: there is nowhere left for an egg to be.
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "checks": [{"nest": unreached["id"], "state": "swapped", "real_before": 1,
+                 "dummy_before": 0, "removed_real": 1, "added_dummy": 1}]},
+)
+h.check(
+    "a swap fills the nest that is about to disappear",
+    status == 200 and egg_kinds(unreached["id"]) == ["dummy"],
+    f"status {status}, eggs {egg_kinds(unreached['id'])}",
+)
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "checks": [{"nest": unreached["id"], "state": "gone"}]},
+)
+h.check("a gone check is accepted", status == 200, f"status {status}")
+h.check(
+    "...and it clears the Ist-Gelege with the nest",
+    egg_kinds(unreached["id"]) == [],
+    str(egg_kinds(unreached["id"])),
+)
+
 # A later check on the nest settles the Nachkontrolle — not time passing.
 status, _ = post_visit(
     member_token,

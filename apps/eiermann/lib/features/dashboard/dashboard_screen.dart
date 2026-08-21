@@ -2,6 +2,7 @@ import 'package:eiermann/features/home/sign_out_action.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
+import 'package:eiermann/features/visits/visits_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/router.dart';
 import 'package:eiermann_models/eiermann_models.dart';
@@ -18,11 +19,15 @@ import 'package:zugvogel_ui/zugvogel_ui.dart';
 /// promised destination that turns out to be an empty list is worse than a
 /// number that plainly reports nothing to do.
 ///
-/// The blocks the concept asks for at the very top — open Halbgelege first —
-/// need nests to be due and arrive with Phase 04 (eiermann-jbk). These four
-/// ranks are what `spot_overview` can answer today, and they answer it without
-/// a single query of their own: the counts are a pass over the same unpaged
-/// read the map draws its pins from.
+/// **Open Halbgelege sit above every count**, and that is the concept's
+/// ordering, not a layout preference: out of a half clutch a chick hatches in
+/// days, so it is the one deadline here that a week's delay ruins. A number
+/// counting them among the others would put a four-day window next to a
+/// four-week one and let the reader sort it out.
+///
+/// The four counts below it come from `spot_overview` without a query of their
+/// own — they are a pass over the same unpaged read the map draws its pins
+/// from. The Halbgelege block is the one extra read on this screen.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -89,6 +94,8 @@ class _Tiles extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(ZugvogelSpacing.md),
         children: [
+          const ContentBounds(child: _HalfClutchBlock()),
+          const SizedBox(height: ZugvogelSpacing.md),
           ContentBounds(
             child: KpiGrid([
               for (final rank in DashboardScreen._ranks)
@@ -120,6 +127,110 @@ class _Tiles extends ConsumerWidget {
                   ? Routes.prospects
                   : Routes.spotsByUrgency(rank),
             ),
+    );
+  }
+}
+
+/// The open Nachkontrollen, earliest first — the top of the dashboard.
+///
+/// Rows and not a count, deliberately. A number would be one more tile to
+/// compare; what somebody needs is WHICH nest in WHICH building, because that
+/// is a decision about today's route. Each row leads to the dossier, so the
+/// block is never a dead end.
+///
+/// A failed read renders as nothing rather than as an error banner: this block
+/// sits above the counts, and a server hiccup must not push the whole dashboard
+/// off the screen. The counts below carry their own error state.
+class _HalfClutchBlock extends ConsumerWidget {
+  const _HalfClutchBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final rows = ref.watch(openFollowUpsProvider).value;
+    // Nothing open is worth saying out loud once the block exists — an absent
+    // block would read as "not loaded".
+    if (rows == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const IconChip(Icons.hourglass_bottom),
+            const SizedBox(width: ZugvogelSpacing.md),
+            Expanded(
+              child: Text(
+                l10n.dashboardHalfClutchTitle,
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: ZugvogelSpacing.sm),
+        if (rows.isEmpty)
+          Text(
+            l10n.dashboardHalfClutchEmpty,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          for (final followUp in rows) _FollowUpTile(followUp),
+      ],
+    );
+  }
+}
+
+/// One open Nachkontrolle: which nest, which building, and how late.
+class _FollowUpTile extends StatelessWidget {
+  const _FollowUpTile(this.followUp);
+
+  final FollowUp followUp;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final materialL10n = MaterialLocalizations.of(context);
+    final overdue = followUp.isOverdue(DateTime.now());
+    final due = followUp.dueAt;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      // Colour AND shape: an overdue return is the loudest thing on this
+      // screen, and colour alone says nothing to a colour-blind reader.
+      leading: Icon(
+        overdue ? Icons.priority_high : Icons.hourglass_bottom,
+        color: overdue ? context.zvColors.critical : context.zvColors.warning,
+      ),
+      title: Text(
+        // The building first: it is what decides whether this fits today's
+        // route. The nest is the second half of the same line.
+        [
+          ?followUp.spotName,
+          if (followUp.nestLabel case final label?)
+            l10n.dashboardFollowUpNest(label),
+        ].join(' · '),
+        style: theme.textTheme.titleSmall,
+      ),
+      subtitle: Text(
+        due == null
+            ? l10n.dueExplainFollowUpNoNest
+            : overdue
+            ? l10n.dashboardFollowUpOverdue(
+                formatLocalDate(materialL10n, due),
+              )
+            : l10n.dashboardFollowUpDue(formatLocalDate(materialL10n, due)),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: overdue ? context.zvColors.critical : null,
+          fontWeight: overdue ? FontWeight.bold : null,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => context.push(Routes.spotDetail(followUp.spot)),
     );
   }
 }

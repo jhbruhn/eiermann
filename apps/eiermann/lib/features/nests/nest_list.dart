@@ -2,6 +2,7 @@ import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/nests/nest_labels.dart';
 import 'package:eiermann/features/nests/nest_sheet.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
+import 'package:eiermann/features/rhythm/due_explanation.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
@@ -98,6 +99,18 @@ class NestLine extends ConsumerWidget {
     final age = nest.ageInDays(DateTime.now());
     final repo = ref.watch(nestStateRepositoryProvider).value;
     final photo = nest.photo;
+    // The date and the sentence that explains it, on one line under the
+    // clutch. The sentence is built in the CLIENT from `empty_streak` and
+    // `interval_days` — the server does not know which language the reader
+    // speaks — and it is what turns a date people override into a decision
+    // they can argue with.
+    final due = nest.nextDueAt;
+    final why = nestDueExplanation(l10n, nest);
+    final rhythm = [
+      if (due != null)
+        l10n.spotDueOn(formatLocalDate(MaterialLocalizations.of(context), due)),
+      ?why,
+    ].join(' · ');
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -122,12 +135,25 @@ class NestLine extends ConsumerWidget {
           ],
         ],
       ),
-      subtitle: Text(
-        content,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: nest.isProtected ? context.zvColors.critical : null,
-          fontWeight: nest.isProtected ? FontWeight.bold : null,
-        ),
+      isThreeLine: rhythm.isNotEmpty,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            content,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: nest.isProtected ? context.zvColors.critical : null,
+              fontWeight: nest.isProtected ? FontWeight.bold : null,
+            ),
+          ),
+          if (rhythm.isNotEmpty)
+            Text(
+              rhythm,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+        ],
       ),
       // The age is the second number the decision turns on, so it sits at the
       // end of the line where the eye lands last — and says so in words rather

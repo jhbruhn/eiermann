@@ -18,12 +18,15 @@ class _MockAreas extends Mock implements AreasRepository {}
 
 class _MockNestStates extends Mock implements NestStateRepository {}
 
+class _MockFollowUps extends Mock implements FollowUpsRepository {}
+
 void main() {
   late AppLocalizations de;
   late _MockSpots spots;
   late _MockContacts contacts;
   late _MockAreas areas;
   late _MockNestStates nestStates;
+  late _MockFollowUps followUps;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -35,7 +38,9 @@ void main() {
     contacts = _MockContacts();
     areas = _MockAreas();
     nestStates = _MockNestStates();
+    followUps = _MockFollowUps();
     when(() => nestStates.forSpot(any())).thenAnswer((_) async => []);
+    when(() => followUps.openForSpot(any())).thenAnswer((_) async => []);
     // The dossier reads the Bereiche now. Empty by default: what the Bereich
     // block itself does has its own test file.
     when(() => areas.forSpot(any())).thenAnswer((_) async => []);
@@ -62,6 +67,26 @@ void main() {
     isPrimary: true,
   );
 
+  /// A nest of this building, for the blocks that read the clutch.
+  NestState nestRow({
+    String id = 'n1',
+    String label = 'N1',
+    int real = 0,
+    int dummy = 0,
+    int? interval,
+    int? streak,
+  }) => NestState(
+    id: id,
+    label: label,
+    area: 'a1',
+    urgency: 3,
+    spot: 's1',
+    realCount: real,
+    dummyCount: dummy,
+    intervalDays: interval,
+    emptyStreak: streak,
+  );
+
   Future<void> pumpDetail(
     WidgetTester tester, {
     Spot record = spot,
@@ -82,6 +107,7 @@ void main() {
         spotContactsRepositoryProvider.overrideWith((ref) async => contacts),
         areasRepositoryProvider.overrideWith((ref) async => areas),
         nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
+        followUpsRepositoryProvider.overrideWith((ref) async => followUps),
         currentUserProvider.overrideWith(
           (ref) async => const AppUser(
             id: 'u1',
@@ -222,6 +248,95 @@ void main() {
       await pumpDetail(tester);
 
       expect(find.textContaining(de.spotPinMissing), findsOneWidget);
+    });
+  });
+
+  group('the visit', () {
+    testWidgets('both outcomes are offered as equal-rank buttons', (
+      tester,
+    ) async {
+      // "Nicht geprüft" is not an error path: somebody stood in front of the
+      // building and did not get in, and that is a fact about the building.
+      // Giving it a lesser control teaches people to leave instead.
+      await pumpDetail(tester);
+
+      expect(find.text(de.visitStartAction), findsOneWidget);
+      expect(find.text(de.visitSkipAction), findsOneWidget);
+    });
+
+    testWidgets('an Erkundung is not offered a visit at all', (tester) async {
+      // It needs a conversation, not a round — and putting a visit funnel on it
+      // would make the wrong action the most prominent one on the screen.
+      await pumpDetail(
+        tester,
+        record: spot.copyWith(
+          phase: SpotPhase.prospect,
+          prospectStage: ProspectStage.ownerSpoken,
+        ),
+      );
+
+      expect(find.text(de.visitStartAction), findsNothing);
+      expect(find.text(de.visitSkipAction), findsNothing);
+    });
+
+    testWidgets('a PAUSED Spot keeps them — that is how a pause ends', (
+      tester,
+    ) async {
+      // Deliberately temporary: going past to see whether the scaffolding is
+      // gone is exactly the visit that ends it.
+      await pumpDetail(tester, record: spot.copyWith(phase: SpotPhase.paused));
+
+      expect(find.text(de.visitStartAction), findsOneWidget);
+    });
+
+    testWidgets('the Attrappen to pack are on the dossier', (tester) async {
+      // The concept's smallest feature with the highest everyday value: it
+      // replaces guessing at the car, so it has to be on the screen somebody
+      // reads before leaving.
+      when(() => nestStates.forSpot('s1')).thenAnswer(
+        (_) async => [
+          nestRow(dummy: 1, real: 1),
+          nestRow(id: 'n2', label: 'N2'),
+        ],
+      );
+
+      await pumpDetail(tester);
+
+      // 1 for the nest that holds one dummy, 2 for the empty one.
+      expect(find.text(de.spotPackDummies(3)), findsOneWidget);
+    });
+
+    testWidgets('a Nachkontrolle explains the due date, naming the nest', (
+      tester,
+    ) async {
+      // Built in the CLIENT: the server does not know which language the reader
+      // speaks. And the follow-up is usually what makes the Spot due, because
+      // it is earlier than the ladder would have come round.
+      final due = DateTime.now().add(const Duration(days: 2));
+      when(() => nestStates.forSpot('s1')).thenAnswer(
+        (_) async => [nestRow(id: 'n3', label: 'N3', interval: 7, streak: 0)],
+      );
+      when(() => followUps.openForSpot('s1')).thenAnswer(
+        (_) async => [
+          FollowUp(
+            id: 'f1',
+            spot: 's1',
+            nest: 'n3',
+            dueAt: due,
+            reason: FollowUpReason.halfClutch,
+          ),
+        ],
+      );
+
+      await pumpDetail(
+        tester,
+        record: spot.copyWith(nextDueAt: due),
+      );
+
+      expect(
+        find.textContaining(de.dueExplainFollowUp('N3')),
+        findsOneWidget,
+      );
     });
   });
 }

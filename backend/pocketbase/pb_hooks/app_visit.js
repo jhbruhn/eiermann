@@ -190,6 +190,42 @@ function reconcileState(state, numbers) {
   return numbers.real_after > 0 ? "partial" : "swapped";
 }
 
+/**
+ * States after which the nest holds NOTHING, whatever it held before.
+ *
+ * `nest_eggs` is derived state — the Ist-Gelege — and only this endpoint writes
+ * it. A check that moves eggs rewrites the row set from its own arithmetic
+ * (see [rewriteEggs]); these two do not carry numbers at all, and yet they are
+ * statements about the contents:
+ *
+ *   * `empty` means nothing is in there. Leaving two dummy rows standing makes
+ *     the dossier read "2 Kunsteier" for a nest somebody just recorded as
+ *     empty, and it makes the packing count tell the next volunteer to bring
+ *     nothing. Both are the app disagreeing with its own history.
+ *   * `gone` means there is no nest any more, so there is nowhere for an egg
+ *     to be.
+ *
+ * The three that are deliberately NOT here:
+ *
+ *   * `untouched` — something is in there and was left alone. The rows are
+ *     right.
+ *   * `not_reachable` — nobody saw the nest. Deleting its contents on a
+ *     non-observation is the same mistake as advancing the ladder on one.
+ *   * `protected` — a protected bird has moved onto the ledge, possibly onto
+ *     our dummies, and nobody may take them out. The rows describe what is
+ *     physically there, which is exactly what the next person needs to know.
+ */
+const CLEARS_EGGS = ["empty", "gone"];
+
+/** Deletes every `nest_eggs` row of [nest]. See [CLEARS_EGGS]. */
+function clearEggs(app, nest) {
+  const existing = app.findRecordsByFilter(
+    "nest_eggs", "nest = {:nest}", "slot_index", 200, 0, { nest: nest.id },
+  );
+  for (const row of existing) app.delete(row);
+  return existing.length;
+}
+
 /** Rewrites `nest_eggs` to match the check's outcome. */
 function rewriteEggs(app, nest, check, numbers) {
   const existing = app.findRecordsByFilter(
@@ -357,7 +393,13 @@ function writeVisit(app, auth, body) {
       app.save(nest);
     }
 
-    if (touchesEggs) rewriteEggs(app, nest, check, numbers);
+    if (touchesEggs) {
+      rewriteEggs(app, nest, check, numbers);
+    } else if (CLEARS_EGGS.indexOf(String(check.get("state"))) !== -1) {
+      // Read off the CHECK rather than off the payload: the stored state is the
+      // one that was reconciled, and it is the one every other reader will see.
+      clearEggs(app, nest);
+    }
     rhythm.applyCheck(app, nest, check);
     written.push({ id: check.id, nest: nest.id, state: String(check.get("state")) });
   }
@@ -415,6 +457,8 @@ module.exports = {
   remember,
   checkArithmetic,
   reconcileState,
+  CLEARS_EGGS,
+  clearEggs,
   rewriteEggs,
   writeVisit,
 };

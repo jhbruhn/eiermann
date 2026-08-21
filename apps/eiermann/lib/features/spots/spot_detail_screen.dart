@@ -1,14 +1,20 @@
 import 'package:eiermann/features/areas/areas_section.dart';
+import 'package:eiermann/features/nests/nests_providers.dart';
+import 'package:eiermann/features/rhythm/due_explanation.dart';
 import 'package:eiermann/features/spots/spot_access_sheet.dart';
 import 'package:eiermann/features/spots/spot_contact_sheet.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_phase_chip.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
+import 'package:eiermann/features/visits/packing_card.dart';
+import 'package:eiermann/features/visits/visits_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/routing/router.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:zugvogel_core/zugvogel_core.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
@@ -22,7 +28,9 @@ import 'package:zugvogel_ui/zugvogel_ui.dart';
 /// ist schmerzhaft" — not a participant list, but what the next person needs to
 /// get in at all.
 ///
-/// The nests and the visit history land under the Bereiche in Phase 03/04.
+/// The two buttons at the bottom are equal rank on purpose — "nicht geprüft" is
+/// a fact about the building, not a failure to use the app — and both lead to
+/// the one screen that writes a visit.
 class SpotDetailScreen extends ConsumerWidget {
   const SpotDetailScreen({required this.spotId, super.key});
 
@@ -54,6 +62,12 @@ class SpotDetailScreen extends ConsumerWidget {
             children: [
               _Header(loaded),
               const SizedBox(height: ZugvogelSpacing.lg),
+              // Above the access note, because it is what somebody acts on
+              // FIRST: the two things you do at a building are get in and swap
+              // eggs, and the number of Attrappen has to be known before
+              // leaving the car.
+              _PackingCard(spotId: spotId),
+              const SizedBox(height: ZugvogelSpacing.lg),
               _AccessCard(loaded),
               const SizedBox(height: ZugvogelSpacing.lg),
               // Above the contacts, because the concept puts it there: the
@@ -62,6 +76,10 @@ class SpotDetailScreen extends ConsumerWidget {
               // before reading anything.
               AreasSection(spotId: spotId),
               const SizedBox(height: ZugvogelSpacing.lg),
+              if (loaded.phase case SpotPhase.active || SpotPhase.paused) ...[
+                _VisitActions(spotId: spotId),
+                const SizedBox(height: ZugvogelSpacing.lg),
+              ],
               _Contacts(spotId: spotId),
               if (loaded.note case final note?) ...[
                 const SizedBox(height: ZugvogelSpacing.lg),
@@ -79,16 +97,32 @@ class SpotDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header(this.spot);
 
   final Spot spot;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final materialL10n = MaterialLocalizations.of(context);
+    // Both reads are already on this screen for other blocks, so the sentence
+    // costs no extra request. It is built HERE and not by the server: the
+    // server does not know which language the reader speaks.
+    final followUps = ref.watch(openFollowUpsForSpotProvider(spot.id)).value;
+    final nests = ref.watch(nestStatesForSpotProvider(spot.id)).value;
+    final why = spotDueExplanation(
+      l10n,
+      spot,
+      followUps: followUps ?? const [],
+      nests: nests ?? const [],
+      // An id with no label next to it is a bug in this app, so the
+      // follow-up's nest is resolved through the list that is already loaded.
+      nestLabelOf: (id) => {
+        for (final nest in nests ?? const <NestState>[]) nest.id: nest.label,
+      }[id],
+    );
 
     // The lines under the phase chip are the ones that answer "why is this
     // Spot in this state" — a pause without its end date and a closing without
@@ -110,6 +144,9 @@ class _Header extends StatelessWidget {
         l10n.spotPinUnconfirmed,
       if (spot.nextDueAt case final due?)
         l10n.spotDueOn(formatLocalDate(materialL10n, due)),
+      // Right after the date, which is the point of it: a date without its
+      // reason is a date people override.
+      ?why,
     ];
 
     return DetailHeader(
@@ -370,6 +407,72 @@ class _Section extends StatelessWidget {
         ),
         const SizedBox(height: ZugvogelSpacing.sm),
         child,
+      ],
+    );
+  }
+}
+
+/// The packing line on the dossier: the shared [PackingCard] over the read the
+/// nest list already made.
+///
+/// While the read is still in flight there is no line at all — a "0 Attrappen"
+/// that turns into 3 a moment later is worse than a beat of nothing.
+class _PackingCard extends ConsumerWidget {
+  const _PackingCard({required this.spotId});
+
+  final String spotId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nests = ref.watch(nestStatesForSpotProvider(spotId)).value;
+    if (nests == null) return const SizedBox.shrink();
+    return PackingCard(nests: nests);
+  }
+}
+
+/// The two ways a visit ends, as two buttons of equal rank.
+///
+/// "Nicht geprüft" is not an error path: somebody stood in front of the
+/// building and did not get in, and that is a fact about the building worth
+/// recording. Giving it a lesser control would teach people to leave instead —
+/// and a Spot nobody can explain is exactly what the WhatsApp history was full
+/// of.
+///
+/// Both lead to the same screen, so there is one submit path, one retry path
+/// and one idempotency key.
+///
+/// Offered on an ACTIVE or PAUSED Spot only. An Erkundung needs a conversation,
+/// not a visit — the concept is explicit about that, and a visit funnel there
+/// would be the wrong action made the most prominent one. A closed Spot is done
+/// with; if it is not, the phase chip is the control that says so. A pause
+/// KEEPS the buttons: it is deliberately temporary, and going past to see
+/// whether the scaffolding is gone is exactly how a pause ends.
+class _VisitActions extends StatelessWidget {
+  const _VisitActions({required this.spotId});
+
+  final String spotId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => context.push(Routes.spotVisit(spotId)),
+            icon: const Icon(Icons.play_arrow),
+            label: Text(l10n.visitStartAction),
+          ),
+        ),
+        const SizedBox(width: ZugvogelSpacing.md),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () =>
+                context.push(Routes.spotVisit(spotId, skipped: true)),
+            icon: const Icon(Icons.block_outlined),
+            label: Text(l10n.visitSkipAction),
+          ),
+        ),
       ],
     );
   }

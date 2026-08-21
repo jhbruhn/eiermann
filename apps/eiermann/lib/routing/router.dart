@@ -10,6 +10,7 @@ import 'package:eiermann/features/spots/spot_detail_screen.dart';
 import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
 import 'package:eiermann/features/startup/splash_screen.dart';
+import 'package:eiermann/features/visits/visit_flow_screen.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,15 +42,34 @@ abstract final class Routes {
   /// rather than a mode of the Spot list.
   static const prospects = '/prospects';
   static const spotDetailPattern = '/spots/:id';
+
+  /// The Besuchsablauf for one building.
+  ///
+  /// Under the dossier's path rather than beside it: a visit is always a visit
+  /// TO a building, and the URL says so — which is also what makes a state
+  /// restore come back on the right one.
+  static const spotVisitPattern = '/spots/:id/visit';
   static const areaEditorPattern = '/areas/:id';
 
   /// The query parameter that narrows the Spot list to one urgency rank.
   static const urgencyParam = 'urgency';
 
+  /// The query parameter that opens the visit flow straight on "nicht geprüft".
+  ///
+  /// A parameter rather than a second route, because it is the same screen with
+  /// the same single submit path — the dossier just offers both outcomes as
+  /// equal-rank buttons, the way the concept draws them.
+  static const skipParam = 'skip';
+
   /// The detail route for one Spot. A function, not a constant, so the pattern
   /// above stays the single spelling of it — a hand-built '/spots/$id' at a
   /// call site is how a rename leaves a dead link behind.
   static String spotDetail(String id) => '/spots/$id';
+
+  /// The Besuchsablauf for one Spot. [skipped] opens the "nicht geprüft" sheet
+  /// on arrival, which is where the dossier's second button leads.
+  static String spotVisit(String id, {bool skipped = false}) =>
+      '/spots/$id/visit${skipped ? '?$skipParam=1' : ''}';
 
   /// The pin editor for one Bereich.
   ///
@@ -196,6 +216,24 @@ List<RouteBase> appRoutes() {
         return id == null || id.isEmpty
             ? const DashboardScreen()
             : AreaEditorScreen(areaId: id);
+      },
+    ),
+    // The visit flow, over the dossier for the same reason the dossier is over
+    // the shell: a branch that can be parked on a form somebody is filling in
+    // comes back showing it. Its own location rather than a mode of the
+    // dossier, so the browser back button leaves the visit instead of leaving
+    // the building.
+    GoRoute(
+      path: Routes.spotVisitPattern,
+      builder: (_, state) {
+        final id = state.pathParameters['id'];
+        return id == null || id.isEmpty
+            ? const DashboardScreen()
+            : VisitFlowScreen(
+                spotId: id,
+                startSkipped:
+                    state.uri.queryParameters[Routes.skipParam] == '1',
+              );
       },
     ),
     // The dossier sits OVER the shell rather than inside a branch: a branch

@@ -673,5 +673,305 @@
   "spotPauseUntilWhy": "Ist das Datum erreicht, wird der Spot von selbst wieder aktiv und taucht in den Listen auf. Ohne Datum bleibt er pausiert, bis ihn jemand fortsetzt.",
   "@spotPauseUntilWhy": {
     "description": "Under the pause end-date field. Only true since the auto-resume cron exists (eiermann-gb1) — before it, paused_until was a note to a human and this copy would have promised something the app did not do."
-  }
+  },
+  "checkStateSwapped": "Getauscht",
+  "@checkStateSwapped": {
+    "description": "Every real egg replaced by a dummy — the normal outcome of a visit."
+  },
+  "checkStatePartial": "Halbgelege",
+  "@checkStatePartial": {
+    "description": "A real egg is still in the nest after the work. Not a state somebody picks: the arithmetic decides it, and the server has the last word."
+  },
+  "checkStateEmpty": "Nest leer",
+  "@checkStateEmpty": {
+    "description": "Nothing in the nest. The only state that advances the rhythm ladder."
+  },
+  "checkStateUntouched": "Nichts angefasst",
+  "@checkStateUntouched": {
+    "description": "Something there, deliberately left alone. Resets the ladder like any other find — the nest is in use."
+  },
+  "checkStateNotReachable": "Nicht erreichbar",
+  "@checkStateNotReachable": {
+    "description": "Somebody tried and could not get to the nest. Moves the rhythm not at all — that is the one direction it must never drift."
+  },
+  "checkStateGone": "Nest ist weg",
+  "@checkStateGone": {
+    "description": "The nest itself is gone: a cleared ledge, a sealed gap. Leaves the due lists."
+  },
+  "checkStateProtected": "Geschützte Art",
+  "@checkStateProtected": {
+    "description": "A protected species is nesting. Recorded, never touched — and reporting it here IS the determination, so the nest is marked protected from now on."
+  },
+  "checkStateUnreadable": "Unbekannter Zustand",
+  "@checkStateUnreadable": {
+    "description": "For a state value this build has no name for. Never rendered as one of the states it does know."
+  },
+  "nestCheckTitle": "{nest} prüfen",
+  "@nestCheckTitle": {
+    "description": "Title of the check sheet. Carries the nest label because in an attic with four nests, which one this is about is the whole question.",
+    "placeholders": {
+      "nest": {
+        "type": "String"
+      }
+    }
+  },
+  "nestCheckClutchTitle": "Was liegt im Nest?",
+  "@nestCheckClutchTitle": {
+    "description": "The reading comes BEFORE the action: what is in there now is not necessarily what the app stored — birds lay eggs between visits."
+  },
+  "nestCheckClutchHint": "Vorbelegt mit dem letzten Stand. Ergänze, was dazugekommen ist, und entferne, was nicht mehr da ist.",
+  "@nestCheckClutchHint": {
+    "description": "Says that the slots are a starting point and not a claim. A prefilled row nobody may correct would record last month's clutch as today's reading."
+  },
+  "nestCheckAddReal": "Echtes Ei",
+  "nestCheckAddDummy": "Kunstei",
+  "nestCheckSlotNew": "neu",
+  "@nestCheckSlotNew": {
+    "description": "Age label for a slot added in this sheet: it has no since-date yet, and '0 Tage' would claim one."
+  },
+  "nestCheckSlotRemoveTooltip": "War nicht da",
+  "@nestCheckSlotRemoveTooltip": {
+    "description": "Removes a slot the app had stored but nobody found. Not 'delete': the volunteer is correcting the record, not throwing an egg away."
+  },
+  "nestCheckSlotKeep": "bleibt",
+  "nestCheckSlotSwapped": "getauscht",
+  "nestCheckSlotRemoved": "entnommen",
+  "@nestCheckSlotRemoved": {
+    "description": "A real egg taken out with no dummy put in its place — no dummies left in the bag. Counted as removed, which is the programme's metric."
+  },
+  "nestCheckSlotUnreadable": "unklar",
+  "@nestCheckSlotUnreadable": {
+    "description": "A stored egg row whose kind this build cannot read. Counted as neither real nor dummy."
+  },
+  "nestCheckCycleHint": "Tippe auf ein echtes Ei: bleibt, getauscht, entnommen.",
+  "@nestCheckCycleHint": {
+    "description": "One control, three states — the sheet is used one-handed while standing on a ladder."
+  },
+  "nestCheckSwapAllAction": "Alle echten Eier tauschen",
+  "@nestCheckSwapAllAction": {
+    "description": "The standard case in one tap. Everything else on the sheet exists for the exceptions."
+  },
+  "nestCheckAfterTitle": "Nachher",
+  "nestCheckAfterEmpty": "Nest leer",
+  "nestCheckHalfClutchWarning": "Halbgelege: ein echtes Ei bleibt im Nest. Es wird eine Nachkontrolle angelegt.",
+  "@nestCheckHalfClutchWarning": {
+    "description": "The second named field problem, caught at the moment it happens. Derived from the numbers, not chosen — and the server derives it again."
+  },
+  "nestCheckSpecialTitle": "Sonderfall",
+  "@nestCheckSpecialTitle": {
+    "description": "The states that are not about eggs at all. Kept apart from the clutch row so the ordinary path stays one tap."
+  },
+  "nestCheckNoteLabel": "Notiz zum Nest",
+  "nestCheckSpeciesLabel": "Welche Art?",
+  "nestCheckApplyAction": "Übernehmen",
+  "@nestCheckApplyAction": {
+    "description": "Not 'Speichern': nothing is written here. The check goes into the visit and travels with it in one request."
+  },
+  "nestCheckDiscardAction": "Eintrag verwerfen",
+  "@nestCheckDiscardAction": {
+    "description": "Takes this nest back out of the visit — an unchecked nest is a legitimate outcome, and it must not be recorded as anything."
+  },
+  "nestCheckUnreadableEggs": "{count, plural, =1{1 gespeicherter Ei-Eintrag ist unlesbar} other{{count} gespeicherte Ei-Einträge sind unlesbar}}",
+  "@nestCheckUnreadableEggs": {
+    "description": "Shown instead of guessing. Any check that moves eggs rewrites the whole row set, so the situation resolves itself on the next swap.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nestCheckProtectedTitle": "Geschützte Art — nicht anfassen",
+  "@nestCheckProtectedTitle": {
+    "description": "Replaces the whole egg row on a protected nest. Not a disabled control: a greyed-out swap button says 'not for you', and what has to be said is 'not at all, and here is why'."
+  },
+  "nestCheckProtectedExplain": "§44 BNatSchG verbietet es, Nester und Eier besonders geschützter Arten zu entnehmen oder zu zerstören. Deshalb gibt es hier keinen Tauschweg. Halte fest, was du gesehen hast — das ist die Arbeit an diesem Nest.",
+  "@nestCheckProtectedExplain": {
+    "description": "The explanation that REPLACES the swap path. Every egg mutation on a protected nest is refused server-side on every path, so the sentence is the honest version of what the app can do here."
+  },
+  "visitStartAction": "Besuch starten",
+  "visitSkipAction": "Nicht geprüft",
+  "@visitSkipAction": {
+    "description": "The equal-rank alternative to a visit, not an error path: nobody there is a fact worth recording."
+  },
+  "visitFlowTitle": "Besuch",
+  "visitFlowNestsTitle": "Nester",
+  "visitFlowNestOpen": "offen",
+  "@visitFlowNestOpen": {
+    "description": "A nest this visit has not recorded anything about yet. Deliberately not 'nicht geprüft' — that is a different, recorded outcome."
+  },
+  "visitFlowNoNests": "Für dieses Gebäude ist noch kein Nest erfasst. Ein Besuch hält dann fest, dass jemand da war.",
+  "@visitFlowNoNests": {
+    "description": "A Spot with no nests is not done — it is a building nobody has looked at properly yet, and the visit still counts as a look."
+  },
+  "visitFlowNoteLabel": "Notiz zum Besuch",
+  "visitFlowFinishAction": "Besuch abschließen",
+  "visitFlowProgress": "{done} von {total} Nestern erfasst",
+  "@visitFlowProgress": {
+    "description": "Not a validation: finishing with nests left open is allowed, because a nest nobody could reach is not the same as one nobody looked at.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "visitFlowSummaryRemoved": "{count, plural, =0{keine echten Eier entnommen} =1{1 echtes Ei entnommen} other{{count} echte Eier entnommen}}",
+  "@visitFlowSummaryRemoved": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "visitFlowSummaryDummies": "{count, plural, =1{1 Attrappe eingelegt} other{{count} Attrappen eingelegt}}",
+  "@visitFlowSummaryDummies": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "visitFlowSummaryHalfClutch": "{count, plural, =1{1 Nachkontrolle} other{{count} Nachkontrollen}}",
+  "@visitFlowSummaryHalfClutch": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "visitFlowSendFailedTitle": "Der Besuch ist nicht gespeichert",
+  "@visitFlowSendFailedTitle": {
+    "description": "States the outcome first. The visit is still in the app, and the next sentence says so — a volunteer who thinks the work is lost stops recording."
+  },
+  "visitFlowSendFailedHint": "Nichts ist verloren: der Besuch liegt noch hier. Erneut senden ist sicher, es entsteht kein zweiter Besuch.",
+  "@visitFlowSendFailedHint": {
+    "description": "The Idempotency-Key made concrete. This promise is the mitigation for having no offline mode, so it is stated where the failure appears."
+  },
+  "visitFlowRetryAction": "Erneut senden",
+  "visitFlowLeaveTitle": "Besuch verwerfen?",
+  "visitFlowLeaveMessage": "Die erfassten Nester sind noch nicht gesendet. Beim Verlassen gehen sie verloren.",
+  "visitFlowLeaveConfirm": "Verwerfen",
+  "visitFlowLeaveKeep": "Weiter erfassen",
+  "visitSkipTitle": "Nicht geprüft",
+  "visitSkipReasonLabel": "Grund",
+  "visitSkipNoteLabel": "Notiz",
+  "visitSkipHint": "Ein nicht geprüfter Besuch bewegt den Rhythmus nicht: der Spot bleibt fällig und eine offene Nachkontrolle bleibt offen. Er hält fest, dass jemand da war und nicht hineinkam.",
+  "@visitSkipHint": {
+    "description": "Says what it does NOT do. A volunteer who thinks 'nicht geprüft' clears the entry would use it to tidy the list, and the building would drop out of the rhythm."
+  },
+  "visitSkipConfirmAction": "Als nicht geprüft speichern",
+  "visitSkipReasonMissing": "Ohne Grund lässt sich nicht sagen, ob es jemand versucht hat.",
+  "@visitSkipReasonMissing": {
+    "description": "Refused in the form rather than by the server: the same reason a pause needs one."
+  },
+  "skipReasonNobodyThere": "Niemand da",
+  "skipReasonNoKey": "Kein Schlüssel",
+  "skipReasonAccessBlocked": "Zugang versperrt",
+  "skipReasonNoTime": "Keine Zeit",
+  "skipReasonConstruction": "Bauarbeiten",
+  "@skipReasonConstruction": {
+    "description": "Scaffolding, roofers, a building site. Often worth pausing the Spot for, which is a different action and stays a decision."
+  },
+  "skipReasonOther": "Sonstiges",
+  "skipReasonUnreadable": "Unbekannter Grund",
+  "spotPackDummies": "Einpacken: {count, plural, =1{1 Attrappe} other{{count} Attrappen}}",
+  "@spotPackDummies": {
+    "description": "The smallest feature with the highest everyday value: computed from the Ist-Gelege, it replaces guessing at the car.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "spotPackNone": "Einpacken: keine Attrappen nötig",
+  "@spotPackNone": {
+    "description": "Zero is a real answer and gets said out loud. A missing line would read as 'not computed yet'."
+  },
+  "spotPackHint": "Eine Attrappe für jedes echte Ei, das gerade in den Nestern liegt. Was heute dazugelegt wird, weiß niemand vorher.",
+  "@spotPackHint": {
+    "description": "Names the basis AND its limit: the count is the current clutch, not a forecast of what the birds laid overnight."
+  },
+  "dueExplainFollowUp": "Nachkontrolle Halbgelege, {nest}",
+  "@dueExplainFollowUp": {
+    "description": "Built in the CLIENT from the follow-up, never sent by the server: the server does not know which language the reader speaks.",
+    "placeholders": {
+      "nest": {
+        "type": "String"
+      }
+    }
+  },
+  "dueExplainFollowUpNoNest": "Nachkontrolle Halbgelege",
+  "@dueExplainFollowUpNoNest": {
+    "description": "The same sentence without the nest, for a follow-up whose nest is not in the loaded list — a nest deleted since, or a read that has not landed. An id in place of a label would be worse than saying less."
+  },
+  "dueExplainFollowUpManual": "Nachkontrolle von Hand eingetragen",
+  "dueExplainAfterEmpties": "{count}× nichts gefunden — Rhythmus jetzt {days} Tage",
+  "@dueExplainAfterEmpties": {
+    "description": "The ladder, said out loud. Deliberately NOT 'auf 14 Tage gestreckt': the base interval lives in organisations.settings, whose only reader is the server's zv_org.js, so the client cannot know whether this rung is above the base. It states the two facts it does have and their order — nothing found n times, interval now this — which is what makes the date arguable instead of arbitrary.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dueExplainBase": "Grundrhythmus {days} Tage",
+  "@dueExplainBase": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "dueExplainNoNests": "noch kein Nest erfasst — fällig nach der Grundfrist",
+  "@dueExplainNoNests": {
+    "description": "Empty does not mean done: a building with no nests recorded is one nobody has looked at properly."
+  },
+  "dueExplainGone": "Nest ist weg — keine Fälligkeit",
+  "dueExplainProtected": "geschützte Art — keine Fälligkeit",
+  "@dueExplainProtected": {
+    "description": "Not a date somebody forgot: nothing may be DONE at this nest, and a work list that keeps offering an item nobody may act on trains people to ignore the list."
+  },
+  "dueExplainPaused": "pausiert — nicht fällig",
+  "dueExplainClosed": "abgeschlossen — nicht fällig",
+  "dueExplainProspect": "Erkundung — braucht ein Gespräch, keinen Besuch",
+  "dashboardHalfClutchTitle": "Halbgelege",
+  "@dashboardHalfClutchTitle": {
+    "description": "The top block of the dashboard, above every count. Out of a half clutch a chick hatches in days, and that is the one deadline in this app that a week's delay ruins."
+  },
+  "dashboardFollowUpDue": "fällig {date}",
+  "@dashboardFollowUpDue": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardFollowUpOverdue": "überfällig seit {date}",
+  "@dashboardFollowUpOverdue": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardFollowUpNest": "Nest {nest}",
+  "@dashboardFollowUpNest": {
+    "placeholders": {
+      "nest": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardHalfClutchEmpty": "Keine offene Nachkontrolle.",
+  "serverErrorVisitEggsRemovedExceedPresent": "Es können nicht mehr echte Eier entnommen werden, als im Nest lagen. Prüfe die Ei-Reihe.",
+  "@serverErrorVisitEggsRemovedExceedPresent": {
+    "description": "The one arithmetic the form can produce only through a race — a second visit on the same nest between reading and sending."
+  },
+  "serverErrorVisitSkipNeedsReason": "Ein nicht geprüfter Besuch braucht einen Grund.",
+  "serverErrorVisitOutcomeInvalid": "Dieser Besuch lässt sich nicht speichern — der Ausgang ist unbekannt."
 }

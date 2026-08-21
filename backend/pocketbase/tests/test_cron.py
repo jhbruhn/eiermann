@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""eiermann-gb1 — the auto-resume cron, observed actually running.
+"""eiermann-gb1 / jbk.15 — the crons, observed actually running.
 
 Driven by run_cron.sh, which rewrites the schedule to every minute. Nothing an
 HTTP request can do triggers a `cronAdd` job, so without this suite the job
@@ -8,8 +8,9 @@ could be wrong indefinitely and every rule assertion would stay green.
 What is asserted is the OUTCOME of a real run, not a simulation of one: a Spot
 whose `paused_until` has passed comes back to `active`, with the pause fields
 cleared and a fresh due date; an organisation that opted out keeps its Spot
-paused. A test that called the handler directly would prove the function works
-and say nothing about whether it is wired to a schedule at all.
+paused; an expired geocode cache row disappears while a live one stays. A test
+that called the handlers directly would prove the functions work and say nothing
+about whether they are wired to a schedule at all.
 """
 
 import os
@@ -138,6 +139,59 @@ h.check(
     spot_now(opted_out["id"]).get("phase") == "paused",
     f"{spot_now(opted_out['id']).get('phase')} — pause_auto_resume=false, and a "
     "setting that is read but not obeyed is worse than one that does not exist",
+)
+
+# ── The geocode cache purge ────────────────────────────────────────────────
+#
+# `geocode_cache` has no access rules at all — it is the proxy's own table — so
+# the fixtures go in as the SUPERUSER, which bypasses them. That is also the
+# point being made: nothing but the server touches this table, and the only
+# thing that ever removes a row is this job.
+#
+# Written directly rather than by driving the proxy: the harness points
+# EIERMANN_NOMINATIM_URL at a dead port on purpose, so a real lookup answers 502
+# and caches nothing. What is under test is the purge, not the upstream.
+expired = h.mk(
+    T,
+    "geocode_cache",
+    {"kind": "forward", "cache_key": "abgelaufen", "response": {"results": []},
+     "result_count": 0, "expires_at": h.stamp(days=-1)},
+)
+live = h.mk(
+    T,
+    "geocode_cache",
+    {"kind": "forward", "cache_key": "frisch", "response": {"results": []},
+     "result_count": 1, "expires_at": h.stamp(days=30)},
+)
+
+
+def cache_row_exists(row_id):
+    status, _ = h.req("GET", f"/api/collections/geocode_cache/records/{row_id}", T)
+    return status == 200
+
+
+h.check("the cache fixtures are there to begin with",
+        cache_row_exists(expired["id"]) and cache_row_exists(live["id"]))
+
+gone = False
+for _ in range(20):
+    if not cache_row_exists(expired["id"]):
+        gone = True
+        break
+    time.sleep(5)
+h.check(
+    "an expired cache row is purged by the job",
+    gone,
+    "still there after the wait — the purge either did not run or its filter "
+    "does not match; the table then grows without bound and stale entries "
+    "outlive their TTL forever, which is the one thing a cache must not do",
+)
+h.check(
+    "...and a live one is left alone",
+    cache_row_exists(live["id"]),
+    "the purge must key on the EXPIRY, not merely on the table — a job that "
+    "empties the cache every night makes it a cache in name only, and the "
+    "upstream budget is somebody else's quota",
 )
 
 # The job must be idempotent: it runs every minute here and daily in production,

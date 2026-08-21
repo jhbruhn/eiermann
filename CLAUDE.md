@@ -308,6 +308,15 @@ shows nothing, making a failing hook indistinguishable from one that never ran.
   keystroke is one request otherwise.
 - **Enums** get an explicit `wire` value: the exact string PocketBase stores.
   A Dart rename is then wire-safe.
+- **Never name a freezed factory `fromJson`** unless the package really runs
+  json_serializable. freezed reads the name and emits `_$XFromJson` calls, and
+  in a freezed-only package the failure is a missing symbol in generated code
+  that says nothing about the naming rule. A parser for one route's response is
+  `fromResponse`.
+- **A `ListView` does not build what is below the fold**, so a widget test on
+  the default 800x600 surface loses buttons the moment something is inserted
+  above them — and reads as "the control is missing". Give such a test a tall
+  surface (`tester.view.physicalSize`) rather than scrolling by hand.
 - **A never-set geoPoint arrives as `{lon: 0, lat: 0}`** — a real place in the
   Gulf of Guinea. `GeoPoint.fromPb` reads it as `null`; use that, do not parse
   coordinates by hand.

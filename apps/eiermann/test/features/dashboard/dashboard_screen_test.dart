@@ -13,6 +13,8 @@ import '../../support/harness.dart';
 
 class _MockOverview extends Mock implements SpotOverviewRepository {}
 
+class _MockFollowUps extends Mock implements FollowUpsRepository {}
+
 SpotOverview overview({
   required String id,
   required int urgency,
@@ -24,9 +26,28 @@ SpotOverview overview({
   phase: SpotPhase.active,
 );
 
+/// One open Nachkontrolle, with the labels the expand carries.
+FollowUp followUp({
+  String id = 'f1',
+  String spot = 's1',
+  String? spotName = 'Bahnhofstr. 12',
+  String? nestLabel = 'N3',
+  DateTime? dueAt,
+  FollowUpReason reason = FollowUpReason.halfClutch,
+}) => FollowUp(
+  id: id,
+  spot: spot,
+  nest: 'n3',
+  spotName: spotName,
+  nestLabel: nestLabel,
+  dueAt: dueAt ?? DateTime.now().add(const Duration(days: 3)),
+  reason: reason,
+);
+
 void main() {
   late AppLocalizations de;
   late _MockOverview repo;
+  late _MockFollowUps followUps;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -34,14 +55,22 @@ void main() {
 
   setUp(() {
     repo = _MockOverview();
+    followUps = _MockFollowUps();
+    when(followUps.open).thenAnswer((_) async => []);
   });
 
-  Future<void> pump(WidgetTester tester, List<SpotOverview> rows) async {
+  Future<void> pump(
+    WidgetTester tester,
+    List<SpotOverview> rows, {
+    List<FollowUp> open = const [],
+  }) async {
     when(() => repo.search(any())).thenAnswer((_) async => rows);
+    when(followUps.open).thenAnswer((_) async => open);
     await tester.pumpApp(
       const DashboardScreen(),
       overrides: [
         spotOverviewRepositoryProvider.overrideWith((ref) async => repo),
+        followUpsRepositoryProvider.overrideWith((ref) async => followUps),
       ],
     );
     await tester.pumpAndSettle();
@@ -165,5 +194,95 @@ void main() {
     await pump(tester, [overview(id: 's1', urgency: 0)]);
 
     verify(() => repo.search('')).called(1);
+  });
+
+  group('the Halbgelege block', () {
+    testWidgets('sits ABOVE the counts, because days beat weeks', (
+      tester,
+    ) async {
+      // The concept's ordering, not a layout preference: out of a half clutch a
+      // chick hatches in days, and a number counting them among the others
+      // would put a four-day window next to a four-week one.
+      await pump(
+        tester,
+        [overview(id: 's1', urgency: 0)],
+        open: [followUp()],
+      );
+
+      final title = tester.getTopLeft(find.text(de.dashboardHalfClutchTitle));
+      final counts = tester.getTopLeft(find.byType(KpiCard).first);
+      expect(title.dy, lessThan(counts.dy));
+    });
+
+    testWidgets('names the building and the nest, never an id', (tester) async {
+      // An id with no label next to it is a bug in this app — and "which nest
+      // in which building" is the decision this block exists for.
+      await pump(tester, [overview(id: 's1', urgency: 3)], open: [followUp()]);
+
+      expect(
+        find.text('Bahnhofstr. 12 · ${de.dashboardFollowUpNest('N3')}'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an overdue return says overdue, not just its date', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        [overview(id: 's1', urgency: 0)],
+        open: [
+          followUp(dueAt: DateTime.now().subtract(const Duration(days: 2))),
+        ],
+      );
+
+      // The words AND the shape: colour alone says nothing to a colour-blind
+      // reader, and this is the loudest row on the screen.
+      expect(
+        find.textContaining(de.dashboardFollowUpOverdue('').trim()),
+        findsOneWidget,
+      );
+      // Scoped to the row: the overdue COUNT tile carries the same icon, which
+      // is the point — one visual language for "late" on the whole screen.
+      expect(
+        find.descendant(
+          of: find.byType(ListTile),
+          matching: find.byIcon(Icons.priority_high),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('nothing open is said out loud', (tester) async {
+      // An absent block would read as "not loaded" on the screen whose whole
+      // job is telling you what is waiting.
+      await pump(tester, [overview(id: 's1', urgency: 3)]);
+
+      expect(find.text(de.dashboardHalfClutchEmpty), findsOneWidget);
+    });
+
+    testWidgets('a failed read hides the block instead of taking the screen', (
+      tester,
+    ) async {
+      // It sits above the counts, so an error banner here would push the whole
+      // dashboard off the screen. The counts below carry their own error state.
+      when(followUps.open).thenAnswer(
+        (_) async => throw const RepositoryException('nope'),
+      );
+      when(() => repo.search(any())).thenAnswer(
+        (_) async => [overview(id: 's1', urgency: 0)],
+      );
+      await tester.pumpApp(
+        const DashboardScreen(),
+        overrides: [
+          spotOverviewRepositoryProvider.overrideWith((ref) async => repo),
+          followUpsRepositoryProvider.overrideWith((ref) async => followUps),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(de.dashboardHalfClutchTitle), findsNothing);
+      expect(find.byType(KpiCard), findsWidgets);
+    });
   });
 }

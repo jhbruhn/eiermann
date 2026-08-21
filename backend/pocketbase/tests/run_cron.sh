@@ -74,6 +74,19 @@ grep -q 'cronAdd("spotAutoResume", "\* \* \* \* \*"' "$HOOKS/spot_auto_resume.pb
   exit 1
 }
 
+# The second job: the geocode cache purge. Same treatment, and it needs no
+# window rewriting either — it keys on `expires_at`, which the cache WRITES
+# rather than inheriting from the server, so the suite can put a row's expiry in
+# the past directly. (`created` would have been the unreachable case: an autodate
+# cannot be backdated, and then the constant would have to be patched in this
+# copy while being pinned in the original.)
+sed -i 's|cronAdd("geocodeCachePurge", "0 4 \* \* \*"|cronAdd("geocodeCachePurge", "* * * * *"|' \
+  "$HOOKS/geocode.pb.js"
+grep -q 'cronAdd("geocodeCachePurge", "\* \* \* \* \*"' "$HOOKS/geocode.pb.js" || {
+  echo "FATAL: the geocode purge schedule was not rewritten — did it change?" >&2
+  exit 1
+}
+
 MOUNTS=(
   -v "$HOOKS:/pb/pb_hooks:ro"
   -v "$DATA:/pb/pb_data"

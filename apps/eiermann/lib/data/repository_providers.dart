@@ -58,3 +58,25 @@ Future<NestStateRepository> nestStateRepository(Ref ref) async =>
 @Riverpod(keepAlive: true)
 Future<SpotOverviewRepository> spotOverviewRepository(Ref ref) async =>
     SpotOverviewRepository(await _client(ref));
+
+/// The Ist-Gelege of one nest, slot by slot.
+///
+/// Read-only by type, and the collection has no write rule at all: the only
+/// writer is the visit endpoint, which rewrites the whole row set from the
+/// outcome of a check. The dossier's nest list does not use this — it reads the
+/// counts off `nest_state` in one query — so what hangs off it is the egg-slot
+/// row of ONE nest, where each slot needs its own age.
+@Riverpod(keepAlive: true)
+Future<NestEggsRepository> nestEggsRepository(Ref ref) async =>
+    NestEggsRepository(await _client(ref));
+
+/// The transactional visit endpoint. Not a collection repository, because
+/// `visits` has no create rule: there is no per-record path to writing a visit.
+@Riverpod(keepAlive: true)
+Future<VisitsRepository> visitsRepository(Ref ref) async =>
+    VisitsRepository(await _client(ref));
+
+/// The Nachkontrollen — the second date that beats the rhythm.
+@Riverpod(keepAlive: true)
+Future<FollowUpsRepository> followUpsRepository(Ref ref) async =>
+    FollowUpsRepository(await _client(ref));
