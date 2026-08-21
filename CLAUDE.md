@@ -247,6 +247,16 @@ The hook runtime is not Node and not a browser. Each of these has cost real time
   `--` comment nor an expression spanning newlines: both come back as "invalid
   identifier parts". Every computed column is one line, however long, with the
   reasoning in a JS comment above it.
+- **A hook never sends user-facing text.** The server does not know which
+  language the reader speaks, so a German string in a hook is untranslatable by
+  construction — the same reason the rhythm explanation is built in the client
+  and audit rows store wire values. A refusal carries a stable **error code**
+  and the client maps it to an ARB string. Measured on 0.39.8: the only channel
+  that survives is the **key** of `data` (`{spot_phase_needs_permitted: 1}`);
+  its values are always re-coerced, and `message` is capitalised and
+  full-stopped by the server, so keep that an English developer line for logs.
+  Tracked as `eiermann-8ct`; until it lands, `serverMessagesAreUserFacing` is an
+  explicit bridge and not the design.
 - An **`ApiError`'s `data` cannot carry a value.** PocketBase coerces every leaf
   of it into `{code, message}` at any depth, so `{stage: "untouched"}` arrives
   as `{stage: {code: "validation_invalid_value", …}}`. It is structurally a
