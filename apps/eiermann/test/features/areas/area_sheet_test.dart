@@ -134,6 +134,6 @@ void main() {
     await pump(tester);
 
     expect(find.text(de.areaPhotoSetAction), findsNothing);
-    expect(find.text(de.areaPhotoCameraAction), findsNothing);
+    expect(find.text(de.photoCameraAction), findsNothing);
   });
 }

@@ -168,7 +168,7 @@ class _EditorState extends ConsumerState<_Editor> {
       context,
       areaId: widget.area.id,
       pin: at,
-      suggestedLabel: suggestNestLabel(rows),
+      suggestedLabel: suggestNestLabel(rows.map((nest) => nest.label)),
     );
   }
 

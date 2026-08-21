@@ -3,12 +3,11 @@ import 'dart:async';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/areas/areas_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/ui/photo_capture.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 import 'package:zugvogel_core/zugvogel_core.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
@@ -188,11 +187,10 @@ class _Empty extends ConsumerWidget {
 
 /// Takes or picks a photo for [area], crops it, and uploads it.
 ///
-/// Everything `ref`- and `context`-dependent is read BEFORE the first await:
-/// the camera can dispose this element while it is in the foreground (Android
-/// backgrounds the activity), and a `ref` touched afterwards throws while the
-/// photo the user just took is still in hand. The navigator is captured for the
-/// same reason — the crop step is pushed after the camera returns.
+/// The picking and cropping are shared (see [capturePhoto]); what is specific
+/// here is that the upload happens AT ONCE. A Bereich exists to carry this
+/// photo, so there is nothing to stage it against — unlike a nest photo, which
+/// waits for the sheet's save.
 Future<void> changeAreaPhoto(
   BuildContext context,
   WidgetRef ref, {
@@ -200,65 +198,19 @@ Future<void> changeAreaPhoto(
 }) async {
   final l10n = context.l10n;
   final messenger = ScaffoldMessenger.of(context);
-  final picker = ref.read(imagePickerProvider);
-  final navigator = Navigator.of(context, rootNavigator: true);
   final repo = await ref.read(areasRepositoryProvider.future);
   if (!context.mounted) return;
 
-  final source = await showModalBottomSheet<ImageSource>(
-    context: context,
-    showDragHandle: true,
-    builder: (_) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.photo_camera_outlined),
-            title: Text(l10n.areaPhotoCameraAction),
-            onTap: () => Navigator.pop(context, ImageSource.camera),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: Text(l10n.areaPhotoGalleryAction),
-            onTap: () => Navigator.pop(context, ImageSource.gallery),
-          ),
-        ],
-      ),
-    ),
-  );
-  if (source == null) return;
-
-  final shot = await picker.pickImage(source: source);
-  if (shot == null) return;
-
-  // Free-form crop: a Bereich is whatever shape the room is, and a locked
-  // rectangle would force somebody to cut a rafter out of the frame. Pins are
-  // normalised to the image, so no aspect ratio is more correct than another.
-  final cropped = await showImageCropper(
-    navigator,
-    bytes: await shot.readAsBytes(),
-  );
-  // Backing out of the crop cancels the whole change — the previous photo (or
-  // none) stands. Nothing has been uploaded at this point.
-  if (cropped == null) return;
+  final photo = await capturePhoto(context, ref, filenameStem: 'bereich');
+  // Backing out at any step cancels the whole change — the previous photo (or
+  // none) stands, and nothing has been uploaded at this point.
+  if (photo == null) return;
 
   try {
     await repo.updateWithFiles(
       area.id,
-      // When the photo was TAKEN, which is not always now: a gallery pick can
-      // be from last week's visit, and the file's own timestamp is the closest
-      // honest answer. The crop re-encodes and drops EXIF, so it has to be read
-      // from the original file rather than from the bytes being uploaded.
-      {'photo_taken_at': (await _takenAt(shot)).toIso8601String()},
-      [
-        http.MultipartFile.fromBytes(
-          'photo',
-          cropped,
-          // The crop always re-encodes as JPEG, so the picked name's extension
-          // may no longer describe the bytes.
-          filename: _croppedName(shot.name),
-        ),
-      ],
+      {'photo_taken_at': photo.takenAt.toIso8601String()},
+      [photoPart('photo', photo)],
     );
   } on RepositoryException catch (e) {
     messenger.showSnackBar(
@@ -273,26 +225,10 @@ Future<void> changeAreaPhoto(
     return;
   }
 
-  ref.invalidate(areasForSpotProvider(area.spot));
-}
-
-/// When the picked photo was taken, as far as the file knows.
-///
-/// Falls back to now: a camera shot on some platforms reports no timestamp at
-/// all, and the moment it was handed over is then the best available answer.
-Future<DateTime> _takenAt(XFile shot) async {
-  try {
-    return (await shot.lastModified()).toUtc();
-  } on Object {
-    return DateTime.now().toUtc();
-  }
-}
-
-/// The upload filename: the picked stem with a `.jpg` extension, because the
-/// crop step re-encodes every photo as JPEG.
-String _croppedName(String picked) {
-  final stem = picked.isEmpty
-      ? 'bereich'
-      : picked.split('/').last.split('.').first;
-  return '${stem.isEmpty ? 'bereich' : stem}.jpg';
+  ref
+    ..invalidate(areasForSpotProvider(area.spot))
+    // The editor reads the ONE Bereich, the dossier reads the list of them.
+    // Refreshing only the list would leave a reader who replaced the photo from
+    // inside the editor looking at the old one.
+    ..invalidate(areaProvider(area.id));
 }

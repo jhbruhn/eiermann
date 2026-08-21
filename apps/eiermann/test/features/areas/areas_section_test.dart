@@ -346,7 +346,7 @@ void main() {
 
       await tester.tap(find.byTooltip(de.areaPhotoSetAction));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(de.areaPhotoGalleryAction));
+      await tester.tap(find.text(de.photoGalleryAction));
       await settle(tester);
 
       expect(find.byType(ImageCropScreen), findsOneWidget);
@@ -360,7 +360,7 @@ void main() {
 
       await tester.tap(find.byTooltip(de.areaPhotoSetAction));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(de.areaPhotoGalleryAction));
+      await tester.tap(find.text(de.photoGalleryAction));
       await settle(tester);
       // A fullscreen dialog's leading affordance is Close, not Back.
       await tester.tap(find.byTooltip(materialDe.closeButtonTooltip));
@@ -388,7 +388,7 @@ void main() {
 
       await tester.tap(find.byTooltip(de.areaPhotoSetAction));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(de.areaPhotoGalleryAction));
+      await tester.tap(find.text(de.photoGalleryAction));
       await settle(tester);
       await tester.tap(find.text(de.actionSave));
       await settleAsync(tester, () => uploaded.isCompleted);

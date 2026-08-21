@@ -208,8 +208,12 @@
   },
   "areaPhotoSetAction": "Foto aufnehmen",
   "areaPhotoReplaceAction": "Foto ersetzen",
-  "areaPhotoCameraAction": "Mit der Kamera aufnehmen",
-  "areaPhotoGalleryAction": "Aus der Galerie wählen",
+  "photoCameraAction": "Mit der Kamera aufnehmen",
+  "@photoCameraAction": {
+    "description": "Shared by every photo in the app — a Bereich's overview shot and a nest's own. One wording, because it is one act."
+  },
+  "photoGalleryAction": "Aus der Galerie wählen",
+  "photoRemoveAction": "Foto entfernen",
   "areaPhotoOpenAction": "Foto ansehen",
   "areaPhotoTakenOn": "Foto vom {date}",
   "@areaPhotoTakenOn": {
@@ -254,6 +258,13 @@
   "@nestFieldPositionHintHint": {
     "description": "What a pin cannot say. The photo shows where to look; this says what to look at."
   },
+  "nestFieldPhoto": "Foto vom Nest",
+  "nestPhotoHint": "Aus der Nähe — das unterscheidet zwei Simse, die auf dem Übersichtsfoto gleich aussehen.",
+  "@nestPhotoHint": {
+    "description": "Says what the nest's OWN photo adds: the Bereich photo answers where it is, this one what it looks like up close."
+  },
+  "nestPhotoSetAction": "Foto aufnehmen",
+  "nestPhotoReplaceAction": "Foto ersetzen",
   "nestFieldSpecies": "Art",
   "nestFieldSpeciesLabel": "Welche Art?",
   "nestFieldSpeciesLabelHint": "Dohle, Turmfalke, …",
@@ -277,9 +288,13 @@
   "@nestProtectedLockedHint": {
     "description": "Names who can, not just that this reader cannot: a dead end without an addressee is how a volunteer stops reporting things."
   },
-  "nestsEmptyInArea": "Noch kein Nest. Tippe auf das Foto, um eines einzuzeichnen.",
+  "nestsEmptyInArea": "Noch kein Nest. Tippe auf das Foto, um eines einzuzeichnen — oder lege eines ohne Pin an.",
   "@nestsEmptyInArea": {
-    "description": "Empty state under a Bereich photo. Names the gesture, because tapping a photo to create something is not discoverable."
+    "description": "Empty state under a Bereich photo. Names BOTH routes: tapping a photo to create something is not discoverable, and a Bereich without a photo needs the other one."
+  },
+  "nestsAddAction": "Nest",
+  "@nestsAddAction": {
+    "description": "Adds a nest without a pin — the only route on a Bereich that has no photo yet, and the way to record one whose position nobody can point at."
   },
   "nestContentEmpty": "leer",
   "@nestContentEmpty": {

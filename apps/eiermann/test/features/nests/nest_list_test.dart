@@ -85,6 +85,49 @@ void main() {
     expect(find.text(de.nestsEmptyInArea), findsOneWidget);
   });
 
+  testWidgets('a nest can be added WITHOUT a pin, from the list', (
+    tester,
+  ) async {
+    // The only route on a Bereich that has no photo yet — and the way to record
+    // a nest whose position nobody can point at. Without it, a photo-less
+    // Bereich is a dead end: the list says "tap the photo" beside a box that
+    // says "no photo".
+    await pump(tester, []);
+
+    await tester.tap(find.text(de.nestsAddAction));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NestSheet), findsOneWidget);
+    expect(find.text(de.nestSheetTitleNew), findsOneWidget);
+  });
+
+  testWidgets('the suggested label skips the ones already on the Bereich', (
+    tester,
+  ) async {
+    await pump(tester, [row(id: 'n1'), row(id: 'n2', label: 'N2')]);
+
+    await tester.tap(find.text(de.nestsAddAction));
+    await tester.pumpAndSettle();
+
+    // On the visible text, not on the field's initialValue: what matters is
+    // what the volunteer reads in the box before typing over it.
+    // On the visible text, not on the field's initialValue: what matters is
+    // what the volunteer reads in the box before typing over it. Two matches,
+    // because a TextField draws its value and its own editing overlay.
+    expect(
+      find.descendant(of: find.byType(NestSheet), matching: find.text('N3')),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('the way in is there even with nests already listed', (
+    tester,
+  ) async {
+    await pump(tester, [row(id: 'n1')]);
+
+    expect(find.text(de.nestsAddAction), findsOneWidget);
+  });
+
   testWidgets('the Ist-Gelege is spelled out, dummies first', (tester) async {
     // Dummies lead because that is the number somebody packs the car by — the
     // concept calls it the smallest feature with the highest everyday value.

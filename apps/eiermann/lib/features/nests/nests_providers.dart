@@ -40,15 +40,19 @@ void invalidateNestViews(WidgetRef ref) {
     ..invalidate(nestStatesForSpotProvider);
 }
 
-/// The label to suggest for the next nest in [existing].
+/// The label to suggest for the next nest, given the [labels] already taken.
 ///
 /// "N" plus the first free number, so a Bereich fills up as N1, N2, N3 — the
 /// captions volunteers say out loud. It skips numbers already taken rather than
 /// counting the rows: a Bereich that had N1..N3 and lost N2 must not propose a
 /// second N3, because the label is UNIQUE per Bereich and the write would be
 /// refused after the sheet was already filled in.
-String suggestNestLabel(List<Nest> existing) {
-  final taken = existing.map((nest) => nest.label).toSet();
+///
+/// Labels rather than rows, because both callers hold a different shape of the
+/// same nests — the editor has `nests` rows, the dossier's list has rows of the
+/// view over them.
+String suggestNestLabel(Iterable<String> labels) {
+  final taken = labels.toSet();
   for (var n = 1; n <= taken.length + 1; n++) {
     final candidate = 'N$n';
     if (!taken.contains(candidate)) return candidate;

@@ -1,8 +1,11 @@
+import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/nests/nest_labels.dart';
 import 'package:eiermann/features/nests/nest_sheet.dart';
+import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The nests of one Bereich as LINES — what the photo cannot say.
@@ -24,31 +27,61 @@ class NestList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    if (nests.isEmpty) {
-      return Text(
-        l10n.nestsEmptyInArea,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      );
-    }
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final nest in nests) NestLine(nest: nest, areaId: areaId),
+        if (nests.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: ZugvogelSpacing.sm),
+            child: Text(
+              l10n.nestsEmptyInArea,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )
+        else
+          for (final nest in nests) NestLine(nest: nest, areaId: areaId),
+        // The way in that does NOT need a photo — and the only way to record a
+        // nest whose position nobody can point at yet. Without it a Bereich
+        // with no photo is a dead end: the list says "tap the photo" beside a
+        // box that says "no photo".
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => showNestSheet(
+              context,
+              areaId: areaId,
+              suggestedLabel: suggestNestLabel(
+                nests.map((nest) => nest.label),
+              ),
+            ),
+            icon: const Icon(Icons.add),
+            label: Text(l10n.nestsAddAction),
+          ),
+        ),
       ],
     );
   }
 }
 
 /// One nest: its label and where to look, what is in it, and how old that is.
-class NestLine extends StatelessWidget {
+class NestLine extends ConsumerWidget {
   const NestLine({required this.nest, required this.areaId, super.key});
 
   final NestState nest;
   final String areaId;
 
+  /// The nest's own photo on the line, small.
+  ///
+  /// It answers what the Bereich photo cannot: two ledges that look identical
+  /// from across the attic are told apart up close. Absent when there is none —
+  /// a placeholder box on every line would be noise on exactly the screen that
+  /// has to be readable at a glance.
+  static const double _thumb = 40;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final colour = nestSpeciesColor(context, nest.species);
@@ -63,6 +96,8 @@ class NestLine extends StatelessWidget {
         : nestContent(l10n, nest);
 
     final age = nest.ageInDays(DateTime.now());
+    final repo = ref.watch(nestStateRepositoryProvider).value;
+    final photo = nest.photo;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -97,11 +132,30 @@ class NestLine extends StatelessWidget {
       // The age is the second number the decision turns on, so it sits at the
       // end of the line where the eye lands last — and says so in words rather
       // than as a bare number.
-      trailing: Text(
-        age == null ? l10n.nestNeverChecked : l10n.nestAgeDays(age),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (photo != null && repo != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: CachedFileImage(
+                // The 100px generation: this is drawn 40 logical pixels wide,
+                // and asking for the original would send a phone photo down a
+                // stairwell connection once per line.
+                url: repo.fileUrl(nest.id, photo, thumb: '100x100'),
+                width: _thumb,
+                height: _thumb,
+              ),
+            ),
+            const SizedBox(width: ZugvogelSpacing.sm),
+          ],
+          Text(
+            age == null ? l10n.nestNeverChecked : l10n.nestAgeDays(age),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
       onTap: () => showNestSheet(
         context,

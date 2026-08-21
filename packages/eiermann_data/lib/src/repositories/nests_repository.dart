@@ -50,6 +50,11 @@ class NestsRepository extends PbRepository<Nest> {
   /// [area] and [org] belong to the create path only. [species] and [status]
   /// are required by the collection: an undetermined nest is
   /// [NestSpecies.unknown], a real state and not a silent "city pigeon".
+  ///
+  /// [clearPhoto] is the one exception to "the photo never appears in a body":
+  /// a new file goes up as a multipart part, but REMOVING one is a field write
+  /// of null, and it has to travel with the rest of the save — two requests
+  /// would leave a nest whose photo is gone and whose label is not yet renamed.
   static Map<String, dynamic> body({
     required String label,
     required NestSpecies species,
@@ -61,6 +66,7 @@ class NestsRepository extends PbRepository<Nest> {
     double? pinY,
     String? area,
     String? org,
+    bool clearPhoto = false,
   }) => {
     'label': label,
     'species': species.wire,
@@ -76,6 +82,7 @@ class NestsRepository extends PbRepository<Nest> {
     },
     'area': ?area,
     'org': ?org,
+    if (clearPhoto) 'photo': null,
   };
 
   /// Always throws. A nest is never deleted — see the class doc.

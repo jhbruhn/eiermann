@@ -5,6 +5,7 @@ import 'package:eiermann/features/nests/nest_labels.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/ui/form_sheet.dart';
+import 'package:eiermann/ui/photo_capture.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
@@ -85,6 +86,24 @@ class _NestSheetState extends ConsumerState<NestSheet>
   /// decides. Defaulting to "city pigeon" would be the app making that call.
   late NestSpecies _species = widget.nest?.species ?? NestSpecies.unknown;
 
+  /// A photo taken in this sheet, not yet uploaded.
+  ///
+  /// Staged rather than sent at once — unlike the Bereich photo, which is what
+  /// a Bereich is FOR and has nothing to wait for. A nest photo is one field of
+  /// a form somebody is still filling in, and a photo that uploaded itself
+  /// while the label was still wrong would be a half-saved nest. It travels
+  /// with the create, so a new nest is still ONE request.
+  CapturedPhoto? _photo;
+
+  /// The stored photo is to be removed on save.
+  ///
+  /// Removable, again unlike the Bereich photo: that one carries the pins, and
+  /// dropping it strands them. A nest photo carries nothing but itself.
+  bool _photoRemoved = false;
+
+  /// The filename still on the record, unless this save drops it.
+  String? get _storedPhoto => _photoRemoved ? null : widget.nest?.photo;
+
   bool get _isEdit => widget.nest != null;
 
   /// Whether this reader may move the nest OUT of `protected`.
@@ -116,6 +135,8 @@ class _NestSheetState extends ConsumerState<NestSheet>
       final body = NestsRepository.body(
         label: _label.text.trim(),
         species: _species,
+        // Only on the way OUT: a new file goes as a multipart part below.
+        clearPhoto: _photoRemoved && _photo == null,
         // A new nest is there; `gone` is something a later visit records, and
         // this form is not where a nest disappears.
         status: existing?.status ?? NestStatus.active,
@@ -132,10 +153,22 @@ class _NestSheetState extends ConsumerState<NestSheet>
         area: existing == null ? widget.areaId : null,
         org: existing == null ? (await requireUserOrg()).$2 : null,
       );
+      // One request either way, photo included: a nest that existed for a
+      // moment without its picture is a nest somebody else can already see.
+      final photo = _photo;
+      final files = photo == null ? null : [photoPart('photo', photo)];
       if (existing == null) {
-        await repo.create(body);
+        if (files == null) {
+          await repo.create(body);
+        } else {
+          await repo.createWithFiles(body, files);
+        }
       } else {
-        await repo.update(existing.id, body);
+        if (files == null) {
+          await repo.update(existing.id, body);
+        } else {
+          await repo.updateWithFiles(existing.id, body, files);
+        }
       }
       // Both reads: the editor's pins come from `nests`, the dossier's list
       // from the view over it.
@@ -158,6 +191,33 @@ class _NestSheetState extends ConsumerState<NestSheet>
         error: saveError,
         onSave: _save,
         children: [
+          _PhotoField(
+            nestId: widget.nest?.id,
+            stored: _storedPhoto,
+            staged: _photo,
+            enabled: !isBusy,
+            onCapture: () async {
+              final photo = await capturePhoto(
+                context,
+                ref,
+                filenameStem: 'nest',
+              );
+              // Null is "backed out", which must leave what was there alone —
+              // including a removal the reader had already asked for.
+              if (photo == null || !mounted) return;
+              setState(() {
+                _photo = photo;
+                _photoRemoved = false;
+                markDirty();
+              });
+            },
+            onRemove: () => setState(() {
+              _photo = null;
+              _photoRemoved = true;
+              markDirty();
+            }),
+          ),
+          const SizedBox(height: ZugvogelSpacing.md),
           AppTextField(
             controller: _label,
             label: l10n.nestFieldLabel,
@@ -269,6 +329,120 @@ class _SpeciesChoice extends StatelessWidget {
                 ? null
                 : (_) => onChanged(species),
           ),
+      ],
+    );
+  }
+}
+
+/// The nest's own photo, as one field of the sheet.
+///
+/// Three states, and the difference matters: nothing yet, something stored on
+/// the record, and something taken here but not yet saved. The staged one is
+/// drawn from memory — there is no URL for a file that has not been uploaded —
+/// and it is what a reader sees change when they take a picture, which is the
+/// only feedback that the tap did anything.
+class _PhotoField extends ConsumerWidget {
+  const _PhotoField({
+    required this.nestId,
+    required this.stored,
+    required this.staged,
+    required this.enabled,
+    required this.onCapture,
+    required this.onRemove,
+  });
+
+  /// Null while the nest is being created — there is no record to build a file
+  /// URL against yet, which is exactly why the photo is staged.
+  final String? nestId;
+
+  final String? stored;
+  final CapturedPhoto? staged;
+  final bool enabled;
+  final VoidCallback onCapture;
+  final VoidCallback onRemove;
+
+  static const double _size = 96;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final repo = ref.watch(nestsRepositoryProvider).value;
+    final id = nestId;
+
+    final Widget picture;
+    if (staged case final photo?) {
+      picture = Image.memory(photo.bytes, fit: BoxFit.cover);
+    } else if (stored != null && id != null && repo != null) {
+      // `cover` is CachedFileImage's default and the right one here: this is a
+      // thumbnail of a close-up, not a surface anything is measured against.
+      picture = CachedFileImage(
+        url: repo.fileUrl(id, stored!, thumb: '600x600'),
+      );
+    } else {
+      picture = Icon(
+        Icons.add_a_photo_outlined,
+        color: theme.colorScheme.onSurfaceVariant,
+      );
+    }
+
+    final hasPhoto = staged != null || stored != null;
+
+    return Row(
+      children: [
+        SizedBox(
+          width: _size,
+          height: _size,
+          child: Material(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: enabled ? onCapture : null,
+              child: Center(child: picture),
+            ),
+          ),
+        ),
+        const SizedBox(width: ZugvogelSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.nestFieldPhoto, style: theme.textTheme.labelLarge),
+              const SizedBox(height: ZugvogelSpacing.xs),
+              Text(
+                // Says what the nest photo is for, because the Bereich photo
+                // already showed WHERE it is: this one answers what it looks
+                // like from up close, which is what tells two ledges apart.
+                l10n.nestPhotoHint,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: ZugvogelSpacing.xs),
+              Wrap(
+                spacing: ZugvogelSpacing.sm,
+                children: [
+                  TextButton.icon(
+                    onPressed: enabled ? onCapture : null,
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: Text(
+                      hasPhoto
+                          ? l10n.nestPhotoReplaceAction
+                          : l10n.nestPhotoSetAction,
+                    ),
+                  ),
+                  if (hasPhoto)
+                    TextButton.icon(
+                      onPressed: enabled ? onRemove : null,
+                      icon: const Icon(Icons.delete_outline),
+                      label: Text(l10n.photoRemoveAction),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
