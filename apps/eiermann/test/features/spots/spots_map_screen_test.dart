@@ -1,3 +1,4 @@
+import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -12,6 +13,8 @@ import 'package:zugvogel_core/zugvogel_core.dart';
 import '../../support/harness.dart';
 
 class _MockOverview extends Mock implements SpotOverviewRepository {}
+
+class _MockSpots extends Mock implements SpotsRepository {}
 
 /// A row with everything the map draws, so each test only names its own
 /// difference.
@@ -45,13 +48,19 @@ SpotOverview row({
 void main() {
   late AppLocalizations de;
   late _MockOverview overview;
+  late _MockSpots spots;
 
   setUpAll(() async {
     de = await germanStrings();
+    registerFallbackValue(<String, dynamic>{});
   });
 
   setUp(() {
     overview = _MockOverview();
+    spots = _MockSpots();
+    when(() => spots.create(any())).thenAnswer(
+      (_) async => const Spot(id: 's-new', name: 'Neu'),
+    );
   });
 
   Future<void> pumpMap(WidgetTester tester, List<SpotOverview> rows) async {
@@ -63,6 +72,15 @@ void main() {
       const SpotsMapScreen(),
       overrides: [
         spotOverviewRepositoryProvider.overrideWith((ref) async => overview),
+        spotsRepositoryProvider.overrideWith((ref) async => spots),
+        currentUserProvider.overrideWith(
+          (ref) async => const AppUser(
+            id: 'u1',
+            email: 'feld@eiermann.test',
+            role: UserRole.member,
+            org: 'org00000default',
+          ),
+        ),
       ],
     );
     await tester.pumpAndSettle();
@@ -214,5 +232,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(de.actionRetry), findsOneWidget);
+  });
+
+  testWidgets('a Spot added from the MAP appears on the map', (tester) async {
+    // The map arrived as a second reader of the same rows, and every write site
+    // was invalidating only the list — so a Spot created from this screen's own
+    // button did not show up until the screen was left and re-entered.
+    await pumpMap(tester, [row(id: 's1', name: 'Schon da')]);
+    verify(() => overview.search('')).called(1);
+
+    await tester.tap(find.text(de.spotsEmptyAction));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, de.spotFieldName),
+      'Gerade angelegt',
+    );
+    await tester.tap(find.text(de.actionSave));
+    await tester.pumpAndSettle();
+
+    verify(() => spots.create(any())).called(1);
+    // Re-read, so the new pin is drawn.
+    verify(() => overview.search('')).called(1);
   });
 }

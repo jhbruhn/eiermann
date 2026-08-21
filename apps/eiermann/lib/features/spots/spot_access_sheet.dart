@@ -59,11 +59,10 @@ class _SpotAccessSheetState extends ConsumerState<SpotAccessSheet>
         // one, and a wrong access note is worse than none.
         {'access_note': _accessNote.text.trim()},
       );
-      ref
-        ..invalidate(spotProvider(widget.spot.id))
-        // The list row does not draw the note, but the view carries it and the
-        // map callout will.
-        ..invalidate(spotFeedProvider);
+      ref.invalidate(spotProvider(widget.spot.id));
+      // Neither the list row nor the map callout draws the note, but the view
+      // carries it and a future one will.
+      invalidateSpotViews(ref);
     });
     if (ok && mounted) navigator.pop(true);
   }

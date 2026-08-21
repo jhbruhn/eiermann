@@ -2,6 +2,7 @@ import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'spots_providers.g.dart';
@@ -131,4 +132,17 @@ Future<List<SpotContact>> spotContacts(Ref ref, String spotId) async {
 Future<List<SpotOverview>> spotPins(Ref ref) async {
   final repo = await ref.watch(spotOverviewRepositoryProvider.future);
   return repo.search('');
+}
+
+/// Invalidates every read that draws a Spot in a list or on the map.
+///
+/// One call, because there are two such reads now and the tour screens will add
+/// a third. The map is the reason it exists: it arrived as a SECOND reader of
+/// the same rows while five write sites went on invalidating only the list — so
+/// a Spot created from the map's own button did not appear on the map until the
+/// screen was left and re-entered.
+void invalidateSpotViews(WidgetRef ref) {
+  ref
+    ..invalidate(spotFeedProvider)
+    ..invalidate(spotPinsProvider);
 }

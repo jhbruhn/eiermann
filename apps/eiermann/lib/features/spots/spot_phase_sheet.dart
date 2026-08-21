@@ -143,9 +143,8 @@ class _SpotPhaseSheetState extends ConsumerState<SpotPhaseSheet>
       // The dossier's header, and the list row's phase chip and due date — the
       // server just recomputed the date, so a stale row would show a Spot that
       // is paused and due at the same time.
-      ref
-        ..invalidate(spotProvider(_spot.id))
-        ..invalidate(spotFeedProvider);
+      ref.invalidate(spotProvider(_spot.id));
+      invalidateSpotViews(ref);
     });
     if (ok && mounted) navigator.pop(true);
   }

@@ -130,7 +130,7 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
           : await repo.update(existing.id, body);
       writtenId = written.id;
 
-      ref.invalidate(spotFeedProvider);
+      invalidateSpotViews(ref);
       if (existing != null) ref.invalidate(spotProvider(existing.id));
     });
     if (ok && mounted) navigator.pop(writtenId);

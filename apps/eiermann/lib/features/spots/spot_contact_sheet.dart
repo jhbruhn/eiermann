@@ -92,9 +92,8 @@ class _SpotContactSheetState extends ConsumerState<SpotContactSheet>
       action: () async {
         final repo = await ref.read(spotContactsRepositoryProvider.future);
         await repo.delete(existing.id);
-        ref
-          ..invalidate(spotContactsProvider(widget.spotId))
-          ..invalidate(spotFeedProvider);
+        ref.invalidate(spotContactsProvider(widget.spotId));
+        invalidateSpotViews(ref);
         // Inside the action, so a failed delete leaves the sheet standing with
         // its snackbar instead of closing over the error.
         navigator.pop();
@@ -131,10 +130,10 @@ class _SpotContactSheetState extends ConsumerState<SpotContactSheet>
         await repo.update(existing.id, body);
       }
 
-      // The list row shows the contact count, and it comes from the view.
-      ref
-        ..invalidate(spotContactsProvider(widget.spotId))
-        ..invalidate(spotFeedProvider);
+      // The list row and the map callout both show the contact count, and it
+      // comes from the view.
+      ref.invalidate(spotContactsProvider(widget.spotId));
+      invalidateSpotViews(ref);
     });
     if (ok && mounted) navigator.pop();
   }
