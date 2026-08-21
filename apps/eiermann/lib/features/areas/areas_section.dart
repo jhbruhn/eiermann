@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:eiermann/features/areas/area_photo.dart';
 import 'package:eiermann/features/areas/area_sheet.dart';
 import 'package:eiermann/features/areas/areas_providers.dart';
+import 'package:eiermann/features/nests/nest_list.dart';
+import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/router.dart';
 import 'package:eiermann_models/eiermann_models.dart';
@@ -27,6 +29,10 @@ class AreasSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final areas = ref.watch(areasForSpotProvider(spotId));
+    // ONE read of the nests for the whole dossier, sliced per Bereich below. A
+    // card that fetched its own would be a request per Bereich — the view
+    // exists so this screen stays two queries however big the building is.
+    final nests = ref.watch(nestStatesForSpotProvider(spotId));
 
     return AreaSectionShell(
       title: l10n.areasTitle,
@@ -48,7 +54,16 @@ class AreasSection extends ConsumerWidget {
                       padding: const EdgeInsets.only(
                         bottom: ZugvogelSpacing.md,
                       ),
-                      child: AreaCard(area: area, spotId: spotId),
+                      child: AreaCard(
+                        area: area,
+                        spotId: spotId,
+                        // Null while the nests are still being read, which is
+                        // not the same as "no nests": the card then says
+                        // nothing rather than calling the Bereich empty.
+                        nests: nests.value
+                            ?.where((nest) => nest.area == area.id)
+                            .toList(),
+                      ),
                     ),
                 ],
               ),
@@ -96,10 +111,18 @@ class AreaSectionShell extends StatelessWidget {
 
 /// One Bereich: its photo, its name, and what somebody wrote about getting in.
 class AreaCard extends ConsumerWidget {
-  const AreaCard({required this.area, required this.spotId, super.key});
+  const AreaCard({
+    required this.area,
+    required this.spotId,
+    this.nests,
+    super.key,
+  });
 
   final Area area;
   final String spotId;
+
+  /// The nests of THIS Bereich, or null while they are still being read.
+  final List<NestState>? nests;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -183,6 +206,11 @@ class AreaCard extends ConsumerWidget {
                       ),
                     ],
                   ),
+                ],
+                if (nests case final rows?) ...[
+                  const SizedBox(height: ZugvogelSpacing.sm),
+                  const Divider(height: 1),
+                  NestList(nests: rows, areaId: area.id),
                 ],
                 if (area.photoTakenAt case final taken?) ...[
                   const SizedBox(height: ZugvogelSpacing.xs),

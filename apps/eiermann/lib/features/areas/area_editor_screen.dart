@@ -188,7 +188,7 @@ class _EditorState extends ConsumerState<_Editor> {
     // Re-read either way: on success to pick up the stored (clamped) value, and
     // on failure to drop the local position the drag was showing — a pin left
     // where the finger was would claim a move the server refused.
-    ref.invalidate(nestsForAreaProvider(widget.area.id));
+    invalidateNestViews(ref);
   }
 }
 

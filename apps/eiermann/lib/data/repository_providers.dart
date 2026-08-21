@@ -41,6 +41,15 @@ Future<AreasRepository> areasRepository(Ref ref) async =>
 Future<NestsRepository> nestsRepository(Ref ref) async =>
     NestsRepository(await _client(ref));
 
+/// The read-only view behind the nest list: a nest plus what is in it.
+///
+/// A separate provider from [nestsRepository] rather than a method on it,
+/// because the type is the guard — `PbReadOnlyRepository` has no `create`, so a
+/// write against a PocketBase view cannot be spelled at all.
+@Riverpod(keepAlive: true)
+Future<NestStateRepository> nestStateRepository(Ref ref) async =>
+    NestStateRepository(await _client(ref));
+
 /// The read-only view behind the Spot list and the map.
 ///
 /// A separate provider from [spotsRepository] rather than a method on it,

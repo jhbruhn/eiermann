@@ -144,6 +144,45 @@ enum SpotUrgency {
   }
 }
 
+/// The `nest_state.urgency` ladder, named.
+///
+/// Not a [WireEnum]: the server computes it in the view's CASE expression, and
+/// the number is what the nest list sorts by. Two rungs are not about dates at
+/// all — see the view's own header for why they sit where they do.
+enum NestUrgency {
+  /// A due date in the past.
+  overdue(0),
+  dueToday(1),
+  dueThisWeek(2),
+
+  /// Active and not due yet — including a nest that has never been checked,
+  /// which is waiting rather than late.
+  inRhythm(3),
+
+  /// A protected species. Below every actionable date on purpose: every egg
+  /// mutation on such a nest is refused server-side, so a due date on it
+  /// describes nothing anybody may act on. It keeps a rank of its own rather
+  /// than dropping out of the list — a jackdaw in the attic is exactly what the
+  /// next person needs to see before they go up there.
+  protectedSpecies(4),
+
+  /// Gone. Recorded history rather than work; a nest is never deleted, because
+  /// a nest that disappeared is information about the building.
+  gone(5);
+
+  const NestUrgency(this.rank);
+
+  /// The integer the view emits, and the key the list is ordered by.
+  final int rank;
+
+  static NestUrgency? fromRank(int? rank) {
+    for (final value in values) {
+      if (value.rank == rank) return value;
+    }
+    return null;
+  }
+}
+
 /// What a nest holds, biologically (`nests.species`).
 ///
 /// The way INTO [protected] is open to everybody — seeing a protected species

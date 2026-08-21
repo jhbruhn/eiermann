@@ -137,7 +137,9 @@ class _NestSheetState extends ConsumerState<NestSheet>
       } else {
         await repo.update(existing.id, body);
       }
-      ref.invalidate(nestsForAreaProvider(widget.areaId));
+      // Both reads: the editor's pins come from `nests`, the dossier's list
+      // from the view over it.
+      invalidateNestViews(ref);
     });
     if (ok && mounted) navigator.pop();
   }

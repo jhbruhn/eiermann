@@ -277,6 +277,48 @@
   "@nestProtectedLockedHint": {
     "description": "Names who can, not just that this reader cannot: a dead end without an addressee is how a volunteer stops reporting things."
   },
+  "nestsEmptyInArea": "Noch kein Nest. Tippe auf das Foto, um eines einzuzeichnen.",
+  "@nestsEmptyInArea": {
+    "description": "Empty state under a Bereich photo. Names the gesture, because tapping a photo to create something is not discoverable."
+  },
+  "nestContentEmpty": "leer",
+  "@nestContentEmpty": {
+    "description": "The Ist-Gelege of a nest with nothing in it — the normal state after a swap was collected."
+  },
+  "nestContentDummy": "{count, plural, =1{1 Kunstei} other{{count} Kunsteier}}",
+  "@nestContentDummy": {
+    "description": "Dummies come FIRST in the line: it is the number somebody packs the car by.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nestContentReal": "{count, plural, =1{1 echtes Ei} other{{count} echte Eier}}",
+  "@nestContentReal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nestAgeDays": "{count, plural, =0{heute} =1{1 Tag} other{{count} Tage}}",
+  "@nestAgeDays": {
+    "description": "How long the nest has been in this state — measured from the oldest egg, or from the last check for an empty nest. Zero reads as 'heute' rather than '0 Tage'.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nestNeverChecked": "noch nie geprüft",
+  "@nestNeverChecked": {
+    "description": "A nest drawn on the photo that nobody has visited. Never rendered as '0 Tage', which would read as 'checked today'."
+  },
+  "nestProtectedDoNotTouch": "nicht anfassen",
+  "@nestProtectedDoNotTouch": {
+    "description": "Replaces the clutch reading on a protected nest. There is no egg work to report there, and the words are the whole point — §44 BNatSchG."
+  },
   "nestStatusActive": "Vorhanden",
   "nestStatusGone": "Nicht mehr da",
   "@nestStatusGone": {

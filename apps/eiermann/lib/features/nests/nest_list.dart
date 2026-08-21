@@ -1,0 +1,157 @@
+import 'package:eiermann/features/nests/nest_labels.dart';
+import 'package:eiermann/features/nests/nest_sheet.dart';
+import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann_models/eiermann_models.dart';
+import 'package:flutter/material.dart';
+import 'package:zugvogel_ui/zugvogel_ui.dart';
+
+/// The nests of one Bereich as LINES — what the photo cannot say.
+///
+/// The pins answer "where"; this answers "what is in it and how long has it
+/// been like that", which is what decides whether somebody drives out there.
+/// The concept puts both on the dossier's first screen for that reason: you
+/// orient yourself on the picture, then read the list.
+///
+/// Urgent first, in the server's order. Nothing is re-sorted here: the rank is
+/// a column of the view, and a list that re-ordered on the device would
+/// disagree with the one the coordination is looking at.
+class NestList extends StatelessWidget {
+  const NestList({required this.nests, required this.areaId, super.key});
+
+  final List<NestState> nests;
+  final String areaId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (nests.isEmpty) {
+      return Text(
+        l10n.nestsEmptyInArea,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final nest in nests) NestLine(nest: nest, areaId: areaId),
+      ],
+    );
+  }
+}
+
+/// One nest: its label and where to look, what is in it, and how old that is.
+class NestLine extends StatelessWidget {
+  const NestLine({required this.nest, required this.areaId, super.key});
+
+  final NestState nest;
+  final String areaId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final colour = nestSpeciesColor(context, nest.species);
+
+    // A protected nest says what NOT to do, in place of a clutch reading: there
+    // is no egg work to report on it, and the words are the whole point.
+    final content = nest.isProtected
+        ? [
+            ?nest.speciesLabel,
+            l10n.nestProtectedDoNotTouch,
+          ].join(' — ')
+        : nestContent(l10n, nest);
+
+    final age = nest.ageInDays(DateTime.now());
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      // Colour AND shape, always: a red line says nothing to a colour-blind
+      // volunteer, and colour as the only carrier of meaning fails WCAG 1.4.1.
+      leading: Icon(nestSpeciesIcon(nest.species), color: colour),
+      title: Row(
+        children: [
+          Text(nest.label, style: theme.textTheme.titleSmall),
+          if (nest.positionHint case final hint?) ...[
+            const SizedBox(width: ZugvogelSpacing.sm),
+            Expanded(
+              child: Text(
+                hint,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      subtitle: Text(
+        content,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: nest.isProtected ? context.zvColors.critical : null,
+          fontWeight: nest.isProtected ? FontWeight.bold : null,
+        ),
+      ),
+      // The age is the second number the decision turns on, so it sits at the
+      // end of the line where the eye lands last — and says so in words rather
+      // than as a bare number.
+      trailing: Text(
+        age == null ? l10n.nestNeverChecked : l10n.nestAgeDays(age),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      onTap: () => showNestSheet(
+        context,
+        areaId: areaId,
+        // The sheet edits the NEST, and the view is a read of it. Rebuilt
+        // from the row rather than fetched again: the fields the sheet writes
+        // are all here, and a request per tap is what the view exists to avoid.
+        nest: nest.asNest,
+      ),
+    );
+  }
+}
+
+/// What is in the nest, in words: "1 Kunst · 1 echt", or "leer".
+///
+/// Dummies first, because that is the number somebody packs the car by — the
+/// concept calls it the smallest feature with the highest everyday value.
+String nestContent(AppLocalizations l10n, NestState nest) {
+  if (nest.isEmpty) return l10n.nestContentEmpty;
+  return [
+    if (nest.dummyCount > 0) l10n.nestContentDummy(nest.dummyCount),
+    if (nest.realCount > 0) l10n.nestContentReal(nest.realCount),
+  ].join(' · ');
+}
+
+/// The nest behind a view row, for the sheet that edits it.
+extension NestStateAsNest on NestState {
+  /// Everything `nests` stores, taken off the row that was already read.
+  ///
+  /// The rhythm fields travel too, because the sheet passes them straight back
+  /// out as `status`/`note` — and nothing here may be SENT: `NestsRepository`
+  /// decides what a body carries, and it leaves the ladder alone.
+  Nest get asNest => Nest(
+    id: id,
+    label: label,
+    area: area,
+    spot: spot,
+    org: org,
+    positionHint: positionHint,
+    pinX: pinX,
+    pinY: pinY,
+    photo: photo,
+    species: species,
+    speciesLabel: speciesLabel,
+    status: status,
+    intervalDays: intervalDays,
+    emptyStreak: emptyStreak,
+    nextDueAt: nextDueAt,
+    note: note,
+    created: created,
+    updated: updated,
+  );
+}

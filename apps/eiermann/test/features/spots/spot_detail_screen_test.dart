@@ -16,11 +16,14 @@ class _MockContacts extends Mock implements SpotContactsRepository {}
 
 class _MockAreas extends Mock implements AreasRepository {}
 
+class _MockNestStates extends Mock implements NestStateRepository {}
+
 void main() {
   late AppLocalizations de;
   late _MockSpots spots;
   late _MockContacts contacts;
   late _MockAreas areas;
+  late _MockNestStates nestStates;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -31,6 +34,8 @@ void main() {
     spots = _MockSpots();
     contacts = _MockContacts();
     areas = _MockAreas();
+    nestStates = _MockNestStates();
+    when(() => nestStates.forSpot(any())).thenAnswer((_) async => []);
     // The dossier reads the Bereiche now. Empty by default: what the Bereich
     // block itself does has its own test file.
     when(() => areas.forSpot(any())).thenAnswer((_) async => []);
@@ -76,6 +81,7 @@ void main() {
         spotsRepositoryProvider.overrideWith((ref) async => spots),
         spotContactsRepositoryProvider.overrideWith((ref) async => contacts),
         areasRepositoryProvider.overrideWith((ref) async => areas),
+        nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
         currentUserProvider.overrideWith(
           (ref) async => const AppUser(
             id: 'u1',

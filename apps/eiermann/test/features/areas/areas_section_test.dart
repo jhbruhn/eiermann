@@ -20,6 +20,10 @@ import '../../support/harness.dart';
 
 class _MockAreas extends Mock implements AreasRepository {}
 
+class _MockNestStates extends Mock implements NestStateRepository {}
+
+class _MockNests extends Mock implements NestsRepository {}
+
 class _MockPicker extends Mock implements ImagePicker {}
 
 /// Alternates real-async progress with frame pumps until [done].
@@ -50,6 +54,8 @@ void main() {
   late AppLocalizations de;
   late MaterialLocalizations materialDe;
   late _MockAreas repo;
+  late _MockNestStates nestStates;
+  late _MockNests nests;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -63,6 +69,10 @@ void main() {
 
   setUp(() {
     repo = _MockAreas();
+    nestStates = _MockNestStates();
+    nests = _MockNests();
+    when(() => nestStates.forSpot(any())).thenAnswer((_) async => []);
+    when(() => nests.forArea(any())).thenAnswer((_) async => []);
     when(
       () => repo.fileUrl(
         any(),
@@ -98,14 +108,18 @@ void main() {
     WidgetTester tester,
     List<Area> areas, {
     ImagePicker? picker,
+    List<NestState> nestRows = const [],
   }) async {
     when(() => repo.forSpot(any())).thenAnswer((_) async => areas);
+    when(() => nestStates.forSpot(any())).thenAnswer((_) async => nestRows);
     await tester.pumpApp(
       const Scaffold(
         body: SingleChildScrollView(child: AreasSection(spotId: 's1')),
       ),
       overrides: [
         areasRepositoryProvider.overrideWith((ref) async => repo),
+        nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
+        nestsRepositoryProvider.overrideWith((ref) async => nests),
         if (picker != null) imagePickerProvider.overrideWithValue(picker),
         currentUserProvider.overrideWith(
           (ref) async => const AppUser(
@@ -194,6 +208,49 @@ void main() {
       find.text(de.areaPhotoTakenOn(formatLocalDate(materialDe, taken))),
       findsOneWidget,
     );
+  });
+
+  testWidgets('each Bereich lists ITS nests, and only those', (tester) async {
+    // One read for the whole dossier, sliced per card. A card that fetched its
+    // own would be a request per Bereich — which is what the view exists to
+    // prevent, and what would make this screen slow on exactly the buildings
+    // that have several.
+    await pump(
+      tester,
+      [withPhoto, withoutPhoto],
+      nestRows: [
+        NestState(
+          id: 'n1',
+          label: 'N1',
+          area: withPhoto.id,
+          urgency: 3,
+          spot: 's1',
+          dummyCount: 2,
+        ),
+        NestState(
+          id: 'n2',
+          label: 'L1',
+          area: withoutPhoto.id,
+          urgency: 3,
+          spot: 's1',
+        ),
+      ],
+    );
+    await settle(tester);
+
+    final firstCard = find.ancestor(
+      of: find.text(withPhoto.name),
+      matching: find.byType(AreaCard),
+    );
+    expect(
+      find.descendant(of: firstCard, matching: find.text('N1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: firstCard, matching: find.text('L1')),
+      findsNothing,
+    );
+    verify(() => nestStates.forSpot('s1')).called(1);
   });
 
   group('the photo flow', () {
