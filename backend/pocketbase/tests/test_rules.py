@@ -15,6 +15,7 @@ re-reads.
 import os
 import sys
 
+import zv_shared_assertions as shared_assertions
 from zv_harness import (
     H,
     base_collections,
@@ -1974,6 +1975,28 @@ h.check(
     status == 200,
     f"status {status} — a cascade that reaches further than the registry says "
     "is the same defect as one nobody wrote down",
+)
+
+
+# ── The shared hooks' own behaviour ────────────────────────────────────────
+#
+# These assertions are zugvogel's (zv_shared_assertions.py), run here against
+# this app's instance. They were absent entirely until now: eiermann mounts
+# zv_web_headers and asserted nothing about it, which means the CSP that makes
+# the web build work at all — and that blocks the font download which otherwise
+# produces an endless console error stream — was untested in the app that ships
+# it. federfall had fifteen assertions on the same library.
+#
+# What is stated here rather than there is what differs: where this app's
+# uploaded files live. The map values the derivation looks for are the ones
+# run.sh puts in the environment, which both harnesses set identically.
+
+print("\n[shared hooks: web headers]")
+
+shared_assertions.web_headers(
+    h.check,
+    h.base,
+    files_path=f"/api/files/spots/{host['id']}/nonexistent.png",
 )
 
 
