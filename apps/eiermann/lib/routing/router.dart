@@ -3,6 +3,7 @@ import 'package:eiermann/features/auth/login_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/home/nav_shell.dart';
 import 'package:eiermann/features/server_setup/setup_screen.dart';
+import 'package:eiermann/features/spots/prospects_screen.dart';
 import 'package:eiermann/features/spots/spot_detail_screen.dart';
 import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
@@ -24,6 +25,11 @@ abstract final class Routes {
   static const dashboard = '/';
   static const map = '/map';
   static const spots = '/spots';
+
+  /// The Erkundung funnel. Its own location, so the dashboard's Erkundung tile
+  /// leads somewhere a web reader can keep — and so the pipeline is a place
+  /// rather than a mode of the Spot list.
+  static const prospects = '/prospects';
   static const spotDetailPattern = '/spots/:id';
   static const areaEditorPattern = '/areas/:id';
 
@@ -157,6 +163,15 @@ List<RouteBase> appRoutes() {
           ],
         ),
       ],
+    ),
+    // The Erkundung funnel: over the shell like the dossier, and for the same
+    // reason — a branch that can be parked on it is a branch that comes back
+    // showing it. It is not a fourth destination either: the pipeline is where
+    // the dashboard's Erkundung tile leads, not a tab somebody switches to
+    // between rounds.
+    GoRoute(
+      path: Routes.prospects,
+      builder: (_, _) => const ProspectsScreen(),
     ),
     // The pin editor: over the shell, for the same reason as the dossier under
     // it — and full-screen because the photo is the working surface.

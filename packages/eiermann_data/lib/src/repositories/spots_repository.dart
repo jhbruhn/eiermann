@@ -76,6 +76,22 @@ class SpotsRepository extends PbRepository<Spot> {
     },
   };
 
+  /// The body ONE ERKUNDUNG STEP sends: the stage, and nothing else.
+  ///
+  /// A third body rather than a reuse of [body], for the same reason
+  /// [phaseBody] exists: [body] is a *form's* body and writes every field the
+  /// form owns, empty ones included. Recording "Eigentümer gesprochen" through
+  /// it would clear the address of a building somebody had just typed one for.
+  ///
+  /// The phase is deliberately NOT part of it. Reaching `permitted` is not the
+  /// same act as starting the rhythm — the server insists on the stage before
+  /// it allows the activation (`spot_phase_needs_permitted`), and a client that
+  /// did both in one write would take that decision away from whoever has to
+  /// make it.
+  static Map<String, dynamic> stageBody(ProspectStage stage) => {
+    'prospect_stage': stage.wire,
+  };
+
   /// The body ONE PHASE TRANSITION sends: the phase, and the fields that
   /// transition has to carry.
   ///

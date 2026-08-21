@@ -120,6 +120,28 @@ void main() {
     });
   });
 
+  group('SpotsRepository.stageBody', () {
+    test('one field, and the wire value of it', () {
+      // The funnel records "Eigentümer gesprochen" while somebody stands in
+      // front of the building. Through `body` that write would also send the
+      // address fields the funnel never asked about — and clear the ones a
+      // form somewhere else had just filled in.
+      final body = SpotsRepository.stageBody(ProspectStage.ownerSpoken);
+
+      expect(body, {'prospect_stage': 'owner_spoken'});
+    });
+
+    test('does NOT carry the phase', () {
+      // Reaching `permitted` is not the same act as starting the rhythm. The
+      // server insists on the stage before it allows the activation
+      // (`spot_phase_needs_permitted`), and a client doing both in one write
+      // would take that decision away from whoever has to make it.
+      final body = SpotsRepository.stageBody(ProspectStage.permitted);
+
+      expect(body.containsKey('phase'), isFalse);
+    });
+  });
+
   group('SpotContactsRepository', () {
     test('forSpot filters by the parent and puts primaries first', () async {
       when(

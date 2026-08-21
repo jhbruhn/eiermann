@@ -140,6 +140,43 @@
   "spotPhaseClosed": "Geschlossen",
   "spotPhaseUnknown": "Unbekannte Phase",
   "spotPhaseLabel": "Phase",
+  "prospectsTitle": "Erkundung",
+  "@prospectsTitle": {
+    "description": "The funnel screen: every building whose permission is still being asked for, grouped by what it waits on. Answers 'bei wem hängt es?', which the Spot list cannot — there the Erkundungen are scattered among the buildings that are simply due."
+  },
+  "prospectsEmptyTitle": "Keine laufende Erkundung",
+  "prospectsEmptyMessage": "Ein Spot in der Phase Erkundung erscheint hier — gruppiert nach dem, worauf er wartet.",
+  "prospectsNoContact": "Kein Kontakt hinterlegt",
+  "@prospectsNoContact": {
+    "description": "Called out rather than counted: a Spot with nobody to ring is not waiting on a reply, it is waiting on somebody to find out who to ask. That is a different job."
+  },
+  "prospectsLastChanged": "Zuletzt geändert: {date}",
+  "@prospectsLastChanged": {
+    "description": "How long the building has sat in its stage — the ranking inside a group. Deliberately NOT 'seit dem Gespräch': `updated` is the record's last change, and claiming otherwise would date a conversation nobody had.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "prospectsStageAction": "Stufe ändern",
+  "@prospectsStageAction": {
+    "description": "Records the step that was just taken. Here rather than only in the dossier's form, because standing in front of the building is when it is known."
+  },
+  "prospectsNextUntouched": "Hier hat noch niemand gefragt: Mieter oder Eigentümerseite ansprechen.",
+  "prospectsNextTenantSpoken": "Weiter zur Eigentümerseite — Mieter können den Zugang nicht erlauben.",
+  "prospectsNextOwnerSpoken": "Auf die Antwort warten und nachfassen, wenn es zu lange still bleibt.",
+  "@prospectsNextOwnerSpoken": {
+    "description": "The stage where a funnel actually leaks: the ask happened and nothing came back. The rows are ordered stalest first for exactly this."
+  },
+  "prospectsNextPermitted": "Zusage liegt vor: im Dossier auf Aktiv stellen, dann läuft der Rhythmus.",
+  "@prospectsNextPermitted": {
+    "description": "The stage is not the phase. The server refuses an activation without a recorded yes, and this screen deliberately does not do both in one tap — starting the rhythm is somebody's decision."
+  },
+  "prospectsNextRefused": "Abgelehnt: Spot abschließen — hier braucht das keinen weiteren Grund.",
+  "@prospectsNextRefused": {
+    "description": "A refused Erkundung is the one closing the server lets through without a closed_reason (app_spot_phase.js), because the refusal IS the reason."
+  },
   "prospectStageUntouched": "Unberührt",
   "prospectStageTenantSpoken": "Mieter gesprochen",
   "prospectStageOwnerSpoken": "Eigentümer gesprochen",

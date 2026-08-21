@@ -66,6 +66,35 @@ String prospectStageLabel(AppLocalizations l10n, ProspectStage stage) =>
       ProspectStage.refused => l10n.prospectStageRefused,
     };
 
+/// The icon for one Erkundung stage.
+///
+/// Shape as well as words, for the same reason the urgency ranks carry one: the
+/// funnel's groups are told apart at a glance, and a heading that differs only
+/// in its text is one a reader has to stop and read.
+IconData prospectStageIcon(ProspectStage stage) => switch (stage) {
+  // Nobody asked yet.
+  ProspectStage.untouched => Icons.help_outline,
+  ProspectStage.tenantSpoken => Icons.people_outline,
+  ProspectStage.ownerSpoken => Icons.apartment_outlined,
+  ProspectStage.permitted => Icons.check_circle_outline,
+  ProspectStage.refused => Icons.block_outlined,
+};
+
+/// What moves a Spot out of [stage] — one sentence per stage.
+///
+/// A group of buildings waiting on the same thing needs the same next step, so
+/// it is said once per group rather than once per row. The wording is the whole
+/// value of the funnel screen: "Eigentümer gesprochen" is a state, "auf die
+/// Antwort warten und nachfassen" is what to do about it.
+String prospectStageNextAction(AppLocalizations l10n, ProspectStage stage) =>
+    switch (stage) {
+      ProspectStage.untouched => l10n.prospectsNextUntouched,
+      ProspectStage.tenantSpoken => l10n.prospectsNextTenantSpoken,
+      ProspectStage.ownerSpoken => l10n.prospectsNextOwnerSpoken,
+      ProspectStage.permitted => l10n.prospectsNextPermitted,
+      ProspectStage.refused => l10n.prospectsNextRefused,
+    };
+
 String closedReasonLabel(AppLocalizations l10n, ClosedReason reason) =>
     switch (reason) {
       ClosedReason.netted => l10n.closedReasonNetted,

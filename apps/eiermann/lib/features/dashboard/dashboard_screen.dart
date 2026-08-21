@@ -108,7 +108,18 @@ class _Tiles extends ConsumerWidget {
       value: '$count',
       // Zero is a real reading, and it keeps its tile so the grid does not
       // reflow every time a Spot is visited. It loses the chevron instead.
-      onTap: count == 0 ? null : () => context.go(Routes.spotsByUrgency(rank)),
+      onTap: count == 0
+          ? null
+          // The Erkundungen go to the FUNNEL, not to a filtered list. They are
+          // work of a different kind, and the question they raise — bei wem
+          // hängt es? — is one a flat list of buildings cannot answer. The rank
+          // and the phase agree exactly here: the view ranks a prospect 4, and
+          // a paused one ranks as paused.
+          : () => context.push(
+              rank == SpotUrgency.prospect
+                  ? Routes.prospects
+                  : Routes.spotsByUrgency(rank),
+            ),
     );
   }
 }

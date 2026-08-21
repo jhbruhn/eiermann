@@ -1,5 +1,6 @@
 import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/spots/prospects_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/router.dart';
@@ -30,11 +31,12 @@ SpotOverview row({
   required String id,
   required String name,
   int urgency = 3,
+  SpotPhase phase = SpotPhase.active,
 }) => SpotOverview(
   id: id,
   name: name,
   urgency: urgency,
-  phase: SpotPhase.active,
+  phase: phase,
   street: 'Bahnhofstraße 12',
   city: 'Oldenburg',
   geo: const GeoPoint(lat: 53.14, lon: 8.21),
@@ -299,6 +301,33 @@ void main() {
         perPage: any(named: 'perPage'),
       ),
     ).called(greaterThanOrEqualTo(1));
+  });
+
+  testWidgets('the Erkundung tile opens the FUNNEL, not a filtered list', (
+    tester,
+  ) async {
+    // Erkundungen are work of a different kind — a conversation, not a round —
+    // and the question they raise, bei wem hängt es, is one a flat list of
+    // buildings cannot answer. So this tile alone leads somewhere else.
+    when(() => overview.search(any())).thenAnswer(
+      (_) async => [
+        row(
+          id: 's1',
+          name: 'Kirchturm',
+          urgency: SpotUrgency.prospect.rank,
+          phase: SpotPhase.prospect,
+        ),
+      ],
+    );
+    await pumpShell(tester);
+
+    await tester.tap(find.text('1'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProspectsScreen), findsOneWidget);
+    expect(find.byType(SpotsScreen), findsNothing);
+    // Grouped by what it waits on, which is the whole difference.
+    expect(find.textContaining(de.prospectStageUntouched), findsWidgets);
   });
 
   testWidgets('the dossier covers the shell rather than living in a branch', (
