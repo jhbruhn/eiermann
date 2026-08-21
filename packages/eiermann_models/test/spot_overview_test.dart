@@ -83,7 +83,10 @@ void main() {
       // Zero contacts is a real and important reading — it is a handover gap —
       // so the row has to be able to say "no contacts" rather than nothing.
       final row = SpotOverview.fromRecord(
-        overviewRecord(const {'contact_count': '', 'primary_contact_count': ''}),
+        overviewRecord(const {
+          'contact_count': '',
+          'primary_contact_count': '',
+        }),
       );
 
       expect(row.contactCount, 0);

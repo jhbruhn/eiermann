@@ -93,7 +93,7 @@ String? formatAddressLine({
 }) {
   final place = [postalCode, city].whereType<String>().join(' ');
   final parts = [
-    if (street != null) street,
+    ?street,
     if (place.isNotEmpty) place,
   ];
   return parts.isEmpty ? null : parts.join(', ');
