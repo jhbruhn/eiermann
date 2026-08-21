@@ -761,6 +761,240 @@ status, _ = h.req(
 h.check("an unknown phase is rejected", status == 400, f"status {status}")
 
 
+# ── Areas and nests ────────────────────────────────────────────────────────
+
+print("\n[areas and nests]")
+
+host = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Dachstuhl-Haus", "phase": "active"},
+)
+area = h.mk(
+    member_token,
+    "areas",
+    {"org": ORG, "spot": host["id"], "name": "Dachboden Nord", "sort_index": 1},
+)
+h.check("a member can add a Bereich", area.get("id") is not None)
+
+h.req(
+    "PATCH", f"/api/collections/areas/records/{area['id']}", member_token,
+    {"spot": "someotherspot"},
+)
+_, after = h.req("GET", f"/api/collections/areas/records/{area['id']}", coord_token)
+h.check(
+    "a Bereich cannot be moved to another building",
+    (after or {}).get("spot") == host["id"],
+    "it would take its nests, and their whole check history, with it",
+)
+
+status, _ = h.req("DELETE", f"/api/collections/areas/records/{area['id']}", member_token)
+h.check("a member cannot delete a Bereich", status >= 400, f"status {status}")
+
+nest = h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": area["id"], "label": "N1", "species": "unknown",
+     "status": "active", "pin_x": 0.42, "pin_y": 0.31},
+)
+h.check("a member can add a nest", nest.get("id") is not None)
+h.check(
+    "the server derives `spot` from the Bereich",
+    nest.get("spot") == host["id"],
+    f"spot={nest.get('spot')!r} — a nest whose spot disagreed with its area "
+    "would show on one building's map and in another's due list",
+)
+
+# Pins are clamped, not rejected. A pin dropped on the edge of a photo routinely
+# computes to just over 1, and roof nests ARE at the edge.
+edge = h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": area["id"], "label": "N2", "species": "unknown",
+     "status": "active", "pin_x": 1.0000000002, "pin_y": -0.0000001},
+)
+h.check(
+    "a pin just outside 0…1 is accepted, not refused",
+    edge.get("id") is not None,
+)
+h.check(
+    "...to exactly the edge",
+    float(edge.get("pin_x")) == 1.0 and float(edge.get("pin_y")) == 0.0,
+    f"pin_x={edge.get('pin_x')!r} pin_y={edge.get('pin_y')!r}",
+)
+
+far = h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": area["id"], "label": "N3", "species": "unknown",
+     "status": "active", "pin_x": 1.7, "pin_y": 12},
+)
+h.check(
+    "a wildly out-of-range pin is clamped too",
+    float(far.get("pin_x")) == 1.0 and float(far.get("pin_y")) == 1.0,
+    f"pin_x={far.get('pin_x')!r} — stored as 1.7 the nest would sit off the "
+    "photo forever, invisible on the only screen that shows it",
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/nests/records", member_token,
+    {"org": ORG, "area": area["id"], "label": "N1", "species": "unknown",
+     "status": "active"},
+)
+h.check(
+    "a duplicate label in one Bereich is refused",
+    status >= 400,
+    f"status {status} — 'N3' twice in one attic produces two histories for one "
+    "nest, and no screen can show that it happened",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/nests/records/{nest['id']}", member_token,
+    {"next_due_at": "2099-01-01 00:00:00.000Z", "interval_days": 999,
+     "empty_streak": 7},
+)
+_, after = h.req("GET", f"/api/collections/nests/records/{nest['id']}", coord_token)
+h.check(
+    "the three rhythm fields are not client-writable",
+    not (after or {}).get("next_due_at")
+    and not (after or {}).get("interval_days")
+    and not (after or {}).get("empty_streak"),
+    f"{after and {k: after.get(k) for k in ('next_due_at', 'interval_days', 'empty_streak')}}"
+    " — a client that can set these can make a nest look checked without "
+    "anybody going there",
+)
+
+status, _ = h.req("DELETE", f"/api/collections/nests/records/{nest['id']}", coord_token)
+h.check(
+    "NOBODY can delete a nest, not even the coordination",
+    status >= 400,
+    f"status {status} — a nest that disappeared is a FINDING about the "
+    "building; `status = gone` records it, deleting would make the history "
+    "claim the nest never existed",
+)
+
+# The cross-tenant path. This is the one an access rule cannot close: the create
+# rule is satisfied by sending your OWN org, and the hook then derives `spot`
+# and `org` from the area — so without a check the caller's own org in the body
+# plus a foreign area id would move the row into the other organisation.
+foreign = h.mk(
+    T,
+    "organisations",
+    {"id": "org00000foreign", "name": "Fremde Gruppe", "is_active": True},
+)
+foreign_spot = h.mk(
+    T, "spots", {"org": "org00000foreign", "name": "Fremdes Haus", "phase": "active"}
+)
+foreign_area = h.mk(
+    T,
+    "areas",
+    {"org": "org00000foreign", "spot": foreign_spot["id"], "name": "Fremder Dachboden"},
+)
+status, body = h.req(
+    "POST", "/api/collections/nests/records", member_token,
+    {"org": ORG, "area": foreign_area["id"], "label": "Einbruch",
+     "species": "unknown", "status": "active"},
+)
+h.check(
+    "a nest cannot be hung off ANOTHER org's Bereich",
+    status >= 400,
+    f"status {status} — the rule passes (the body's org is the caller's own); "
+    "only the hook can dereference the area and see whose it is",
+)
+h.check(
+    "...and the refusal does not reveal that the id exists elsewhere",
+    "existiert nicht" in str(body),
+    str(body)[:160],
+)
+
+status, body = h.req(
+    "GET", f"/api/collections/areas/records/{foreign_area['id']}", member_token
+)
+h.check("another org's Bereich is not readable", status >= 400, f"status {status}")
+
+
+# ── The protected-species guard ─────────────────────────────────────────────
+#
+# City pigeons are feral domestic animals and not specially protected. Jackdaws,
+# wood pigeons, swifts and kestrels in the same attics ARE, and interference is
+# prohibited under §44 BNatSchG. This is the largest real risk the app can
+# AMPLIFY, precisely because it makes clutch swapping fast and routine — so the
+# guard exists before the first egg, not after.
+
+print("\n[protected species]")
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/nests/records/{nest['id']}", member_token,
+    {"species": "protected", "species_label": "Dohle"},
+)
+h.check(
+    "ANY member can mark a nest as protected",
+    h.ok(status),
+    f"status {status} — the volunteer standing in front of a jackdaw has to be "
+    "able to stop the process now, not after finding a coordinator",
+)
+
+status, body = h.req(
+    "PATCH", f"/api/collections/nests/records/{nest['id']}", member_token,
+    {"species": "feral_pigeon"},
+)
+h.check(
+    "a member CANNOT take that back",
+    status == 400,
+    f"status {status} — releasing it reopens the egg-swap path on a nest "
+    "somebody had reason to flag",
+)
+h.check(
+    "...and the refusal names the law, not just a permission",
+    "§44" in str(body),
+    str(body)[:200],
+)
+_, after = h.req("GET", f"/api/collections/nests/records/{nest['id']}", coord_token)
+h.check("...and the nest is still protected", (after or {}).get("species") == "protected")
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/nests/records/{nest['id']}", coord_token,
+    {"species": "unknown"},
+)
+h.check(
+    "the coordination CAN release it",
+    h.ok(status),
+    f"status {status} — the asymmetry is the whole design",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/nests/records/{nest['id']}", member_token,
+    {"species": "feral_pigeon"},
+)
+h.check(
+    "a member can still classify a nest that was never protected",
+    h.ok(status),
+    f"status {status} — the guard is about leaving `protected`, not about "
+    "species being a coordinator field",
+)
+
+# `unknown` is a real state and never a silent "probably a pigeon".
+undetermined = h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": area["id"], "label": "N4", "species": "unknown",
+     "status": "active"},
+)
+h.check(
+    "a nest can stay undetermined",
+    undetermined.get("species") == "unknown",
+    "the app does not identify species; an undetermined nest is an open "
+    "question in the Spot detail, not an assumption",
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/nests/records", member_token,
+    {"org": ORG, "area": area["id"], "label": "N5", "species": "taube",
+     "status": "active"},
+)
+h.check("an unknown species value is refused", status >= 400, f"status {status}")
+
+
 # ── Custom routes ──────────────────────────────────────────────────────────
 #
 # The rule suite covers collections; these routes are the part of the API that
@@ -844,6 +1078,164 @@ h.check(
     "the geocode cache is not client-readable",
     h.reads_nothing("geocode_cache", member_token),
     "it holds every address anybody has searched for",
+)
+
+
+# ── The delete-effect registry ─────────────────────────────────────────────
+#
+# A cascading delete does not LEAVE a forgotten collection behind. It DESTROYS
+# its rows, and answers 200. Adding `nest_checks` in Phase 04 without noticing
+# that `nests` cascades from `spots` means one coordinator tap silently erases
+# every check ever recorded — and the response says success.
+#
+# So every relation that cascades is written down here with what it takes with
+# it, and the sweep fails in BOTH directions:
+#
+#   * a cascade with no entry — somebody added a relation and did not think
+#     about what deleting the parent destroys;
+#   * an entry with no cascade — the registry claims a cascade that is not
+#     there, so a reader trusts a guarantee nothing enforces.
+#
+# One-directional would be worse than nothing: it would let the registry drift
+# into fiction while still passing.
+
+print("\n[delete-effect registry]")
+
+# collection.field -> what deleting the PARENT row destroys.
+DELETE_EFFECTS = {
+    # A Spot is the dossier. Deleting one is coordinator-only for exactly this
+    # reason, and the alternative — closing it — keeps all of the below.
+    "areas.spot": "the Bereich, its photo, and every nest in it",
+    "spot_contacts.spot": "the caretaker's name and phone number (this IS the "
+                          "retention policy — there is no scrub cron)",
+    "nests.spot": "every nest in the building, and its whole check history",
+    "nests.area": "every nest pinned on that Bereich's photo",
+}
+
+# Relations that deliberately do NOT cascade, with the reason. Listed so that
+# turning one into a cascade is a visible change and not a quiet default.
+NO_CASCADE = {
+    "areas.org": "an organisation is never deleted; deactivating it is the move",
+    "nests.org": "same",
+    "spots.org": "same",
+    "spot_contacts.org": "same",
+    "users.org": "same",
+    # This one is worth reading twice. If `invited_by` ever cascaded, deleting
+    # one coordinator would delete every person they onboarded — the whole team,
+    # from one tap, with a 200. The absence of a cascade here is a decision, and
+    # that is why it is written down rather than left as a default.
+    "users.invited_by": "deleting an inviter must never delete the people they "
+                        "invited — that would take out the whole team from one "
+                        "coordinator's account",
+}
+
+schema = h.collections(T)
+actual_cascades = set()
+actual_relations = set()
+for collection in schema:
+    # A view has no rows of its own, so it deletes nothing: its relation columns
+    # are projections of the underlying table's. Classifying them would mean
+    # re-stating every source table's decision in a second place, where the two
+    # copies could disagree.
+    if collection.get("type") == "view":
+        continue
+    for field in collection.get("fields") or []:
+        if field.get("type") != "relation":
+            continue
+        key = f"{collection['name']}.{field['name']}"
+        actual_relations.add(key)
+        if field.get("cascadeDelete"):
+            actual_cascades.add(key)
+
+# Only the collections this suite governs; PocketBase's own system collections
+# have their own relations and are not ours to document.
+system = {c["name"] for c in schema if str(c["name"]).startswith("_")}
+actual_cascades = {k for k in actual_cascades if k.split(".")[0] not in system}
+actual_relations = {k for k in actual_relations if k.split(".")[0] not in system}
+
+undocumented = sorted(actual_cascades - set(DELETE_EFFECTS))
+h.check(
+    "every cascading relation is in the registry",
+    not undocumented,
+    f"{undocumented} — a cascade nobody wrote down is data that disappears on "
+    "a 200",
+)
+
+fictional = sorted(set(DELETE_EFFECTS) - actual_cascades)
+h.check(
+    "every registry entry is a real cascade",
+    not fictional,
+    f"{fictional} — the registry would be claiming a guarantee nothing "
+    "enforces, which is worse than an empty registry",
+)
+
+unaccounted = sorted(
+    actual_relations - set(DELETE_EFFECTS) - set(NO_CASCADE)
+)
+h.check(
+    "every relation is accounted for, cascade or not",
+    not unaccounted,
+    f"{unaccounted} — add it to DELETE_EFFECTS or to NO_CASCADE with the "
+    "reason; a relation nobody classified is the next silent cascade",
+)
+
+h.check(
+    "...and the registry is not empty",
+    len(DELETE_EFFECTS) >= 4,
+    "an empty registry passes every check above while documenting nothing",
+)
+
+# Not just declared — observed. A cascade that is configured but does not fire
+# (or fires further than the registry says) is the same defect as a missing
+# entry.
+doomed_spot = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Kaskadentest", "phase": "active"}
+)
+doomed_area = h.mk(
+    coord_token,
+    "areas",
+    {"org": ORG, "spot": doomed_spot["id"], "name": "Zum Löschen"},
+)
+doomed_nest = h.mk(
+    coord_token,
+    "nests",
+    {"org": ORG, "area": doomed_area["id"], "label": "N1",
+     "species": "unknown", "status": "active"},
+)
+survivor = h.mk(
+    coord_token,
+    "areas",
+    {"org": ORG, "spot": host["id"], "name": "Überlebt"},
+)
+
+status, _ = h.req(
+    "DELETE", f"/api/collections/spots/records/{doomed_spot['id']}", coord_token
+)
+h.check("deleting the Spot succeeds", h.ok(status), f"status {status}")
+
+status, _ = h.req(
+    "GET", f"/api/collections/areas/records/{doomed_area['id']}", coord_token
+)
+h.check("...and its Bereich is gone", status >= 400, f"status {status}")
+
+status, _ = h.req(
+    "GET", f"/api/collections/nests/records/{doomed_nest['id']}", coord_token
+)
+h.check(
+    "...and the nest with it, though nothing can delete a nest DIRECTLY",
+    status >= 400,
+    f"status {status} — the cascade is the one path that destroys a nest, which "
+    "is exactly why it has to be written down",
+)
+
+status, _ = h.req(
+    "GET", f"/api/collections/areas/records/{survivor['id']}", coord_token
+)
+h.check(
+    "...and another building's Bereich is untouched",
+    status == 200,
+    f"status {status} — a cascade that reaches further than the registry says "
+    "is the same defect as one nobody wrote down",
 )
 
 
