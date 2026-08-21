@@ -31,6 +31,13 @@ jobs:
           channel: stable
           cache: true
 
+      # BEFORE pub, deliberately. A pub workspace resolves one ref per git
+      # dependency, so a half-bumped zugvogel pin fails at RESOLUTION — which
+      # means no Dart test can ever report it, because none of them run. This
+      # says which files disagree and which script fixes it.
+      - name: Check the zugvogel pin is aligned
+        run: ./tools/check-zugvogel-pin.sh
+
       # Resolves the whole pub workspace from the repo root, zugvogel's pinned
       # git refs included.
       - name: Install dependencies
