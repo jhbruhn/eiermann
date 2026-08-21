@@ -1,23 +1,23 @@
-import 'package:eiermann/core/auth/roles.dart';
-import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/spots/spot_sheet.dart';
+import 'package:eiermann/features/spots/spots_list.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The first screen after signing in.
 ///
-/// A placeholder with real plumbing: it reads the signed-in user through the
-/// same provider every later screen will, so the auth path is exercised end to
-/// end rather than mocked. The Spot map and the due list land on top of this.
+/// The Spot list IS the body: the map is the other way in, but a list of
+/// buildings with the most urgent on top is what somebody opens the app for.
+/// The dashboard blocks the concept asks for — open Halbgelege at the very top,
+/// then overdue, then due today — arrive once there are nests to be due
+/// (Phase 04); until then the urgency-ordered list is the whole answer.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final me = ref.watch(currentUserProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -33,31 +33,11 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: AsyncValueView(
-        value: me,
-        onRetry: () => ref.invalidate(currentUserProvider),
-        data: (user) => ContentBounds(
-          child: ListView(
-            padding: const EdgeInsets.all(ZugvogelSpacing.lg),
-            children: [
-              DetailHeader(
-                title: user?.name?.isNotEmpty ?? false
-                    ? user!.name!
-                    : user?.email ?? '',
-                subtitle: user?.role?.wire,
-                chipLabel: user != null && user.role?.canAdminister == true
-                    ? 'Koordination'
-                    : null,
-              ),
-              const SizedBox(height: ZugvogelSpacing.lg),
-              const EmptyView(
-                icon: Icons.egg_outlined,
-                title: 'Noch keine Spots',
-                message: 'Sobald ein Standort angelegt ist, steht er hier.',
-              ),
-            ],
-          ),
-        ),
+      body: const SpotsList(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showSpotSheet(context),
+        icon: const Icon(Icons.add),
+        label: Text(l10n.spotsEmptyAction),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:eiermann/features/auth/login_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/server_setup/setup_screen.dart';
+import 'package:eiermann/features/spots/spot_detail_screen.dart';
 import 'package:eiermann/features/startup/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,12 @@ abstract final class Routes {
   static const setup = '/setup';
   static const login = '/login';
   static const dashboard = '/';
+  static const spotDetailPattern = '/spots/:id';
+
+  /// The detail route for one Spot. A function, not a constant, so the pattern
+  /// above stays the single spelling of it — a hand-built '/spots/$id' at a
+  /// call site is how a rename leaves a dead link behind.
+  static String spotDetail(String id) => '/spots/$id';
 }
 
 /// The app's router, with one redirect gate in front of everything.
@@ -57,6 +64,18 @@ GoRouter router(Ref ref) {
       GoRoute(
         path: Routes.dashboard,
         builder: (_, _) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: Routes.spotDetailPattern,
+        // A missing id cannot happen through the pattern, but a hand-typed URL
+        // on web can produce one — and falling back to the dashboard is a
+        // better answer than a screen that queries for the empty string.
+        builder: (_, state) {
+          final id = state.pathParameters['id'];
+          return id == null || id.isEmpty
+              ? const DashboardScreen()
+              : SpotDetailScreen(spotId: id);
+        },
       ),
     ],
   );
