@@ -18,15 +18,16 @@ const PROTECTED = "protected";
  * and no screen would show the contradiction.
  */
 function deriveSpot(app, record, callerOrg) {
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
   const areaId = String(record.get("area") || "");
   if (!areaId) {
-    throw new BadRequestError("Ein Nest braucht einen Bereich.");
+    refuse(CODES.nestNeedsArea, "a nest requires an area");
   }
   let area;
   try {
     area = app.findRecordById("areas", areaId);
   } catch (err) {
-    throw new BadRequestError("Der angegebene Bereich existiert nicht.");
+    refuse(CODES.nestAreaNotFound, `area not found: ${areaId}`);
   }
 
   // THE CROSS-TENANT CHECK, and the reason it has to be here.
@@ -43,9 +44,10 @@ function deriveSpot(app, record, callerOrg) {
   // security boundary, invariants across records need a hook.
   const areaOrg = String(area.get("org") || "");
   if (String(callerOrg || "") !== areaOrg) {
-    // Deliberately the same message as a missing area: whether an id exists in
-    // another organisation is not something a caller gets to learn.
-    throw new BadRequestError("Der angegebene Bereich existiert nicht.");
+    // Deliberately the SAME code as a missing area: whether an id exists in
+    // another organisation is not something a caller gets to learn, and a
+    // distinct code would tell them.
+    refuse(CODES.nestAreaNotFound, `area not found: ${areaId}`);
   }
 
   record.set("spot", area.get("spot"));
@@ -63,12 +65,13 @@ function deriveSpot(app, record, callerOrg) {
  * only screen that shows it.
  */
 function clampPins(record) {
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
   for (const field of ["pin_x", "pin_y"]) {
     const raw = record.get(field);
     if (raw === null || raw === undefined || raw === "") continue;
     const value = Number(raw);
     if (isNaN(value)) {
-      throw new BadRequestError(`${field} muss eine Zahl sein.`);
+      refuse(CODES.nestPinNotNumeric, `${field} must be a number`);
     }
     record.set(field, Math.min(1, Math.max(0, value)));
   }
@@ -96,12 +99,14 @@ function clampPins(record) {
  * called without any.
  */
 function guardSpecies(record, previous, isCoordinator) {
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
   const next = String(record.get("species") || "");
   if (previous === PROTECTED && next !== PROTECTED && !isCoordinator) {
-    throw new BadRequestError(
-      "Ein als geschützt markiertes Nest kann nur die Koordination wieder " +
-        "freigeben. Geschützte Arten — Dohle, Turmfalke, Mauersegler, " +
-        "Ringeltaube — dürfen nach §44 BNatSchG nicht angetastet werden.",
+    // The client names the law and the species — it has the ARB and this hook
+    // does not know who is reading.
+    refuse(
+      CODES.nestProtectedNeedsCoordinator,
+      "releasing a protected nest requires the coordinator role",
     );
   }
 }
@@ -115,12 +120,14 @@ function guardSpecies(record, previous, isCoordinator) {
  */
 function assertEggsAllowed(nest) {
   if (String(nest.get("species") || "") !== PROTECTED) return;
-  const label = String(nest.get("species_label") || "").trim();
-  const named = label ? `${label} ` : "";
-  throw new BadRequestError(
-    `An diesem Nest darf nichts verändert werden: es ist als geschützte Art ` +
-      `${named}markiert. Eingriffe in die Gelege geschützter Vogelarten sind ` +
-      `nach §44 BNatSchG verboten.`,
+  // The refusal that matters most is also the one that must not be a German
+  // string here: §44 BNatSchG is worth explaining properly, and only the client
+  // can do that in the reader's language, with the species label it already has
+  // on the record.
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
+  refuse(
+    CODES.nestProtectedNoEggChanges,
+    `egg changes refused: nest ${nest.id} is a protected species`,
   );
 }
 

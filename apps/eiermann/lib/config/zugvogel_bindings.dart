@@ -38,36 +38,6 @@ PbClientConfig eiermannPbClientConfig() => PbClientConfig(
 /// has to know either seam exists.
 void bindZugvogel() {
   defaultPbClientConfig = eiermannPbClientConfig();
-  // INTERIM, and tracked as eiermann-8ct. A hook must not send user-facing text
-  // at all: the server does not know which language the reader speaks, so a
-  // German string in a hook is by definition untranslatable. That is already
-  // this repo's rule in two other places — the rhythm explanation is built in
-  // the client for exactly this reason, and audit rows store wire values the
-  // client translates.
-  //
-  // The target is an error ENUM: the hook puts a stable code in the response
-  // and the client maps it to an ARB string. Measured against PocketBase
-  // 0.39.8, the only channel that survives is the KEY of `data` — its values
-  // are always re-coerced to {code, message}, and `message` itself gets
-  // capitalised and full-stopped by the server.
-  //
-  // This flag stays on only until that lands, because the alternative today is
-  // "Die Daten konnten nicht gespeichert werden" with no reason at all. It
-  // is a bridge, not the design.
-  //
-  // This app's hooks currently write German prose aimed at the person doing the
-  // work —
-  // "Ein Spot wird erst aktiv, wenn die Erkundung bei Zusage steht", "Eine
-  // Pause braucht einen Grund". They enforce invariants no access rule can
-  // express, so when one refuses a write it is the only party that knows why,
-  // and replacing that sentence with "Die Daten konnten nicht gespeichert
-  // werden" leaves the user stuck.
-  //
-  // Off by default in zugvogel, because federfall's hook messages are English
-  // and some are addressed to a developer. Opting in is a promise about THIS
-  // app's messages: a new hook message is user-visible copy, and gets written
-  // as such.
-  serverMessagesAreUserFacing = true;
   // Takes the context, not a ready-made instance, so the strings follow a
   // locale change: the lookup registers the dependency on Localizations.
   defaultZugvogelStrings = (context) => EiermannStrings(context.l10n);

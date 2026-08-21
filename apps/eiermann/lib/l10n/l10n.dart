@@ -35,7 +35,7 @@ Locale resolveAppLocale(List<Locale>? deviceLocales) {
 /// of their own, so every word they show is one of these. Adding a member to
 /// the interface obliges this class to answer for it — which is the point, and
 /// why the interface is kept small.
-class EiermannStrings implements ZugvogelStrings {
+class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
   const EiermannStrings(this._l10n);
 
   final AppLocalizations _l10n;
@@ -106,4 +106,36 @@ class EiermannStrings implements ZugvogelStrings {
   String get imageShareAction => _l10n.imageShareAction;
   @override
   String get imageShareFailed => _l10n.imageShareFailed;
+
+  /// The sentence for a refusal code a hook sent.
+  ///
+  /// A hook says WHICH invariant it refused; the wording is here, because the
+  /// server does not know which language the reader speaks. The codes are wire
+  /// values — renaming one in `app_refuse.js` is a wire change and has to be
+  /// made on both sides.
+  ///
+  /// Not every code the backend can send needs an entry. Most refusals are
+  /// pre-empted by the form that would have caused them — a required field
+  /// answers before the write happens — so what lands here is the race and the
+  /// rule the UI has not mirrored. An unmapped code falls back to the generic
+  /// copy, which is the right outcome for something nobody can act on.
+  @override
+  String? serverErrorFor(String code) => switch (code) {
+    'spot_phase_illegal_transition' => _l10n.serverErrorSpotPhaseIllegal,
+    'spot_phase_needs_permitted' => _l10n.serverErrorSpotPhaseNeedsPermitted,
+    'spot_pause_needs_reason' => _l10n.serverErrorSpotPauseNeedsReason,
+    'spot_close_needs_reason' => _l10n.serverErrorSpotCloseNeedsReason,
+    'nest_protected_needs_coordinator' =>
+      _l10n.serverErrorNestProtectedNeedsCoordinator,
+    'nest_protected_no_egg_changes' =>
+      _l10n.serverErrorNestProtectedNoEggChanges,
+    'nest_area_not_found' => _l10n.serverErrorNestAreaNotFound,
+    'visit_nest_foreign_spot' => _l10n.serverErrorVisitNestForeignSpot,
+    'visit_nest_duplicate' => _l10n.serverErrorVisitNestDuplicate,
+    'visit_eggs_do_not_balance' => _l10n.serverErrorVisitEggsDoNotBalance,
+    'visit_skip_has_checks' => _l10n.serverErrorVisitSkipHasChecks,
+    'visit_idempotency_key_reused' =>
+      _l10n.serverErrorVisitIdempotencyKeyReused,
+    _ => null,
+  };
 }

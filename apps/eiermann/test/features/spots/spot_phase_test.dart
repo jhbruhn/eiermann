@@ -338,17 +338,19 @@ void main() {
   testWidgets('a refusal from the server keeps the sheet open and says why', (
     tester,
   ) async {
-    // The whole point of this sheet: the hook's German reaches the user, on the
+    // The whole point of this sheet: a refusal the user can act on, on the
     // surface that can act on it. Before it existed, the edit sheet offered the
-    // move and the user read a refusal they had no way to answer.
+    // move and the user read a failure they had no way to answer.
+    //
+    // The hook sends a CODE, not a sentence — it does not know which language
+    // the reader speaks. EiermannStrings maps it to the ARB, so what is
+    // asserted below is this app's own copy arriving, not the server's words
+    // passing through.
     when(() => spots.update(any(), any())).thenThrow(
       const RepositoryException(
-        'refused',
+        'pause requires pause_reason',
         kind: RepositoryErrorKind.validation,
-        // The channel a deliberate hook refusal arrives on. PocketBase's own
-        // English boilerplate never sets it, which is why this one reaches the
-        // user verbatim while a field-validation 400 still gets app copy.
-        serverMessage: 'Eine Pause braucht einen Grund.',
+        serverCodes: ['spot_pause_needs_reason'],
       ),
     );
     await openMenu(tester, active);
@@ -361,7 +363,9 @@ void main() {
     await tester.tap(find.text(de.spotMovePause).last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Eine Pause braucht einen Grund.'), findsOneWidget);
+    expect(find.text(de.serverErrorSpotPauseNeedsReason), findsOneWidget);
+    // And the developer line never appears: it is for the log.
+    expect(find.text('pause requires pause_reason'), findsNothing);
     // Still open: the input survives the failure.
     expect(find.text(de.spotPauseTitle), findsOneWidget);
     expect(find.text('Gerüst'), findsOneWidget);

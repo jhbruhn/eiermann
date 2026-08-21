@@ -284,5 +284,70 @@
         "type": "String"
       }
     }
+  },
+  "serverErrorSpotPhaseIllegal": "Dieser Phasenwechsel ist nicht möglich. Lade den Spot neu — vermutlich hat ihn jemand anderes inzwischen geändert.",
+  "@serverErrorSpotPhaseIllegal": {
+    "description": "Shown when the server refuses a phase transition the UI offered — normally a race."
+  },
+  "serverErrorSpotPhaseNeedsPermitted": "Ein Spot wird erst aktiv, wenn die Erkundung bei „Erlaubt“ steht.",
+  "@serverErrorSpotPhaseNeedsPermitted": {
+    "description": "Shown when activating a Spot whose Erkundung has not reached permission."
+  },
+  "serverErrorSpotPauseNeedsReason": "Eine Pause braucht einen Grund.",
+  "serverErrorSpotCloseNeedsReason": "Ein Abschluss braucht einen Grund — sonst ist später nicht erkennbar, ob es sich lohnt, erneut zu fragen.",
+  "serverErrorNestProtectedNeedsCoordinator": "Nur die Koordination kann ein als geschützt markiertes Nest wieder freigeben.",
+  "serverErrorNestProtectedNoEggChanges": "An diesem Nest darf nichts verändert werden: es ist als geschützte Art markiert. Eingriffe in die Gelege geschützter Vogelarten sind nach §44 BNatSchG verboten.",
+  "@serverErrorNestProtectedNoEggChanges": {
+    "description": "Shown when an egg change is attempted on a protected-species nest. §44 BNatSchG."
+  },
+  "serverErrorNestAreaNotFound": "Der gewählte Bereich existiert nicht mehr. Lade den Spot neu.",
+  "serverErrorVisitNestForeignSpot": "Dieses Nest gehört nicht zu diesem Spot. Lade den Spot neu.",
+  "serverErrorVisitNestDuplicate": "Dieses Nest wurde in diesem Besuch schon geprüft.",
+  "serverErrorVisitEggsDoNotBalance": "Die Eierzahlen gehen nicht auf. Prüfe, wie viele echte Eier entnommen und wie viele Attrappen eingelegt wurden.",
+  "serverErrorVisitSkipHasChecks": "Ein ausgelassener Besuch kann keine Nestprüfungen enthalten.",
+  "serverErrorVisitIdempotencyKeyReused": "Dieser Besuch wurde bereits gesendet. Lade die Liste neu, bevor du es erneut versuchst.",
+  "spotPinPickerTitle": "Pin setzen",
+  "spotPinSearchHint": "Adresse suchen",
+  "spotPinSearchAction": "Suchen",
+  "spotPinSearchNoMatch": "Dazu findet der Geocoder nichts. Die Karte lässt sich trotzdem von Hand auf die richtige Tür schieben.",
+  "@spotPinSearchNoMatch": {
+    "description": "Not an error: plenty of buildings a group cares about are not in a geocoder, and the crosshair still works."
+  },
+  "spotPinResolving": "Adresse wird ermittelt…",
+  "spotPinNoAddress": "Zu dieser Stelle gibt es keine Adresse. Das ist in Ordnung — ein Hinterhofeingang hat oft keine.",
+  "@spotPinNoAddress": {
+    "description": "A normal outcome, not a failure. Confirming is deliberately not gated on a resolved address."
+  },
+  "spotPinConfirmAction": "Diese Stelle übernehmen",
+  "spotPinCoordinates": "{lat}, {lon}",
+  "@spotPinCoordinates": {
+    "description": "Last resort for a candidate the geocoder gave no name for.",
+    "placeholders": {
+      "lat": {
+        "type": "String"
+      },
+      "lon": {
+        "type": "String"
+      }
+    }
+  },
+  "spotFieldPin": "Pin",
+  "spotPinNone": "Kein Pin — der Spot erscheint auf keiner Karte.",
+  "@spotPinNone": {
+    "description": "A Spot with no pin is findable by name but not on the map, which is the entry point for every round. Worth stating in the form."
+  },
+  "spotPinFromAddress": "Aus der Adresse ermittelt, von niemandem bestätigt",
+  "spotPinConfirmed": "Von Hand bestätigt",
+  "spotPinSetAction": "Auf der Karte setzen",
+  "spotPinFindAction": "Aus der Adresse suchen",
+  "spotPinLookupFailed": "Die Adresse ließ sich nicht auflösen. Der Pin lässt sich auf der Karte von Hand setzen.",
+  "spotPinFoundOne": "Pin auf {address} gesetzt.",
+  "@spotPinFoundOne": {
+    "description": "Says which of several candidates was taken, because a plausible street in the wrong town is the failure mode.",
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
   }
 }

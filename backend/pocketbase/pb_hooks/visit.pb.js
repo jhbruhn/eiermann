@@ -14,12 +14,12 @@ routerAdd(
     const ROUTE = "POST /api/eiermann/visit";
 
     const auth = e.auth;
-    if (!auth) throw new UnauthorizedError("Anmeldung erforderlich.");
+    if (!auth) throw new UnauthorizedError("authentication required");
     if (!auth.getBool("is_active") || !auth.getString("role")) {
       // The same clause every access rule opens with. A custom route does not
       // get one for free, and forgetting it is how an endpoint becomes the one
       // door a deactivated account can still walk through.
-      throw new ForbiddenError("Dieses Konto ist nicht aktiv.");
+      throw new ForbiddenError("account is not active or has no role");
     }
 
     const body = e.requestInfo().body || {};

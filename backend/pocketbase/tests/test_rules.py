@@ -301,6 +301,22 @@ for collection in ("geocode_cache", "idempotency_keys"):
         )
 
 
+def refusal_codes(body):
+    """The refusal codes in an error body.
+
+    A hook refuses with a CODE, never with a sentence: the server does not know
+    which language the reader speaks. The code travels as a KEY of `data`,
+    because that is the only part PocketBase leaves alone — it rewrites every
+    value to {code: "validation_invalid_value", ...} and even capitalises and
+    full-stops `message`.
+    """
+    return sorted((body or {}).get("data") or {})
+
+
+def refused_with(body, code):
+    return code in refusal_codes(body)
+
+
 # ── Spots: the centre of the product ───────────────────────────────────────
 #
 # Every member walks the shared route, so everything in the org is readable by
@@ -605,29 +621,20 @@ h.check(
     "risk in the product, so it is gated on the data and not on somebody "
     "remembering to check",
 )
-# The message is a fallback for whoever sees the raw error, so it has to be
-# German — and it has to be German ALL THE WAY. The wire value belongs in the
-# structured data, where the client can translate it.
+h.check(
+    "...and says WHICH rule refused, as a code",
+    refused_with(body, "spot_phase_needs_permitted"),
+    f"{refusal_codes(body)} — the client holds the ARB and the record it just "
+    "tried to write; the one thing it cannot know is which invariant said no",
+)
 message = str((body or {}).get("message") or "")
 h.check(
-    "the refusal message is German and self-sufficient",
-    "Erlaubt" in message,
-    f"{message!r} — and it names the stage with the SAME word the client puts "
-    "on it, or the reader goes looking through the Erkundung for a word that "
-    "is not there",
+    "...and the message is a developer line, not copy",
+    message.isascii(),
+    f"{message!r} — German here would be untranslatable by construction, and "
+    "PocketBase rewrites this field anyway: it capitalises it and appends a "
+    "full stop, so it cannot even carry an exact token",
 )
-h.check(
-    "...and carries no wire value in its prose",
-    not any(wire in message for wire in
-            ("untouched", "tenant_spoken", "owner_spoken", "permitted", "refused")),
-    f"{message!r} — a sentence half in each language is what keeping the "
-    "vocabulary in the client is meant to prevent",
-)
-# Not asserted: the wire value riding along in the error's `data`. PocketBase
-# coerces every leaf of an ApiError's data into `{code, message}` at any depth,
-# so that channel is structurally a field-name → validation-error map and
-# cannot carry a value. The client holds the record it just tried to update, so
-# it already knows the stage.
 
 status, _ = move(funnel["id"], prospect_stage="tenant_spoken")
 h.check("the funnel itself advances freely", h.ok(status), f"status {status}")
@@ -1010,9 +1017,10 @@ h.check(
     "only the hook can dereference the area and see whose it is",
 )
 h.check(
-    "...and the refusal does not reveal that the id exists elsewhere",
-    "existiert nicht" in str(body),
-    str(body)[:160],
+    "...and it is the SAME code as a missing area",
+    refused_with(body, "nest_area_not_found"),
+    f"{refusal_codes(body)} — a distinct code would tell the caller the id "
+    "exists in another organisation, which is exactly what is being hidden",
 )
 
 status, body = h.req(
@@ -1053,9 +1061,9 @@ h.check(
     "somebody had reason to flag",
 )
 h.check(
-    "...and the refusal names the law, not just a permission",
-    "§44" in str(body),
-    str(body)[:200],
+    "...and carries the code the client turns into the §44 explanation",
+    refused_with(body, "nest_protected_needs_coordinator"),
+    str(refusal_codes(body)),
 )
 _, after = h.req("GET", f"/api/collections/nests/records/{nest['id']}", coord_token)
 h.check("...and the nest is still protected", (after or {}).get("species") == "protected")
@@ -1120,6 +1128,83 @@ h.check(
     not offenders,
     "each handler runs in its own JSVM context, so these are NOT in scope "
     f"inside it — a 400 at request time: {offenders}",
+)
+
+# A hook must never send a sentence a user reads: the server does not know which
+# language the reader speaks. The invariant that delivers that is not "the
+# message is in English" — it is that EVERY refusal carries a code, which is
+# structural and therefore checkable.
+#
+# I first wrote this as a non-ASCII sweep, on the theory that German prose
+# carries an umlaut or an ß. The canary disproved it in one go: "Eine Pause
+# braucht einen Grund." is pure ASCII, so the guard passed with the exact
+# violation planted in it. A guard that looks strong and is not is worse than
+# none.
+#
+# So: no hook throws an error directly. Everything goes through
+# app_refuse.js's `refuse(code, devMessage, status)`, which cannot construct a
+# refusal without a code. That is why `refuse` takes a status at all — the
+# idempotency-key clash is a 409, and letting it throw its own ApiError would
+# mean this sweep needs an exception, and a sweep with an exception is a sweep
+# somebody widens.
+import glob
+import re as _re
+
+direct = []
+for path in sorted(glob.glob(os.path.join(HOOKS, "*.js"))):
+    name = os.path.basename(path)
+    # zv_* are vendored from the base image and have their own conventions;
+    # app_refuse.js is where the one legitimate throw lives.
+    if name.startswith("zv_") or name == "app_refuse.js":
+        continue
+    with open(path, encoding="utf-8") as handle:
+        code = "\n".join(
+            line
+            for line in handle.read().split("\n")
+            if not line.strip().startswith("//")
+        )
+    for match in _re.finditer(r"throw new (\w*Error)\(", code):
+        kind = match.group(1)
+        # UnauthorizedError and ForbiddenError are exempt, and for a reason
+        # rather than convenience: their STATUS is the whole message. 401 and
+        # 403 already map to localized copy in every client, and there is no
+        # app invariant to name — "you are not signed in" needs no code.
+        if kind in ("UnauthorizedError", "ForbiddenError"):
+            continue
+        direct.append(f"{name}: throw new {kind}(")
+
+h.check(
+    "no hook throws an error directly — every refusal carries a code",
+    not direct,
+    f"{direct} — use app_refuse.js's refuse(code, devMessage[, status]). A "
+    "thrown message is untranslatable by construction: the server does not "
+    "know which language the reader speaks.",
+)
+
+# `CODES.foo` for a code that is not declared evaluates to `undefined`, and
+# `{[undefined]: 1}` becomes the key "undefined" — a refusal the client cannot
+# translate, arriving as a generic failure with no error anywhere. A typo would
+# be invisible, so it is checked.
+with open(os.path.join(HOOKS, "app_refuse.js"), encoding="utf-8") as handle:
+    declared = set(_re.findall(r"^  (\w+):", handle.read(), _re.M))
+
+used = set()
+for path in sorted(glob.glob(os.path.join(HOOKS, "*.js"))):
+    if os.path.basename(path) == "app_refuse.js":
+        continue
+    with open(path, encoding="utf-8") as handle:
+        used.update(_re.findall(r"CODES\.(\w+)", handle.read()))
+
+h.check(
+    "every code a hook uses is declared in app_refuse.js",
+    not (used - declared),
+    f"{sorted(used - declared)} — an undeclared code is `undefined`, and "
+    '`{[undefined]: 1}` sends the key "undefined": untranslatable, and silent',
+)
+h.check(
+    "...and the sweep found codes to check at all",
+    len(used) >= 10,
+    f"{len(used)} uses found — a sweep over nothing passes over anything",
 )
 
 status, body = h.req("GET", "/api/eiermann/info")
@@ -1623,7 +1708,11 @@ h.check(
     status == 400,
     f"status {status}",
 )
-h.check("...naming the law", "§44" in str(body), str(body)[:200])
+h.check(
+    "...with the code that names the reason",
+    refused_with(body, "nest_protected_no_egg_changes"),
+    str(refusal_codes(body)),
+)
 h.check(
     "...and the OTHER nest's check rolled back with it",
     counts(coord_token) == before,

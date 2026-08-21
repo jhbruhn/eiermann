@@ -88,7 +88,16 @@ onRecordUpdateRequest((e) => {
       // The stored record does not carry the field at all, so there is nothing
       // to restore — and leaving the client's value would be the one outcome
       // this hook exists to prevent. Refuse the write instead.
-      throw new BadRequestError("This field cannot be set here.");
+      //
+      // Through refuse() like every other refusal, so the client gets a code
+      // rather than a sentence and the sweep stays absolute. This one has no
+      // dialog behind it: a well-behaved client never sends these fields, so the
+      // code exists to be logged and recognised, not to be rendered.
+      const refuser = require(`${__hooks}/app_refuse.js`);
+      refuser.refuse(
+        refuser.CODES.userFieldNotWritable,
+        `field ${field} cannot be set by a client`,
+      );
     }
   }
   e.next();

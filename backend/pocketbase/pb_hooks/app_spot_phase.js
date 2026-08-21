@@ -36,13 +36,14 @@ const ALLOWED = {
   closed: ["active"],
 };
 
-/** German labels, because the message goes to a user, not a log. */
-const LABEL = {
-  prospect: "Erkundung",
-  active: "aktiv",
-  paused: "pausiert",
-  closed: "abgeschlossen",
-};
+/**
+ * The phases, for the developer-facing log line only.
+ *
+ * These used to be German labels, back when the refusal carried a sentence. The
+ * sentence is the client's now (eiermann-8ct) and these exist purely so a log
+ * reader can see which transition was attempted.
+ */
+const PHASES = ["prospect", "active", "paused", "closed"];
 
 /**
  * Rejects an illegal transition and normalises the fields the server owns.
@@ -51,21 +52,22 @@ const LABEL = {
  * [previous] is the phase it is leaving, or `null` on create.
  */
 function apply(record, previous) {
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
   const next = String(record.get("phase") || "");
-  if (!LABEL[next]) {
-    throw new BadRequestError(`Unbekannte Phase: ${next}.`);
+  if (PHASES.indexOf(next) === -1) {
+    refuse(CODES.spotPhaseUnknown, `unknown phase: ${next}`);
   }
 
   if (previous !== null && previous !== next) {
     const allowed = ALLOWED[previous] || [];
     if (allowed.indexOf(next) === -1) {
-      // Naming the legal moves matters: the client can only offer the right
-      // buttons if it knows them, and a bare "invalid transition" turns into a
-      // support question.
-      const options = allowed.map((phase) => LABEL[phase]).join(", ") || "keine";
-      throw new BadRequestError(
-        `Ein Spot kann nicht von "${LABEL[previous]}" nach "${LABEL[next]}" ` +
-          `wechseln. Möglich ist: ${options}.`,
+      // One code for the whole condition, not one per pair. The client holds the
+      // same transition graph — it draws the buttons from it — so it can name
+      // the legal moves itself, in the reader's language, without the server
+      // enumerating them.
+      refuse(
+        CODES.spotPhaseIllegalTransition,
+        `illegal phase transition ${previous} -> ${next}`,
       );
     }
   }
@@ -76,28 +78,14 @@ function apply(record, previous) {
     // reached a yes — not on somebody remembering to check.
     const stage = String(record.get("prospect_stage") || "");
     if (stage !== "permitted") {
-      // No wire value in the message. `prospect_stage` holds strings like
-      // "tenant_spoken", and interpolating one into German prose yields a
-      // sentence half in each language — the thing keeping vocabulary in the
-      // client is meant to prevent.
-      //
-      // The obvious alternative was to pass it as the error's `data` so the
-      // client could translate it. That does not work: PocketBase coerces
-      // EVERY leaf of an ApiError's data into `{code, message}`, at any depth.
-      // `{stageWire: "untouched"}` arrives as
-      // `{stageWire: {code: "validation_invalid_value", message: "Invalid
-      // value."}}`. The channel is structurally a field-name → validation-error
-      // map and cannot carry a value. Verified against a live instance.
-      //
-      // Which is fine here: the client is holding the record it just tried to
-      // update, so it already knows the stage. The message only has to stand
-      // alone for whoever reads the raw error.
-      // „Erlaubt" is the word the client puts on that stage
-      // (`prospectStagePermitted`). This message is now user-visible copy, so
-      // naming the stage anything else sends somebody looking through the
-      // Erkundung for a word that is not there.
-      throw new BadRequestError(
-        'Ein Spot wird erst aktiv, wenn die Erkundung bei „Erlaubt" steht.',
+      // The stage is not sent back and neither is a sentence. `data` carries a
+      // code as a KEY but never a value — every leaf is rewritten to
+      // `{code, message}` at any depth — and the client is holding the record it
+      // just tried to update, so it already knows the stage. What it does not
+      // know is which rule refused, and that is exactly what the code says.
+      refuse(
+        CODES.spotPhaseNeedsPermitted,
+        `activation requires prospect_stage=permitted, was ${stage || "unset"}`,
       );
     }
   }
@@ -106,7 +94,7 @@ function apply(record, previous) {
     // A Spot that went quiet without saying why is indistinguishable from a
     // forgotten one, which is the exact failure this app exists to remove.
     if (!String(record.get("pause_reason") || "").trim()) {
-      throw new BadRequestError("Eine Pause braucht einen Grund.");
+      refuse(CODES.spotPauseNeedsReason, "pause requires pause_reason");
     }
   } else {
     // Current state, not history: a resumed Spot showing "pausiert wegen
@@ -123,9 +111,9 @@ function apply(record, previous) {
     const reason = String(record.get("closed_reason") || "");
     const refused = String(record.get("prospect_stage") || "") === "refused";
     if (!reason && !(previous === "prospect" && refused)) {
-      throw new BadRequestError(
-        "Ein Abschluss braucht einen Grund — sonst ist später nicht mehr " +
-          "erkennbar, ob es sich lohnt, erneut zu fragen.",
+      refuse(
+        CODES.spotCloseNeedsReason,
+        "closing requires closed_reason unless a refused prospect",
       );
     }
     // Server-owned, like next_due_at: a client that can write the closing date
@@ -168,4 +156,4 @@ function setDue(app, record) {
   );
 }
 
-module.exports = { apply, setDue, ALLOWED, LABEL };
+module.exports = { apply, setDue, ALLOWED, PHASES };

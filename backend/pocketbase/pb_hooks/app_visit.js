@@ -89,11 +89,14 @@ function replay(app, key, userId, route, body) {
 
   const stored = String(row.get("request_hash") || "");
   if (stored && stored !== fingerprint(body)) {
-    throw new ApiError(
+    // 409 rather than 400, and a code rather than a sentence: the client has to
+    // distinguish "your retry was accepted" from "your key is being reused",
+    // because only the second one means it has a bug.
+    const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
+    refuse(
+      CODES.visitIdempotencyKeyReused,
+      "idempotency key reused with a different body",
       409,
-      "Dieser Idempotency-Key wurde schon für einen anderen Besuch verwendet. " +
-        "Für jeden Besuch einen neuen Schlüssel erzeugen.",
-      {},
     );
   }
 
@@ -130,6 +133,7 @@ function remember(app, key, userId, route, status, body, request) {
  * this function decides whether they are true.
  */
 function checkArithmetic(payload) {
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
   const n = (key) => {
     const value = Number(payload[key] || 0);
     return isNaN(value) || value < 0 ? 0 : Math.floor(value);
@@ -140,8 +144,9 @@ function checkArithmetic(payload) {
   const addedDummy = n("added_dummy");
 
   if (removedReal > realBefore) {
-    throw new BadRequestError(
-      "Es können nicht mehr echte Eier entnommen werden, als im Nest waren.",
+    refuse(
+      CODES.visitEggsRemovedExceedPresent,
+      `removed_real ${removedReal} exceeds real_before ${realBefore}`,
     );
   }
   const realAfter = realBefore - removedReal;
@@ -155,9 +160,9 @@ function checkArithmetic(payload) {
     ["dummy_after", dummyAfter],
   ]) {
     if (payload[key] !== undefined && n(key) !== expected) {
-      throw new BadRequestError(
-        `Die Eierzahlen gehen nicht auf: ${key} ist ${n(key)}, ` +
-          `erwartet ${expected}.`,
+      refuse(
+        CODES.visitEggsDoNotBalance,
+        `${key} is ${n(key)}, expected ${expected}`,
       );
     }
   }
@@ -229,27 +234,29 @@ function rewriteEggs(app, nest, check, numbers) {
 function writeVisit(app, auth, body) {
   const rhythm = require(`${__hooks}/app_rhythm.js`);
   const nestRules = require(`${__hooks}/app_nest_rules.js`);
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
 
   const orgId = String(auth.getString("org") || "");
   const authorName = String(auth.getString("name") || auth.getString("email") || "");
   const spotId = String(body.spot || "");
-  if (!spotId) throw new BadRequestError("Ein Besuch braucht einen Spot.");
+  if (!spotId) refuse(CODES.visitNeedsSpot, "a visit requires a spot");
 
   let spot;
   try {
     spot = app.findRecordById("spots", spotId);
   } catch (_) {
-    throw new BadRequestError("Der angegebene Spot existiert nicht.");
+    refuse(CODES.visitSpotNotFound, `spot not found: ${spotId}`);
   }
-  // Tenancy from the STORED row, and the same message either way: whether an id
-  // exists in another organisation is not something a caller gets to learn.
+  // Tenancy from the STORED row, and the same CODE either way: whether an id
+  // exists in another organisation is not something a caller gets to learn, and
+  // a distinct code would tell them.
   if (String(spot.get("org") || "") !== orgId) {
-    throw new BadRequestError("Der angegebene Spot existiert nicht.");
+    refuse(CODES.visitSpotNotFound, `spot not found: ${spotId}`);
   }
 
   const outcome = String(body.outcome || "");
   if (outcome !== "checked" && outcome !== "skipped") {
-    throw new BadRequestError('`outcome` muss "checked" oder "skipped" sein.');
+    refuse(CODES.visitOutcomeInvalid, `outcome must be checked|skipped, was ${outcome}`);
   }
   const visitedAt = String(body.visited_at || "") || new DateTime().string();
 
@@ -267,7 +274,7 @@ function writeVisit(app, auth, body) {
     if (!reason) {
       // A skip without a reason is the same failure as a pause without one: the
       // record cannot say whether anybody tried.
-      throw new BadRequestError("Ein ausgelassener Besuch braucht einen Grund.");
+      refuse(CODES.visitSkipNeedsReason, "a skipped visit requires skip_reason");
     }
     visit.set("skip_reason", reason);
     visit.set("skip_note", String(body.skip_note || ""));
@@ -278,9 +285,7 @@ function writeVisit(app, auth, body) {
   if (outcome === "skipped" && checkPayloads.length) {
     // A skipped visit documents a non-event. Checks inside one would be an
     // observation, and the rhythm would then advance on a nest nobody saw.
-    throw new BadRequestError(
-      "Ein ausgelassener Besuch kann keine Nestprüfungen enthalten.",
-    );
+    refuse(CODES.visitSkipHasChecks, "a skipped visit cannot carry checks");
   }
 
   const checksCollection = app.findCollectionByNameOrId("nest_checks");
@@ -288,11 +293,11 @@ function writeVisit(app, auth, body) {
   const seen = {};
   for (const payload of checkPayloads) {
     const nestId = String(payload.nest || "");
-    if (!nestId) throw new BadRequestError("Eine Nestprüfung braucht ein Nest.");
+    if (!nestId) refuse(CODES.visitCheckNeedsNest, "a check requires a nest");
     if (seen[nestId]) {
       // Two checks on one nest in one visit cannot both be true, and the rhythm
       // would apply twice.
-      throw new BadRequestError("Ein Nest kann pro Besuch nur einmal geprüft werden.");
+      refuse(CODES.visitNestDuplicate, `nest ${nestId} checked twice in one visit`);
     }
     seen[nestId] = true;
 
@@ -300,14 +305,15 @@ function writeVisit(app, auth, body) {
     try {
       nest = app.findRecordById("nests", nestId);
     } catch (_) {
-      throw new BadRequestError("Das angegebene Nest existiert nicht.");
+      refuse(CODES.visitNestNotFound, `nest not found: ${nestId}`);
     }
     if (String(nest.get("org") || "") !== orgId) {
-      throw new BadRequestError("Das angegebene Nest existiert nicht.");
+      refuse(CODES.visitNestNotFound, `nest not found: ${nestId}`);
     }
     if (String(nest.get("spot") || "") !== spot.id) {
-      throw new BadRequestError(
-        "Das Nest gehört nicht zu diesem Spot.",
+      refuse(
+        CODES.visitNestForeignSpot,
+        `nest ${nestId} does not belong to spot ${spot.id}`,
       );
     }
 
@@ -372,10 +378,13 @@ function writeVisit(app, auth, body) {
         try {
           nest = app.findRecordById("nests", nestId);
         } catch (_) {
-          throw new BadRequestError("Das angegebene Nest existiert nicht.");
+          refuse(CODES.visitNestNotFound, `nest not found: ${nestId}`);
         }
         if (String(nest.get("spot") || "") !== spot.id) {
-          throw new BadRequestError("Das Nest gehört nicht zu diesem Spot.");
+          refuse(
+            CODES.visitNestForeignSpot,
+            `nest ${nestId} does not belong to spot ${spot.id}`,
+          );
         }
       }
       finding.set("nest", nestId);
