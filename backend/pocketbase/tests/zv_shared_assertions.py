@@ -179,3 +179,146 @@ def web_headers(
         "microphone=()" in permissions,
         permissions,
     )
+
+
+def geocode_validation(check, req, service, token):
+    """zv_geocode_route: what it refuses, and what it lets through to fail.
+
+    [req] is the caller's request helper, `(method, path, token) -> (status,
+    body)`. [service] is the path segment, so `/api/<service>/geocode`.
+
+    Assumes the harness points the upstream at an unreachable address — every
+    app's does, and it is what makes half of this meaningful: a well-formed pin
+    must fail at the UPSTREAM (502), not at validation (400). Asserted on the
+    BODY and not the status alone, because an unreachable upstream USED to
+    surface as a bare 400 from an uncaught `$http.send` throw, and a status-only
+    check passed for the wrong reason on every one of these.
+    """
+    base = f"/api/{service}/geocode"
+
+    status, _ = req("GET", base, token)
+    check("geocode without q is rejected", status == 400, f"status {status}")
+    status, _ = req("GET", base + "?q=" + "x" * 300, token)
+    check("geocode with overlong q is rejected", status == 400, f"status {status}")
+
+    def reverse(pin):
+        status, body = req("GET", f"{base}/reverse?lat={pin}", token)
+        return status, (body or {}).get("error")
+
+    # The reverse route once validated the PARSED coordinate and forwarded the
+    # RAW string, so "52.5abc" survived parseFloat + isFinite, was cache-keyed as
+    # "52.50000", and was relayed upstream verbatim: two different upstream
+    # queries sharing one cache entry, whichever landed first winning it.
+    for bad in (
+        "52.5abc&lon=13.4",
+        "52.5&lon=13.4abc",
+        "abc&lon=13.4",
+        "&lon=13.4",
+        "NaN&lon=13.4",
+        "Infinity&lon=13.4",
+    ):
+        status, error = reverse(bad)
+        check(
+            f"reverse geocode rejects lat={bad.split('&')[0]!r}",
+            status == 400 and error in ("invalid lat/lon", "missing lat/lon"),
+            f"{status} {error}",
+        )
+    status, error = reverse("91&lon=13.4")
+    check(
+        "reverse geocode rejects an out-of-range latitude",
+        status == 400 and error == "invalid lat/lon",
+        f"{status} {error}",
+    )
+
+    # The non-vacuous half. Exponent form counts as well-formed because Dart's
+    # `double.toString()` emits it.
+    for good in ("52.5&lon=13.4", "-52.5&lon=-13.4", "52.50000&lon=13.40000",
+                 "1e-7&lon=13.4"):
+        status, error = reverse(good)
+        check(
+            f"...while lat={good.split('&')[0]!r} reaches the geocoder",
+            status == 502 and error == "geocoder unavailable",
+            f"{status} {error}",
+        )
+
+    status, body = req("GET", base + "?q=Berlin", token)
+    check(
+        "an unreachable geocoder is 502 on the forward route too",
+        status == 502 and (body or {}).get("error") == "geocoder unavailable",
+        f"{status} {body}",
+    )
+
+
+def geocode_walled_off(check, req, service, token):
+    """zv_geocode_route: a walled-off role cannot drive the geocoder.
+
+    Only for an app that HAS such a role. A role walled off from every
+    collection could still burn the upstream budget, and that is the one thing an
+    access rule cannot stop, because there is no record to scope. The check runs
+    before any upstream call, so a well-formed query never leaves the building.
+    """
+    base = f"/api/{service}/geocode"
+    status, _ = req("GET", base + "?q=Berlin", token)
+    check("a walled-off role CANNOT use forward geocode", status == 403,
+          f"status {status}")
+    status, _ = req("GET", base + "/reverse?lat=52.5&lon=13.4", token)
+    check("a walled-off role CANNOT use reverse geocode", status == 403,
+          f"status {status}")
+
+
+def geocode_cache(check, req, service, token, seed, read_row):
+    """zv_geocode_route: the cache — read path, key rounding and hit accounting.
+
+    [seed] plants a row and returns its id; [read_row] fetches one by id. Both
+    are the caller's, because `geocode_cache` has all-null API rules and only a
+    superuser can touch it, and because expiry needs the caller's date helper.
+    [seed] takes `(kind, key, response, days)` — negative days for an expired row.
+
+    This is the only way the read path is observable at all: with no reachable
+    geocoder there is no successful response to store, and `cachePut` swallows
+    every error by design — so a cache that had silently stopped working (a
+    module context that could not `new Record`, a drifted key) would look exactly
+    like a cache that was never exercised. The upstream is unreachable here, so a
+    200 can ONLY have come from the cache.
+    """
+    payload = {
+        "result": {
+            "lat": 52.5, "lon": 13.4, "displayName": "cached Berlin",
+            "city": "Berlin", "region": "Berlin",
+        }
+    }
+    row_id = seed("reverse", "52.50000,13.40000", payload, 1)
+
+    def reverse(pin):
+        return req("GET", f"/api/{service}/geocode/reverse?lat={pin}", token)
+
+    status, body = reverse("52.5&lon=13.4")
+    check(
+        "a cached reverse lookup is served without reaching the geocoder",
+        status == 200
+        and ((body or {}).get("result") or {}).get("displayName") == "cached Berlin",
+        f"{status} {body}",
+    )
+    # The ~1m rounding IS the key: a pin differing below the 5th decimal must
+    # land on the same entry, and one differing above it must not.
+    status, _ = reverse("52.500001&lon=13.4")
+    check("...and a pin within a metre shares that entry", status == 200,
+          f"status {status}")
+    status, _ = reverse("52.6&lon=13.4")
+    check("...while a different pin misses it and goes upstream", status == 502,
+          f"status {status}")
+
+    # Hit accounting is best-effort, and it is also the only proof the module can
+    # WRITE this collection at all — a silently broken `save` here is what would
+    # make the whole cache a no-op.
+    row = read_row(row_id)
+    check(
+        "a cache hit is counted (the module can write the cache)",
+        (row or {}).get("hits", 0) >= 2,
+        f"hits={(row or {}).get('hits')}",
+    )
+
+    seed("reverse", "10.00000,10.00000", payload, -1)
+    status, _ = reverse("10&lon=10")
+    check("an expired cache row is a miss, not a stale answer", status == 502,
+          f"status {status}")

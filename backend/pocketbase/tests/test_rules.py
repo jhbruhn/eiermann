@@ -1235,6 +1235,15 @@ h.check(
     f"service={(body or {}).get('service')!r}",
 )
 
+# The geocode route's own contract is zugvogel's to assert — what it refuses,
+# what it lets through to fail at the upstream, and the cache's key rounding and
+# hit accounting. run.sh points EIERMANN_NOMINATIM_URL at a closed port, which is
+# what makes the 400-vs-502 distinction mean anything: it separates "the input
+# was rejected" from "the input was accepted and the upstream then failed".
+#
+# There is no `geocode_walled_off` call: this app's roles are member and
+# coordinator, so it has no role walled off from all data, and asserting against
+# one that does not exist would pass without testing anything.
 status, _ = h.req("GET", "/api/eiermann/geocode?q=Oldenburg")
 h.check(
     "the geocode proxy refuses an anonymous caller",
@@ -1242,49 +1251,20 @@ h.check(
     f"status {status} — an open proxy burns somebody else's upstream budget",
 )
 
-# This suite deliberately CANNOT reach a real geocoder: run.sh points
-# EIERMANN_NOMINATIM_URL at a closed port. That is not a limitation to work
-# around, it is what makes the next two assertions mean anything — a refused
-# connection separates "the input was rejected" (400) from "the input was
-# accepted and the upstream then failed" (502). Without that separation a
-# coordinate-validation test passes on a route that rejects everything.
-#
-# The live path is exercised against the dev stack, which does reach Nominatim.
+shared_assertions.geocode_validation(h.check, h.req, "eiermann", member_token)
 
-status, body = h.req(
-    "GET", "/api/eiermann/geocode?q=Bahnhofstra%C3%9Fe%2012%2C%20Oldenburg",
+shared_assertions.geocode_cache(
+    h.check,
+    h.req,
+    "eiermann",
     member_token,
-)
-h.check(
-    "a well-formed query reaches the upstream and fails as a 502",
-    status == 502,
-    f"status {status}, {str(body)[:120]} — an uncaught throw here would be a "
-    "400, which tells the client its address was malformed when it was fine",
-)
-
-status, body = h.req(
-    "GET", "/api/eiermann/geocode/reverse?lat=53.1435&lon=8.2146", member_token
-)
-h.check(
-    "valid coordinates likewise get past validation to a 502",
-    status == 502,
-    f"status {status}, {str(body)[:120]}",
-)
-
-status, _ = h.req("GET", "/api/eiermann/geocode", member_token)
-h.check(
-    "a query-less geocode call is a 400, not a 500",
-    status == 400,
-    f"status {status}",
-)
-
-status, _ = h.req(
-    "GET", "/api/eiermann/geocode/reverse?lat=notanumber&lon=8.2", member_token
-)
-h.check(
-    "a non-numeric coordinate is rejected",
-    status == 400,
-    f"status {status} — it would otherwise reach the upstream URL as text",
+    lambda kind, key, response, days: h.mk(T, "geocode_cache", {
+        "kind": kind, "cache_key": key, "response": response,
+        "result_count": 1, "hits": 0, "expires_at": h.stamp(days=days),
+    })["id"],
+    lambda row_id: h.req(
+        "GET", f"/api/collections/geocode_cache/records/{row_id}", T
+    )[1],
 )
 
 h.check(
