@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:eiermann/features/home/sign_out_action.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
@@ -61,22 +62,16 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final pins = ref.watch(spotPinsProvider);
+    final pins = ref.watch(allSpotsProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.spotsMapTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.list),
-            tooltip: l10n.spotsTitle,
-            onPressed: () => context.go(Routes.dashboard),
-          ),
-        ],
+        actions: const [SignOutAction()],
       ),
       body: AsyncValueView(
         value: pins,
-        onRetry: () => ref.invalidate(spotPinsProvider),
+        onRetry: () => ref.invalidate(allSpotsProvider),
         data: (rows) => _Map(
           rows: rows,
           controller: _map,

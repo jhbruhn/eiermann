@@ -52,23 +52,26 @@ void main() {
     when(
       () => repo.dueFirst(
         query: any(named: 'query'),
+        urgency: any(named: 'urgency'),
         after: any(named: 'after'),
         perPage: any(named: 'perPage'),
       ),
     ).thenAnswer((_) async => const SpotOverviewPage(items: []));
   });
 
-  Future<void> pump(WidgetTester tester) => tester.pumpApp(
-    const Scaffold(body: SpotsList()),
-    overrides: [
-      spotOverviewRepositoryProvider.overrideWith((ref) async => repo),
-    ],
-  );
+  Future<void> pump(WidgetTester tester, {SpotUrgency? urgency}) =>
+      tester.pumpApp(
+        Scaffold(body: SpotsList(urgency: urgency)),
+        overrides: [
+          spotOverviewRepositoryProvider.overrideWith((ref) async => repo),
+        ],
+      );
 
   void stubRows(List<SpotOverview> rows) {
     when(
       () => repo.dueFirst(
         query: any(named: 'query'),
+        urgency: any(named: 'urgency'),
         after: any(named: 'after'),
         perPage: any(named: 'perPage'),
       ),
@@ -196,6 +199,7 @@ void main() {
     when(
       () => repo.dueFirst(
         query: any(named: 'query'),
+        urgency: any(named: 'urgency'),
         after: any(named: 'after'),
         perPage: any(named: 'perPage'),
       ),
@@ -207,5 +211,74 @@ void main() {
 
     expect(find.text(de.errorLoadFailed), findsOneWidget);
     expect(find.text(de.actionRetry), findsOneWidget);
+  });
+
+  group('narrowed to one urgency rank', () {
+    testWidgets('the rank goes to the SERVER, not to a pass over the page', (
+      tester,
+    ) async {
+      // Filtering on the device would filter one page: the second page resumes
+      // where the server left off, so a rank the client dropped afterwards
+      // leaves the list with holes in it and a cursor that skips rows.
+      stubRows([overview(id: 's1', name: 'Bahnhofstraße 12', urgency: 0)]);
+
+      await pump(tester, urgency: SpotUrgency.overdue);
+      await tester.pumpAndSettle();
+
+      verify(
+        () => repo.dueFirst(
+          query: any(named: 'query'),
+          urgency: SpotUrgency.overdue.rank,
+          after: any(named: 'after'),
+          perPage: any(named: 'perPage'),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('a chip says which rank, so a short list cannot lie', (
+      tester,
+    ) async {
+      // A reader who came from a dashboard tile and then searched would
+      // otherwise read an empty result as "no such building", when it means
+      // "no such building among the overdue ones".
+      stubRows([overview(id: 's1', name: 'Bahnhofstraße 12', urgency: 0)]);
+
+      await pump(tester, urgency: SpotUrgency.overdue);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byType(InputChip),
+          matching: find.text(de.spotUrgencyOverdue),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('no chip at all when the list is showing everything', (
+      tester,
+    ) async {
+      stubRows([overview(id: 's1', name: 'Bahnhofstraße 12', urgency: 0)]);
+
+      await pump(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InputChip), findsNothing);
+    });
+
+    testWidgets('an empty filtered list does NOT read as an empty org', (
+      tester,
+    ) async {
+      // "Lege das erste Gebäude an" in front of a group with forty buildings is
+      // worse than saying nothing: it tells them their data is gone.
+      stubRows([]);
+
+      await pump(tester, urgency: SpotUrgency.dueToday);
+      await tester.pumpAndSettle();
+
+      expect(find.text(de.spotsFilterEmpty), findsOneWidget);
+      expect(find.text(de.spotsEmptyTitle), findsNothing);
+      expect(find.text(de.spotsEmptyAction), findsNothing);
+    });
   });
 }

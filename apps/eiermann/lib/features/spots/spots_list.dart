@@ -21,10 +21,16 @@ const _searchDebounce = Duration(milliseconds: 300);
 /// The view already carries the contact counts and the urgency rank, so a row
 /// costs nothing extra to draw.
 ///
-/// The list is a body, not a screen: it is the dashboard's content, and it will
-/// be the map's second tab. Whoever hosts it owns the app bar.
+/// The list is a body, not a screen: `SpotsScreen` hosts it as a destination of
+/// the nav shell and owns the app bar.
 class SpotsList extends ConsumerStatefulWidget {
-  const SpotsList({super.key});
+  const SpotsList({this.urgency, super.key});
+
+  /// Show only this rank. Comes from the route (see `Routes.spotsByUrgency`),
+  /// which is why clearing the chip is a navigation and not a `setState`: the
+  /// location is what a restore and a back gesture read, so it has to be the
+  /// one place the filter is written down.
+  final SpotUrgency? urgency;
 
   @override
   ConsumerState<SpotsList> createState() => _SpotsListState();
@@ -63,14 +69,16 @@ class _SpotsListState extends ConsumerState<SpotsList> {
     // in flight, so firing this on every scroll frame is safe. `PagedListTail`
     // asks as well, for the list too short to scroll at all.
     if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 600) {
-      unawaited(ref.read(spotFeedProvider(_query).notifier).loadMore());
+      unawaited(
+        ref.read(spotFeedProvider(_query, widget.urgency).notifier).loadMore(),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final feed = ref.watch(spotFeedProvider(_query));
+    final feed = ref.watch(spotFeedProvider(_query, widget.urgency));
 
     return Column(
       children: [
@@ -87,6 +95,30 @@ class _SpotsListState extends ConsumerState<SpotsList> {
             ),
           ),
         ),
+        // The filter has to be VISIBLE or the list lies: a reader who arrived
+        // from a dashboard tile, then searched, would otherwise read a short
+        // result as "no such building" when it is "no such building among the
+        // overdue ones".
+        if (widget.urgency case final rank?)
+          Padding(
+            padding: const EdgeInsets.only(
+              left: ZugvogelSpacing.md,
+              right: ZugvogelSpacing.md,
+              bottom: ZugvogelSpacing.md,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                avatar: Icon(
+                  spotUrgencyIcon(rank),
+                  color: spotUrgencyColor(context, rank),
+                ),
+                label: Text(spotUrgencyLabel(l10n, rank)),
+                onDeleted: () => context.go(Routes.spots),
+                deleteButtonTooltipMessage: l10n.spotsFilterClear,
+              ),
+            ),
+          ),
         const Divider(height: 1),
         // Inside the Column, not around it: the search field has to stay put
         // while the results below it load, or typing loses focus on every
@@ -94,7 +126,8 @@ class _SpotsListState extends ConsumerState<SpotsList> {
         Expanded(
           child: AsyncValueView<SpotFeedState>(
             value: feed,
-            onRetry: () => ref.invalidate(spotFeedProvider(_query)),
+            onRetry: () =>
+                ref.invalidate(spotFeedProvider(_query, widget.urgency)),
             data: _results,
           ),
         ),
@@ -106,8 +139,10 @@ class _SpotsListState extends ConsumerState<SpotsList> {
     final l10n = context.l10n;
     if (state.items.isEmpty) {
       // Which emptiness this is can no longer be read off the loaded rows — the
-      // server sent only what matched. An active search says so itself.
-      return _query.trim().isEmpty
+      // server sent only what matched. A search or a rank filter says so
+      // itself; offering "add the first Spot" while a filter is on would call
+      // an org full of buildings empty.
+      return _query.trim().isEmpty && widget.urgency == null
           ? EmptyView(
               icon: Icons.home_work_outlined,
               title: l10n.spotsEmptyTitle,
@@ -116,10 +151,15 @@ class _SpotsListState extends ConsumerState<SpotsList> {
               actionIcon: Icons.add,
               onAction: () => showSpotSheet(context),
             )
-          : EmptyView(message: l10n.spotsNoMatches);
+          : EmptyView(
+              message: _query.trim().isEmpty
+                  ? l10n.spotsFilterEmpty
+                  : l10n.spotsNoMatches,
+            );
     }
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(spotFeedProvider(_query).future),
+      onRefresh: () =>
+          ref.refresh(spotFeedProvider(_query, widget.urgency).future),
       child: ContentBounds(
         child: ListView.builder(
           controller: _scroll,
@@ -131,10 +171,14 @@ class _SpotsListState extends ConsumerState<SpotsList> {
               return PagedListTail(
                 error: state.pageError,
                 onLoad: () => unawaited(
-                  ref.read(spotFeedProvider(_query).notifier).loadMore(),
+                  ref
+                      .read(spotFeedProvider(_query, widget.urgency).notifier)
+                      .loadMore(),
                 ),
                 onRetry: () => unawaited(
-                  ref.read(spotFeedProvider(_query).notifier).retryPage(),
+                  ref
+                      .read(spotFeedProvider(_query, widget.urgency).notifier)
+                      .retryPage(),
                 ),
               );
             }

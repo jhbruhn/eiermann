@@ -47,18 +47,23 @@ class SpotFeedState {
       );
 }
 
-/// The Spot list for [search]: most urgent first, a page at a time.
+/// The Spot list for [search], optionally narrowed to one [urgency] rank:
+/// most urgent first, a page at a time.
 ///
 /// Reads `spot_overview` and nothing else. One query per page — never one per
 /// row — because a list that fires a request per building is what makes this
 /// app feel broken on a phone in a stairwell, and the counts and the urgency
 /// rank a row draws come from the view anyway.
+///
+/// The rank is part of the provider's key, so switching filters is a new query
+/// and not a mutation of the one on screen — the page that was loading for
+/// "everything" cannot land in the list for "overdue".
 @riverpod
 class SpotFeed extends _$SpotFeed {
   @override
-  Future<SpotFeedState> build(String search) async {
+  Future<SpotFeedState> build(String search, SpotUrgency? urgency) async {
     final repo = await ref.watch(spotOverviewRepositoryProvider.future);
-    final page = await repo.dueFirst(query: search);
+    final page = await repo.dueFirst(query: search, urgency: urgency?.rank);
     return SpotFeedState(items: page.items, cursor: page.cursor);
   }
 
@@ -86,7 +91,11 @@ class SpotFeed extends _$SpotFeed {
     state = AsyncData(current.withTail(loadingMore: true));
     try {
       final repo = await ref.read(spotOverviewRepositoryProvider.future);
-      final next = await repo.dueFirst(query: search, after: current.cursor);
+      final next = await repo.dueFirst(
+        query: search,
+        urgency: urgency?.rank,
+        after: current.cursor,
+      );
       state = AsyncData(
         SpotFeedState(
           items: [...current.items, ...next.items],
@@ -118,31 +127,57 @@ Future<List<SpotContact>> spotContacts(Ref ref, String spotId) async {
   return repo.forSpot(spotId);
 }
 
-/// Every Spot in the org, for the map.
+/// Every Spot in the org, unpaged.
 ///
-/// Unpaged, and that is the difference from [SpotFeed]: a list can stop at
-/// fifty and load more on scroll, but a map that drew only the first page would
-/// hide pins the reader is looking straight at. `search('')` is the view's own
-/// answer for this — the whole set, by name.
+/// Two screens need the whole set rather than a page: the map, because one that
+/// drew only the first page would hide pins the reader is looking straight at,
+/// and the dashboard, whose tiles are counts over all of them. They share this
+/// one read — the map opening after the dashboard costs no request at all.
+/// `search('')` is the view's own answer for it: the whole set, by name.
 ///
 /// One query for the whole screen. A map that fired a request per pin is what
 /// makes an app feel broken on a phone in a stairwell, and the counts and the
 /// urgency rank a pin needs are in the view already.
 @riverpod
-Future<List<SpotOverview>> spotPins(Ref ref) async {
+Future<List<SpotOverview>> allSpots(Ref ref) async {
   final repo = await ref.watch(spotOverviewRepositoryProvider.future);
   return repo.search('');
 }
 
-/// Invalidates every read that draws a Spot in a list or on the map.
+/// How many Spots sit at each urgency rank.
 ///
-/// One call, because there are two such reads now and the tour screens will add
-/// a third. The map is the reason it exists: it arrived as a SECOND reader of
-/// the same rows while five write sites went on invalidating only the list — so
-/// a Spot created from the map's own button did not appear on the map until the
-/// screen was left and re-entered.
+/// A pure count over rows already loaded, not a query per tile: three
+/// `?perPage=1` requests for three `totalItems` would be three round trips for
+/// what one list answers, and they could disagree with each other while
+/// somebody is writing.
+///
+/// A rank with nothing in it is absent from the map rather than present as
+/// zero — the caller decides whether "no overdue Spots" is worth a tile, and
+/// [SpotUrgency.values] is the only honest list of what could appear.
+Map<SpotUrgency, int> countByUrgency(List<SpotOverview> rows) {
+  final counts = <SpotUrgency, int>{};
+  for (final row in rows) {
+    // A rank this build has no name for is left out on purpose: a tile that
+    // silently folded it into the nearest known rank would state something
+    // untrue about how much work is waiting.
+    if (row.level case final level?) {
+      counts[level] = (counts[level] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+/// Invalidates every read that draws a Spot in a list, on the map or as a
+/// count.
+///
+/// One call, because there are three such reads now and the tour screens will
+/// add a fourth. The map is the reason it exists: it arrived as a SECOND reader
+/// of the same rows while five write sites went on invalidating only the list —
+/// so a Spot created from the map's own button did not appear on the map until
+/// the screen was left and re-entered. The dashboard's tiles read
+/// [allSpotsProvider] too, which is why they cannot drift out of this.
 void invalidateSpotViews(WidgetRef ref) {
   ref
     ..invalidate(spotFeedProvider)
-    ..invalidate(spotPinsProvider);
+    ..invalidate(allSpotsProvider);
 }

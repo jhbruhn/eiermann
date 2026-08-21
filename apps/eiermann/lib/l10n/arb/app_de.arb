@@ -83,6 +83,16 @@
   "@authVersionServerTooOld": {
     "description": "Names the OPERATOR, not the user: telling this user to update their app would be a dead end, because their app is already the newer of the two."
   },
+  "navDashboard": "Dashboard",
+  "@navDashboard": {
+    "description": "Label of a nav bar / rail destination. Kept separate from the screen titles because a destination label has to survive in the width of one tab on a phone — a title may grow, this may not."
+  },
+  "navMap": "Karte",
+  "navSpots": "Liste",
+  "@navSpots": {
+    "description": "'Liste', not 'Spots': it sits beside 'Karte' and the pair names the two ways of looking at the same buildings. The screen it opens is still titled 'Spots'."
+  },
+  "dashboardTitle": "Dashboard",
   "spotsTitle": "Spots",
   "spotsEmptyTitle": "Noch keine Spots",
   "spotsEmptyMessage": "Lege das erste Gebäude an – Adresse, Zugang, Ansprechpartner. Danach weiß jede*r, wie man reinkommt.",
@@ -93,6 +103,14 @@
   "spotsSearchHint": "Name, Straße, Ort oder PLZ",
   "spotsNoMatches": "Kein Spot passt zu dieser Suche",
   "spotsSearchClear": "Suche löschen",
+  "spotsFilterClear": "Filter entfernen",
+  "@spotsFilterClear": {
+    "description": "Tooltip on the chip that shows which urgency rank the list is narrowed to. The chip exists so a short result cannot read as 'no such building' when it means 'none among these'."
+  },
+  "spotsFilterEmpty": "In dieser Dringlichkeit steht gerade kein Spot",
+  "@spotsFilterEmpty": {
+    "description": "Empty state for a list narrowed to one rank and nothing else. Never the 'add the first Spot' state, which would call an org full of buildings empty."
+  },
   "spotUrgencyOverdue": "Überfällig",
   "@spotUrgencyOverdue": {
     "description": "Urgency is also colour-coded, so every rank must have words: colour-only meaning fails WCAG 1.4.1 and is invisible to a colour-blind carer."
