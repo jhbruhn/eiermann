@@ -29,7 +29,7 @@ part you cannot reconstruct from the code.
 
 ## Running it
 
-You need Docker and Flutter (3.44.3 / Dart 3.12 — the same version as
+You need Docker and Flutter (3.47.1 / Dart 3.13 — the same version as
 federfall, deliberately in lockstep).
 
 There are two ways to run it, and the difference matters.

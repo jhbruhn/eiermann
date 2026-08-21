@@ -27,10 +27,10 @@ ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-d7ea6d1971c52be3f550e3
 # ── Flutter web build ──────────────────────────────────────────────────────────
 FROM debian:bookworm-slim AS flutterbuild
 
-# Keep in sync with the repo's pinned Flutter (apps/eiermann: flutter ^3.44.0)
+# Keep in sync with the repo's pinned Flutter (apps/eiermann: flutter ^3.47.0)
 # AND with zugvogel's CI, which compiles the shared library with the same
 # toolchain.
-ARG FLUTTER_VERSION=3.44.3
+ARG FLUTTER_VERSION=3.47.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PUB_CACHE=/pub-cache \
