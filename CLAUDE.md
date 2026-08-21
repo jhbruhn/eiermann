@@ -55,11 +55,20 @@ docs/concept-digest.md  the working reference for every product decision
 ```
 
 `zugvogel` is a sibling repo (`../zugvogel`) holding everything shared with
-`federfall`, the pigeon-rehab app this one is modelled on. Its packages come in
-as **git dependencies pinned to a commit hash** — never a tag: a tag can be
-re-pointed, pub caches by ref, and two machines then resolve the same
-declaration onto different code. There are deliberately no releases; a
-release-please PR stands open as a changelog and **is never merged**.
+`federfall`, the pigeon-rehab app this one is modelled on. It arrives here by
+**two independent pins**, and confusing them wastes time:
+
+| what | where | bump with |
+|---|---|---|
+| the Dart packages | `pubspec.yaml` `ref:` in every workspace member | `tools/bump-zugvogel.sh <commit>` |
+| the PocketBase runtime (binary, `zv_*.js` hooks, Typst, entrypoint) | `ARG ZUGVOGEL_PB_BASE` in `Dockerfile` | edit the `sha-<commit>` tag |
+
+Both are **commit-pinned, never a tag** — a tag can be re-pointed, pub and
+Docker both cache by ref, and two machines then resolve the same declaration
+onto different code. They move independently: a change to zugvogel's Dart does
+not touch the image, and a change to the shared hooks does not touch the
+pubspecs. There are deliberately no releases; a release-please PR stands open as
+a changelog and **is never merged**.
 
 When a fix belongs in shared code, make it in `../zugvogel`, push, and bump the
 hash in `pubspec.yaml` here. Do not fork a zugvogel file into this repo.
@@ -229,7 +238,7 @@ The hook runtime is not Node and not a browser. Each of these has cost real time
   `--automigrate` had not created yet, so it failed on first boot and quietly
   worked on the second. The **image's ENTRYPOINT** therefore runs `migrate up`
   as its own step before `serve`
-  (`backend/pocketbase/entrypoint.sh`). That fix lived in the dev override alone
+  (zugvogel-pb-base's entrypoint). That fix lived in the dev override alone
   for a while, which meant the *shipped* image was the broken one and local
   development could not see it — measured: first boot login 400 with no log
   line, second boot 200. Ordering like this belongs in the image, not in a dev

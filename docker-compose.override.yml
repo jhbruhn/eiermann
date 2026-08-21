@@ -18,8 +18,15 @@
 #    For the whole app in one container — a demo, or checking the release
 #    artifact — skip this file:
 #        docker compose -f docker-compose.yml up -d --build
-#  * the migrations and hooks are BIND-MOUNTED, so editing one and restarting
-#    picks it up. Baked copies would mean a rebuild per hook edit.
+#  * NOTHING is bind-mounted any more. Editing a hook needs `--build`, which is
+#    a cached COPY layer near the end of the Dockerfile and takes seconds.
+#
+#    The mounts had to go when the zv_* libraries moved into
+#    zugvogel-pb-base: mounting eiermann's pb_hooks over /pb/pb_hooks replaces
+#    the base image's libraries with a directory that does not contain them, and
+#    every `require` then fails at request time as a generic 400. Baking is also
+#    the more honest arrangement — dev now runs the same file layout as
+#    production instead of one assembled by mounts.
 #  * automigrate ON, so a new migration file applies on restart.
 #
 # The published port is NOT set here: Compose appends port lists rather than
@@ -34,15 +41,15 @@ services:
     build:
       target: backend
     volumes:
-      - ./backend/pocketbase/pb_migrations:/pb/pb_migrations
-      - ./backend/pocketbase/pb_hooks:/pb/pb_hooks
       - pb_data:/pb/pb_data
     # The image's own ENTRYPOINT applies migrations before serving, so this file
     # no longer restates it. It USED to, and that was the bug: the ordering lived
     # in the dev override only, so the shipped image booted its
     # coordinator-bootstrap hook before the schema existed — silently doing
     # nothing on the first boot of a new instance and working on the second.
-    # Local development could never see it. See backend/pocketbase/entrypoint.sh.
+    # Local development could never see it. The entrypoint now lives in
+    # zugvogel-pb-base, so every app that starts from that image inherits the
+    # ordering whether or not it thought about it.
     #
     # --dev prints logs AND SQL to stdout. Without it PocketBase writes its log
     # records to an internal table, so `docker compose logs` shows nothing and a

@@ -52,10 +52,19 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || \
 # hooks run for EVERY command, and one that persists state (the rate-limit hook
 # writes settings.rateLimits) can poison the fresh data dir before the hooks
 # under test ever run.
+# Only the data directory is mounted. The hooks, migrations and Typst files are
+# BAKED, and the suite now runs against the image's own copies.
+#
+# It used to mount all three, which was a fidelity hole in a rule suite: the
+# thing under test was a directory of host files laid over the image, so the
+# image itself was never exercised. It became an outright bug once the zv_*
+# libraries moved into zugvogel-pb-base — mounting eiermann's pb_hooks over
+# /pb/pb_hooks replaces the base's libraries with a directory that does not
+# contain them, and every `require` fails at request time.
+#
+# The cost is a rebuild per hook edit. It is a cached COPY layer near the end of
+# the Dockerfile, so it is seconds, and run.sh builds anyway.
 MOUNTS=(
-  -v "$PB_DIR/pb_migrations:/pb/pb_migrations:ro"
-  -v "$PB_DIR/pb_hooks:/pb/pb_hooks:ro"
-  -v "$PB_DIR/typst:/pb/typst:ro"
   -v "$DATA:/pb/pb_data"
 )
 

@@ -11,7 +11,18 @@
 # self-hosted, and a supply-chain swap in a tile-sized dependency is exactly the
 # kind of thing nobody notices.
 
-ARG PB_VERSION=0.39.8
+# The shared PocketBase runtime: the binary, the zv_* hook libraries, the Typst
+# base and the migrate-before-serve entrypoint. Published from zugvogel by
+# .github/workflows/pb-base.yml.
+#
+# Pinned to a `sha-<commit>` tag for the same reason the Dart packages are pinned
+# to a commit hash: it names one commit and nothing can re-point it. `latest`
+# exists on that package and must not be used here.
+#
+# Bumping it is a deliberate step, exactly like bumping the pubspec pin — and the
+# two are independent: a change to zugvogel's Dart packages does not move this,
+# and a change to the shared hooks does not move the pubspec.
+ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-d7ea6d1971c52be3f550e395b5cd5bb3a6f8a06a
 
 # ── Flutter web build ──────────────────────────────────────────────────────────
 FROM debian:bookworm-slim AS flutterbuild
@@ -72,31 +83,14 @@ RUN cd apps/eiermann && flutter build web --release --wasm \
         --target lib/main_production.dart \
         --dart-define-from-file=dart_defines/production.json
 
-# ── PocketBase fetch ──────────────────────────────────────────────────────────
-FROM alpine:3.20 AS pbfetch
-ARG PB_VERSION
-ARG TARGETARCH
-RUN apk add --no-cache unzip wget ca-certificates
-WORKDIR /pb
-RUN set -eux; \
-    case "${TARGETARCH}" in \
-        amd64) PB_ARCH=amd64; PB_SHA256=3b675575ff0e6dcc5befc85a9644aea6b04ac617ce125ecb2b6989a3c5b5664f ;; \
-        arm64) PB_ARCH=arm64; PB_SHA256=d9e44e40f2483b468bb4dd64e12b554aa85941dc5ee9c4bb87aee8fa9e469425 ;; \
-        arm)   PB_ARCH=armv7; PB_SHA256=4824b6999c93227a2a544783e4007e57f43b72aac37f2aebbc99fe75055328b9 ;; \
-        *)     echo "unsupported arch: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    wget -q "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip" -O /tmp/pb.zip; \
-    echo "${PB_SHA256}  /tmp/pb.zip" | sha256sum -c -; \
-    unzip /tmp/pb.zip -d /pb; \
-    rm /tmp/pb.zip; \
-    chmod +x /pb/pocketbase
-
 # ── Backend runtime (lean: PB + migrations + hooks, no web) ────────────────────
-# This stage IS the rule-test image (built via `--target backend`).
-FROM alpine:3.20 AS backend
-RUN apk add --no-cache ca-certificates tzdata wget
-COPY --from=pbfetch /pb/pocketbase /usr/local/bin/pocketbase
-WORKDIR /pb
+# This stage IS the rule-test image (built via `--target backend`), which is the
+# point: the suite exercises the image that ships, not a directory of host files
+# mounted over it.
+#
+# The base brings PocketBase, the zv_* libraries, the Typst base and the
+# entrypoint. Everything added below is eiermann's own.
+FROM ${ZUGVOGEL_PB_BASE} AS backend
 # Released images get this set to the release-please version via --build-arg.
 # zv_info.js reads it at request time, so the RUNNING IMAGE is the single source
 # of truth for the version it reports and no source file needs a release-time
@@ -104,13 +98,15 @@ WORKDIR /pb
 # "unversioned" and lets through.
 ARG EIERMANN_VERSION=0.0.0-dev
 ENV EIERMANN_VERSION=${EIERMANN_VERSION}
-RUN mkdir -p /pb/pb_data
-# Baked in, so the image is self-contained: production runs these with no host
-# bind mounts. Local dev shadows them via docker-compose.override.yml, which is
-# also where automigrate goes back on.
+# Baked in, so the image is self-contained: nothing here is bind-mounted, in dev
+# or in production. It used to be, and that was a fidelity hole — the rule suite
+# and the dev stack both ran host files while the image sat untested underneath.
+#
+# `pb_hooks/` holds ONLY eiermann's own hooks now. The zv_* libraries come from
+# the base image and land in the same directory, so a `require` finds them
+# exactly as before — and there is no vendored copy left to drift.
 COPY backend/pocketbase/pb_migrations/ /pb/pb_migrations/
 COPY backend/pocketbase/pb_hooks/      /pb/pb_hooks/
-COPY backend/pocketbase/entrypoint.sh  /usr/local/bin/entrypoint.sh
 # A signpost at `/` for the lean image, which has no SPA to serve. Without it the
 # address answers 404, which is indistinguishable from a broken deployment — and
 # that cost real confusion once. The `full` stage copies the Flutter build over
@@ -121,11 +117,11 @@ EXPOSE 8090
 # automigrate OFF by default: the schema changes only through the committed
 # migration files above, and never drifts in from somebody clicking in the Admin
 # UI. A migration is a historical fact; the Admin UI does not write history.
-# The entrypoint applies migrations before handing off to `serve`. It is not
-# decoration: the coordinator-bootstrap hook runs in onBootstrap, which is NOT
-# guaranteed to be after the migrations, and on a fresh volume it therefore did
-# nothing on the first boot and worked on the second. See entrypoint.sh.
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# ENTRYPOINT comes from the base: it applies migrations before handing off to
+# `serve`. Not decoration — the coordinator-bootstrap hook runs in onBootstrap,
+# which is NOT guaranteed to be after the migrations, so on a fresh volume it did
+# nothing on the first boot and worked on the second. The base deliberately sets
+# no CMD, so each app states its own flags rather than inheriting a wrong default.
 CMD ["serve", "--http=0.0.0.0:8090", \
      "--dir=/pb/pb_data", \
      "--migrationsDir=/pb/pb_migrations", \
