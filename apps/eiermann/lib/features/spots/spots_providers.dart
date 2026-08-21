@@ -116,3 +116,19 @@ Future<List<SpotContact>> spotContacts(Ref ref, String spotId) async {
   final repo = await ref.watch(spotContactsRepositoryProvider.future);
   return repo.forSpot(spotId);
 }
+
+/// Every Spot in the org, for the map.
+///
+/// Unpaged, and that is the difference from [SpotFeed]: a list can stop at
+/// fifty and load more on scroll, but a map that drew only the first page would
+/// hide pins the reader is looking straight at. `search('')` is the view's own
+/// answer for this — the whole set, by name.
+///
+/// One query for the whole screen. A map that fired a request per pin is what
+/// makes an app feel broken on a phone in a stairwell, and the counts and the
+/// urgency rank a pin needs are in the view already.
+@riverpod
+Future<List<SpotOverview>> spotPins(Ref ref) async {
+  final repo = await ref.watch(spotOverviewRepositoryProvider.future);
+  return repo.search('');
+}

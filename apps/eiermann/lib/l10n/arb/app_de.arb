@@ -349,5 +349,16 @@
         "type": "String"
       }
     }
+  },
+  "spotsMapTitle": "Karte",
+  "spotsMapOpenAction": "Zum Dossier",
+  "spotsMapUnpinned": "{count, plural, =1{1 Spot hat keinen Pin und fehlt auf dieser Karte} other{{count} Spots haben keinen Pin und fehlen auf dieser Karte}}",
+  "@spotsMapUnpinned": {
+    "description": "Named rather than hidden: a map that quietly omits buildings reads as a complete picture of the group's work.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

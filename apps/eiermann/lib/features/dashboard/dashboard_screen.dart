@@ -2,8 +2,10 @@ import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_list.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/routing/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// The first screen after signing in.
 ///
@@ -23,6 +25,11 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.appTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: l10n.spotsMapTitle,
+            onPressed: () => context.push(Routes.map),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: l10n.authSignOutAction,

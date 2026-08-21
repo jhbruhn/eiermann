@@ -191,5 +191,8 @@
   "spotPinSetAction": "Place on the map",
   "spotPinFindAction": "Look up from the address",
   "spotPinLookupFailed": "The address could not be resolved. The pin can be placed on the map by hand.",
-  "spotPinFoundOne": "Pin placed on {address}."
+  "spotPinFoundOne": "Pin placed on {address}.",
+  "spotsMapTitle": "Map",
+  "spotsMapOpenAction": "Open the dossier",
+  "spotsMapUnpinned": "{count, plural, =1{1 Spot has no pin and is missing from this map} other{{count} Spots have no pin and are missing from this map}}"
 }

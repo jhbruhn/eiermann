@@ -61,19 +61,6 @@ class SpotPinPicker extends ConsumerStatefulWidget {
   final GeoPoint? initial;
   final String? searchSeed;
 
-  /// Where the map starts with nothing to go on: Germany, wide.
-  ///
-  /// Wide on purpose. A tight zoom over an arbitrary city would put the
-  /// crosshair on a plausible-looking building somebody could confirm by
-  /// reflex; at this zoom the pin is visibly not on anything, so the only
-  /// sensible next move is to search.
-  static const LatLng _fallbackCentre = LatLng(51.2, 10.4);
-  static const double _fallbackZoom = 5;
-
-  /// Close enough to tell two entrances of one building apart, which is the
-  /// whole reason this screen exists.
-  static const double _pinnedZoom = 18;
-
   @override
   ConsumerState<SpotPinPicker> createState() => _SpotPinPickerState();
 }
@@ -100,7 +87,7 @@ class _SpotPinPickerState extends ConsumerState<SpotPinPicker> {
     super.initState();
     final initial = widget.initial;
     _centre = initial == null
-        ? SpotPinPicker._fallbackCentre
+        ? kMapFallbackCentre
         : LatLng(initial.lat, initial.lon);
     if (initial != null) {
       // Resolve what is already under the pin, so a correction starts by saying
@@ -196,7 +183,7 @@ class _SpotPinPickerState extends ConsumerState<SpotPinPicker> {
       _resolved = result;
     });
     _centre = LatLng(result.lat, result.lon);
-    _map.move(_centre, SpotPinPicker._pinnedZoom);
+    _map.move(_centre, kMapPinnedZoom);
   }
 
   void _confirm() {
@@ -221,11 +208,9 @@ class _SpotPinPickerState extends ConsumerState<SpotPinPicker> {
             options: MapOptions(
               initialCenter: _centre,
               initialZoom: widget.initial == null
-                  ? SpotPinPicker._fallbackZoom
-                  : SpotPinPicker._pinnedZoom,
-              // The raster pyramid ends here; past it flutter_map only
-              // magnifies the last real tiles.
-              maxZoom: 19,
+                  ? kMapFallbackZoom
+                  : kMapPinnedZoom,
+              maxZoom: kMapMaxZoom,
               interactionOptions: const InteractionOptions(
                 flags: MapWheelZoom.flags,
               ),
@@ -233,7 +218,7 @@ class _SpotPinPickerState extends ConsumerState<SpotPinPicker> {
               // A tap centres rather than dropping a pin: the crosshair is the
               // pin, so a second way to place one would be two answers to the
               // same question.
-              onTap: (_, point) => _map.move(point, SpotPinPicker._pinnedZoom),
+              onTap: (_, point) => _map.move(point, kMapPinnedZoom),
             ),
             children: const [
               AppMapTileLayer(),

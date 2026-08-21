@@ -2,6 +2,7 @@ import 'package:eiermann/features/auth/login_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/server_setup/setup_screen.dart';
 import 'package:eiermann/features/spots/spot_detail_screen.dart';
+import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/features/startup/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ abstract final class Routes {
   static const setup = '/setup';
   static const login = '/login';
   static const dashboard = '/';
+  static const map = '/map';
   static const spotDetailPattern = '/spots/:id';
 
   /// The detail route for one Spot. A function, not a constant, so the pattern
@@ -64,6 +66,10 @@ GoRouter router(Ref ref) {
       GoRoute(
         path: Routes.dashboard,
         builder: (_, _) => const DashboardScreen(),
+      ),
+      GoRoute(
+        path: Routes.map,
+        builder: (_, _) => const SpotsMapScreen(),
       ),
       GoRoute(
         path: Routes.spotDetailPattern,
