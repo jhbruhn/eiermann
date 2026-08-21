@@ -13,20 +13,51 @@ services:
     image: eiermann:local
     restart: unless-stopped
     ports:
-      # Overridable, because Compose APPENDS port lists rather than replacing
-      # them — an override file that names a second port makes the stack try to
-      # bind both, and it fails on whichever is taken. Export EIERMANN_PORT when
-      # something else already owns 8090 (a sibling project's dev stack, say).
-      - "${EIERMANN_PORT:-8090}:8090"
+      # 8091 is eiermann's port, everywhere and by default. federfall's dev stack
+      # owns 8090, and `apps/eiermann/dart_defines/development.json` points the
+      # app at 8091 — so a default of 8090 here meant the two disagreed and the
+      # app could not find its own backend.
+      #
+      # Still overridable, and still through a variable rather than an override
+      # file, because Compose APPENDS port lists rather than replacing them: an
+      # override naming a second port makes the stack try to bind both and fail
+      # on whichever is taken.
+      #
+      # Set it in a `.env` file, not as a one-off `EIERMANN_PORT=… docker
+      # compose up`. The prefix applies to that single command; the NEXT compose
+      # command sees no variable, notices the container's config differs, and
+      # recreates it on the default port. That is a confusing way to lose your
+      # backend, and it happened while writing this.
+      - "${EIERMANN_PORT:-8091}:8090"
     volumes:
       - pb_data:/pb/pb_data
     environment:
-      # The operator's way in on a fresh instance: creates or repairs a
-      # coordinator on boot. Remove both once the team exists — the account
-      # stays, and leaving credentials in a compose file is how they end up in a
-      # backup somebody can read.
+      # ── THE FIRST USER ─────────────────────────────────────────────────
+      #
+      # Set these two and the app creates a coordinator on boot. Without them a
+      # fresh instance has no way in: a PocketBase superuser (the Admin UI
+      # account) is NOT an app-level coordinator — it is a `_superusers` record
+      # with no org and no role, so it cannot own a Spot, invite anybody, or
+      # appear in a visit history.
+      #
+      # Put them in a `.env` file next to this one (see .env.example); it is
+      # gitignored, which a compose file is not. Then:
+      #
+      #     docker compose -f docker-compose.yml up -d --build
+      #
+      # It is idempotent and doubles as the lockout-recovery path: an existing
+      # account is reactivated and re-granted rather than duplicated, and the
+      # password is only ever set on creation — so an operator who once used
+      # this cannot silently reset a password the team has since changed.
+      #
+      # Clear them once the team exists. The account stays; credentials left in
+      # an environment are how they end up in a backup somebody can read.
       EIERMANN_COORDINATOR_EMAIL: ${EIERMANN_COORDINATOR_EMAIL:-}
       EIERMANN_COORDINATOR_PASSWORD: ${EIERMANN_COORDINATOR_PASSWORD:-}
+      # Optional display name. Worth setting: every audit-shaped row stores a
+      # text snapshot of its author, so without a name the email address ends up
+      # in the visit history of every Spot this account touches.
+      EIERMANN_COORDINATOR_NAME: ${EIERMANN_COORDINATOR_NAME:-}
       # Absolute URL of this instance, for the links in reset mail.
       EIERMANN_APP_URL: ${EIERMANN_APP_URL:-http://localhost:8090}
       # SMTP, so password reset can actually deliver. Without a host the server

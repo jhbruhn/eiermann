@@ -32,18 +32,55 @@ part you cannot reconstruct from the code.
 You need Docker and Flutter (3.44.3 / Dart 3.12 — the same version as
 federfall, deliberately in lockstep).
 
-```bash
-# 1. The backend. federfall's dev stack owns 8090, so pick another port.
-EIERMANN_PORT=8091 docker compose up -d --build
+There are two ways to run it, and the difference matters.
 
-# 2. The app, pointed at it.
-flutter pub get                 # from the repo ROOT — this is a pub workspace
-cd apps/eiermann && flutter run -d chrome
+**The whole app in one container** — what you want to just look at it:
+
+```bash
+cp -f .env.example .env          # port + the first coordinator
+docker compose -f docker-compose.yml up -d --build
+# → http://localhost:8091   (UI, API and Admin UI all on that one port)
 ```
 
-The dev stack seeds a coordinator: **dev@eiermann.local / DevPass12345!**. That
-password is in a committed file, so this is a dev-only convenience — never set
-those variables on anything real.
+The `-f` is not optional. Without it Compose also reads
+`docker-compose.override.yml`, which builds the **lean backend target** — no
+Flutter web build, so a hook or migration change rebuilds in seconds instead of
+minutes. That image has an empty `pb_public`, so `/` answers 404 and it looks
+like nothing is running. It is the right default for backend work and surprising
+exactly once.
+
+**Backend in Docker, app from Flutter** — what you want for UI work:
+
+```bash
+docker compose up -d --build     # lean backend on 8091, no UI
+flutter pub get                  # from the repo ROOT — this is a pub workspace
+cd apps/eiermann
+flutter run -d chrome --dart-define-from-file=dart_defines/development.json
+```
+
+**That `--dart-define-from-file` is required.** On web the app uses
+`Uri.base.origin` as its server unless a build-time `POCKETBASE_URL` says
+otherwise — and under `flutter run` that origin is Flutter's own dev server on a
+random port, not PocketBase. Without the flag the app looks for a backend at its
+own address and finds none. `development.json` sets it to `http://localhost:8091`,
+which is why the port is pinned to 8091 everywhere.
+
+### The first user
+
+A fresh instance has no way in until you make one, and the PocketBase Admin UI
+account does **not** count: a superuser is a `_superusers` record with no org and
+no role, so it cannot own a Spot, invite anybody, or appear in a visit history.
+
+Set `EIERMANN_COORDINATOR_EMAIL` and `_PASSWORD` (plus an optional `_NAME`) in
+`.env` and the app creates a coordinator on boot. `.env.example` ships the dev
+defaults — **dev@eiermann.local / DevPass12345!** — which is a dev-only
+convenience; never use them anywhere real.
+
+It is idempotent and doubles as lockout recovery: an existing account is
+reactivated and re-granted rather than duplicated, and the password is only ever
+set on creation, so this cannot silently reset one the team has since changed.
+Clear the variables once the team exists — credentials left in an environment are
+how they end up in a backup somebody can read.
 
 PocketBase's own admin UI is at `http://localhost:8091/_/`. Useful for looking
 at data; **do not change the schema there.** Schema lives in migrations, and a

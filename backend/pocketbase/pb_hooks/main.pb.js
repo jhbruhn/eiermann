@@ -164,9 +164,16 @@ onRecordAfterCreateSuccess((e) => {
 // ── The operator's way in ──────────────────────────────────────────────────
 //
 // EIERMANN_COORDINATOR_EMAIL + _PASSWORD create or repair a coordinator on
-// boot. This is the documented recovery path for the state above: no
-// coordinator, and nobody able to make one. Idempotent — an existing account is
-// reactivated and re-granted rather than duplicated.
+// boot, with EIERMANN_COORDINATOR_NAME as the optional display name. This is
+// the documented recovery path for the state above: no coordinator, and nobody
+// able to make one. Idempotent — an existing account is reactivated and
+// re-granted rather than duplicated.
+//
+// It is also THE way in on a brand-new instance. A PocketBase superuser (the
+// Admin UI account) is not an app-level coordinator: it is a `_superusers`
+// record with no org and no role, so it cannot own a Spot, invite anybody, or
+// appear in a visit history. Creating the first real account has to happen out
+// of band, and this is that band.
 //
 // The password is only ever set on CREATION. Re-setting it every boot would mean
 // an operator who once used this variable can never be locked out of an account
@@ -181,11 +188,13 @@ onRecordAfterCreateSuccess((e) => {
 // move it later; the global hooks are onBootstrap, onSettingsReload, onTerminate
 // and the request/model ones.)
 //
-// The fix is not in this file: the container runs `pocketbase migrate up` as its
-// own step before `serve`, so by the time anything here executes the schema is
-// already there. See docker-compose.override.yml and the Dockerfile CMD.
-// Relying on automigrate ordering instead is what made this silently work on
-// the second boot only.
+// The fix is not in this file: the image's ENTRYPOINT runs `pocketbase migrate
+// up` as its own step before handing off to `serve`, so by the time anything
+// here executes the schema is already there. See backend/pocketbase/entrypoint.sh.
+//
+// That fix was in the DEV OVERRIDE only for a while, which meant the shipped
+// image was the broken one and local development could never see it. Measured on
+// the real image: first boot login 400 with no log line, second boot 200.
 onBootstrap((e) => {
   e.next();
 
@@ -228,10 +237,21 @@ onBootstrap((e) => {
       // is not.
       user.setPassword(password);
       user.set("verified", true);
+      // Visible to fellow members: the team roster shows who to ask, and an
+      // address nobody can see is a coordinator nobody can reach.
+      user.set("emailVisibility", true);
       created = true;
     }
     user.set("role", "coordinator");
     user.set("is_active", true);
+    // A display name, because every audit-shaped row stores a text SNAPSHOT of
+    // its author next to the id — the account may be renamed or deleted, and
+    // then an id alone describes the past wrongly. Without a name the snapshot
+    // falls back to the email address, which then sits in the visit history of
+    // every Spot this account ever touched.
+    if (!user.getString("name")) {
+      user.set("name", $os.getenv("EIERMANN_COORDINATOR_NAME") || "Koordination");
+    }
     if (!user.getString("org")) user.set("org", orgs[0].id);
     e.app.save(user);
     e.app

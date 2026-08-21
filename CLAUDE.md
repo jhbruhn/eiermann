@@ -75,10 +75,30 @@ flutter gen-l10n                     # after EVERY ARB change
 # Backend rules — boots a throwaway PocketBase, applies migrations, asserts
 ./backend/pocketbase/tests/run.sh
 
-# The dev stack. federfall's dev stack owns 8090, so pick another port:
-EIERMANN_PORT=8091 docker compose up -d --build
-# A coordinator is seeded from the compose env: dev@eiermann.local / DevPass12345!
+# The dev stack: LEAN backend on 8091, no UI (empty pb_public → `/` is a 404).
+# Fast hook/migration rebuilds; run the app from flutter run against it.
+docker compose up -d --build
+
+# The whole app in one container, UI included. The -f is what skips the
+# override, and without it there is no UI:
+docker compose -f docker-compose.yml up -d --build   # → http://localhost:8091
+
+# The app. The dart-define file is REQUIRED: on web the server URL is
+# Uri.base.origin unless POCKETBASE_URL is defined, and under `flutter run` that
+# origin is Flutter's own dev server, not PocketBase.
+cd apps/eiermann && flutter run -d chrome \
+  --dart-define-from-file=dart_defines/development.json
 ```
+
+Port **8091** is eiermann's everywhere — compose default, `development.json`,
+the rule suite. Set `EIERMANN_PORT` in `.env`, never as a one-off prefix: the
+prefix applies to that single command, and the next compose command notices the
+config differs and recreates the container on the default port.
+
+**The first user** comes from `EIERMANN_COORDINATOR_EMAIL` / `_PASSWORD` /
+`_NAME` (see `.env.example`). A PocketBase superuser is not an app-level
+coordinator — it has no org and no role, so it cannot own a Spot or appear in a
+visit history. The hook is idempotent and is also the lockout-recovery path.
 
 Generated code (`*.g.dart`, `*.freezed.dart`, `lib/l10n/gen/`) is **gitignored
 and built**, never committed. A stale generated file produces errors that look
@@ -207,8 +227,13 @@ The hook runtime is not Node and not a browser. Each of these has cost real time
 - `onBootstrap` + `e.next()` **does not guarantee migrations have been
   applied**. On a fresh data directory the bootstrap hook queried collections
   `--automigrate` had not created yet, so it failed on first boot and quietly
-  worked on the second. The dev stack therefore runs `migrate up` as its own
-  step before `serve`.
+  worked on the second. The **image's ENTRYPOINT** therefore runs `migrate up`
+  as its own step before `serve`
+  (`backend/pocketbase/entrypoint.sh`). That fix lived in the dev override alone
+  for a while, which meant the *shipped* image was the broken one and local
+  development could not see it — measured: first boot login 400 with no log
+  line, second boot 200. Ordering like this belongs in the image, not in a dev
+  override.
 - A **view's `viewQuery` is parsed by PocketBase itself** and follows neither a
   `--` comment nor an expression spanning newlines: both come back as "invalid
   identifier parts". Every computed column is one line, however long, with the

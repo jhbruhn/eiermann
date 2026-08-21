@@ -48,11 +48,19 @@ RUN flutter pub get
 
 COPY . .
 
-# Codegen and l10n before the build, per package: build_runner only generates for
-# the package it runs in.
-RUN dart run build_runner build --delete-conflicting-outputs \
-        --directory packages/eiermann_models \
-    && cd apps/eiermann \
+# Codegen and l10n before the build, once PER PACKAGE that declares
+# build_runner: it only generates for the package it runs in, and a workspace
+# does not change that.
+#
+# `cd` into each, rather than a flag. build_runner has no `--directory` option —
+# its positional argument is a directory INSIDE the package to build — so
+# `--directory packages/eiermann_models` is a usage error and exits 64. That
+# broke the `full` image from the day the packages were added, and went unseen
+# because the dev override builds the `backend` target, which skips this stage
+# entirely. The only thing that exercises it is building the full image.
+RUN cd packages/eiermann_models \
+    && dart run build_runner build --delete-conflicting-outputs \
+    && cd ../../apps/eiermann \
     && dart run build_runner build --delete-conflicting-outputs \
     && flutter gen-l10n
 
@@ -102,11 +110,16 @@ RUN mkdir -p /pb/pb_data
 # also where automigrate goes back on.
 COPY backend/pocketbase/pb_migrations/ /pb/pb_migrations/
 COPY backend/pocketbase/pb_hooks/      /pb/pb_hooks/
+COPY backend/pocketbase/entrypoint.sh  /usr/local/bin/entrypoint.sh
 EXPOSE 8090
 # automigrate OFF by default: the schema changes only through the committed
 # migration files above, and never drifts in from somebody clicking in the Admin
 # UI. A migration is a historical fact; the Admin UI does not write history.
-ENTRYPOINT ["pocketbase"]
+# The entrypoint applies migrations before handing off to `serve`. It is not
+# decoration: the coordinator-bootstrap hook runs in onBootstrap, which is NOT
+# guaranteed to be after the migrations, and on a fresh volume it therefore did
+# nothing on the first boot and worked on the second. See entrypoint.sh.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["serve", "--http=0.0.0.0:8090", \
      "--dir=/pb/pb_data", \
      "--migrationsDir=/pb/pb_migrations", \
@@ -119,6 +132,7 @@ FROM backend AS full
 # unknown non-/api, non-/_ paths to index.html, so a client-side deep link
 # resolves; the API and Admin routes still take precedence.
 COPY --from=flutterbuild /src/apps/eiermann/build/web /pb/pb_public
+# Inherits the entrypoint from `backend`; only the served paths differ.
 CMD ["serve", "--http=0.0.0.0:8090", \
      "--dir=/pb/pb_data", \
      "--migrationsDir=/pb/pb_migrations", \

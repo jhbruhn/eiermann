@@ -5,15 +5,26 @@
 #  * the LEAN backend target — no Flutter web build, so a change to a hook or a
 #    migration rebuilds in seconds instead of minutes. The app runs from
 #    `flutter run` against it.
+#
+#    THIS IS WHY `docker compose up` SERVES NO UI. The lean image has an empty
+#    pb_public, so the browser gets PocketBase's 404 for `/`. That is the right
+#    default for backend work — a Flutter web build adds minutes to every hook
+#    edit — but it is surprising the first time.
+#
+#    For the whole app in one container, skip this file:
+#        docker compose -f docker-compose.yml up -d --build
+#    which builds the `full` target and serves the UI at the published port.
 #  * the migrations and hooks are BIND-MOUNTED, so editing one and restarting
 #    picks it up. Baked copies would mean a rebuild per hook edit.
 #  * automigrate ON, so a new migration file applies on restart.
 #
 # The published port is NOT set here: Compose appends port lists rather than
 # replacing them, so naming one would make the stack try to bind both and fail
-# on whichever is taken. Export EIERMANN_PORT instead —
-# `EIERMANN_PORT=8091 docker compose up -d` — which is also what you want when a
-# sibling project's dev stack already owns 8090.
+# on whichever is taken. docker-compose.yml publishes 8091 by default, which is
+# eiermann's port everywhere including the app's development defines. To move
+# it, put EIERMANN_PORT in a `.env` file rather than prefixing one command —
+# a prefix applies to that command only, and the next compose command recreates
+# the container on the default.
 services:
   eiermann:
     build:
@@ -22,28 +33,25 @@ services:
       - ./backend/pocketbase/pb_migrations:/pb/pb_migrations
       - ./backend/pocketbase/pb_hooks:/pb/pb_hooks
       - pb_data:/pb/pb_data
-    # `migrate up` as its OWN step, then serve. Not just for tidiness: the
-    # coordinator-bootstrap hook runs in onBootstrap, and on a fresh data
-    # directory `--automigrate` had not yet created the collections it queries —
-    # so it failed on the first boot and quietly worked on the second. Applying
-    # migrations first makes that ordering explicit instead of emergent.
+    # The image's own ENTRYPOINT applies migrations before serving, so this file
+    # no longer restates it. It USED to, and that was the bug: the ordering lived
+    # in the dev override only, so the shipped image booted its
+    # coordinator-bootstrap hook before the schema existed — silently doing
+    # nothing on the first boot of a new instance and working on the second.
+    # Local development could never see it. See backend/pocketbase/entrypoint.sh.
     #
     # --dev prints logs AND SQL to stdout. Without it PocketBase writes its log
     # records to an internal table, so `docker compose logs` shows nothing and a
     # failing hook is indistinguishable from a hook that never ran. The SQL noise
     # is the price; grep for "eiermann:" to see just this app's lines.
-    entrypoint: ["/bin/sh", "-c"]
     command:
-      - >-
-        pocketbase migrate up
-        --dir=/pb/pb_data --migrationsDir=/pb/pb_migrations
-        && exec pocketbase serve
-        --http=0.0.0.0:8090
-        --dir=/pb/pb_data
-        --migrationsDir=/pb/pb_migrations
-        --hooksDir=/pb/pb_hooks
-        --automigrate=1
-        --dev
+      - serve
+      - --http=0.0.0.0:8090
+      - --dir=/pb/pb_data
+      - --migrationsDir=/pb/pb_migrations
+      - --hooksDir=/pb/pb_hooks
+      - --automigrate=1
+      - --dev
     environment:
       # A dev instance gets a coordinator without anybody having to remember to
       # set one. Never do this in production: the password is in a committed
