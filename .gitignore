@@ -8,6 +8,10 @@
 # dart-defines). These lines are purely defensive in case a tool drops one.
 .env
 .env.*
+# ...but the EXAMPLE is the documentation. It ships the port and the
+# first-coordinator variables so `cp -f .env.example .env` is the whole setup
+# step, which means it must be committed — and must never hold a real secret.
+!.env.example
 *.pem
 **/android/key.properties
 **/android/app/*.jks
