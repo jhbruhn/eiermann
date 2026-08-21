@@ -876,6 +876,92 @@
   },
   "skipReasonOther": "Sonstiges",
   "skipReasonUnreadable": "Unbekannter Grund",
+  "findingKindDeadBird": "Toter Vogel",
+  "@findingKindDeadBird": {
+    "description": "Deliberately not 'Tote Taube': the same field records a jackdaw, and a label that names the species would make the entry lie about what was seen."
+  },
+  "findingKindChick": "Küken",
+  "findingKindOtherSpecies": "Andere Art",
+  "@findingKindOtherSpecies": {
+    "description": "The living bird that is not a city pigeon. The species goes in the free-text field — this app does not identify anything."
+  },
+  "findingKindSiteChange": "Bauliche Veränderung",
+  "@findingKindSiteChange": {
+    "description": "Netting, spikes, scaffolding, a new lock, a nest that is gone. The one kind that can end with the Spot being closed."
+  },
+  "findingKindUnknown": "Unbekannter Fund",
+  "@findingKindUnknown": {
+    "description": "A kind this build has no name for — a newer server. Never drawn as the nearest kind it does know."
+  },
+  "findingCountPrefix": "{count}× {what}",
+  "@findingCountPrefix": {
+    "description": "Only used above one: 'Toter Vogel' reads like a sentence, '1× Toter Vogel' like a form field.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "what": {
+        "type": "String"
+      }
+    }
+  },
+  "findingAtNest": "an {nest}",
+  "@findingAtNest": {
+    "description": "An id with no label next to it is a bug in this app, so the nest is named wherever a finding is shown.",
+    "placeholders": {
+      "nest": {
+        "type": "String"
+      }
+    }
+  },
+  "findingsTitle": "Funde",
+  "findingsAddAction": "Fund erfassen",
+  "findingsNone": "Nichts gefunden — das ist der Normalfall und muss nicht erfasst werden.",
+  "@findingsNone": {
+    "description": "Says the empty state is fine. A volunteer who thinks every visit needs a Fund invents one."
+  },
+  "findingSheetTitleNew": "Fund erfassen",
+  "findingSheetTitleEdit": "Fund bearbeiten",
+  "findingKindQuestion": "Was wurde gefunden?",
+  "findingKindMissing": "Wähle, was gefunden wurde.",
+  "@findingKindMissing": {
+    "description": "No default kind: a form that starts on 'Toter Vogel' records one whenever somebody taps save by accident."
+  },
+  "findingCountLabel": "Anzahl",
+  "findingCountHint": "Wie viele auf einmal. Steht so im Bericht.",
+  "@findingCountHint": {
+    "description": "A stepper and not a keyboard: this gets tapped in a stairwell, and the numbers are small."
+  },
+  "findingCountFewer": "Weniger",
+  "findingCountMore": "Mehr",
+  "@findingCountMore": {
+    "description": "Tooltips on the stepper. Flutter's MaterialLocalizations has no pair for this control, so the app names them — a stepper with unlabelled buttons is two identical targets to a screen reader."
+  },
+  "findingSpeciesLabel": "Welche Art?",
+  "findingSpeciesHint": "In eigenen Worten. Zwei Schreibweisen sind zwei Einträge — nichts wird im Hintergrund zusammengefasst.",
+  "@findingSpeciesHint": {
+    "description": "States the price of a vocabulary that grows from use, where it is paid. A normaliser that folds 'Turmfalke' into 'Turmfalken' is one that will one day fold two species together, unnoticed."
+  },
+  "findingNoteLabel": "Notiz zum Fund",
+  "findingNestLabel": "Gehört zu",
+  "findingNestNone": "Zum Gebäude",
+  "@findingNestNone": {
+    "description": "The default, and a real answer: a dead bird on the floor of a stairwell belongs to no nest, and forcing one would make the record claim something nobody saw."
+  },
+  "findingSiteChangeHint": "Bauliche Veränderungen sind der Weg, auf dem ein Spot irgendwann geschlossen wird. Erst festhalten, was da ist — die Entscheidung kommt danach.",
+  "@findingSiteChangeHint": {
+    "description": "Separates the observation from the decision. A netted building is a fact; closing the Spot is a decision about the programme, and the second does not follow from the first without somebody saying so."
+  },
+  "findingApplyAction": "Übernehmen",
+  "findingDiscardAction": "Fund verwerfen",
+  "visitFlowSummaryFindings": "{count, plural, =1{1 Fund} other{{count} Funde}}",
+  "@visitFlowSummaryFindings": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "spotPackDummies": "Einpacken: {count, plural, =1{1 Attrappe} other{{count} Attrappen}}",
   "@spotPackDummies": {
     "description": "The smallest feature with the highest everyday value: computed from the Ist-Gelege, it replaces guessing at the car.",

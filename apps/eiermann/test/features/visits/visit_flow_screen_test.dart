@@ -325,4 +325,168 @@ void main() {
     final skip = find.widgetWithText(OutlinedButton, de.visitSkipAction);
     expect(tester.widget<OutlinedButton>(skip).onPressed, isNull);
   });
+
+  /// Taps the kind chip inside the open Fund sheet.
+  ///
+  /// Through the CHIP and not through the text: once a Fund is recorded, the
+  /// flow's list below shows the same words, and `find.text` would match both.
+  Future<void> chooseKind(WidgetTester tester, String kind) async {
+    final chip = find.widgetWithText(ChoiceChip, kind);
+    await tester.ensureVisible(chip);
+    await tester.pumpAndSettle();
+    await tester.tap(chip);
+    await tester.pumpAndSettle();
+  }
+
+  /// Records one Fund of [kind] through the sheet.
+  Future<void> recordFinding(WidgetTester tester, String kind) async {
+    await press(tester, de.findingsAddAction);
+    await chooseKind(tester, kind);
+    await press(tester, de.findingApplyAction);
+  }
+
+  testWidgets('nothing found is said out loud, not left blank', (tester) async {
+    // A volunteer who believes every visit needs a Fund will invent one, so the
+    // empty state states that nothing found is the normal case.
+    await pump(tester);
+
+    expect(find.text(de.findingsTitle), findsOneWidget);
+    expect(find.text(de.findingsNone), findsOneWidget);
+  });
+
+  testWidgets('the Fund kind has no default — saving without one is refused', (
+    tester,
+  ) async {
+    // Starting on "Toter Vogel" would mean a stray tap records a dead bird, and
+    // a Fund is a fact about a building that reaches a report to an authority.
+    await pump(tester);
+    await press(tester, de.findingsAddAction);
+    await press(tester, de.findingApplyAction);
+
+    expect(find.text(de.findingKindMissing), findsOneWidget);
+    // The sheet is still open, and the entry does not exist.
+    expect(find.text(de.findingKindQuestion), findsOneWidget);
+  });
+
+  testWidgets('a Fund travels in the SAME body as the checks', (tester) async {
+    await pump(tester);
+    await recordNest(tester);
+    await recordFinding(tester, de.findingKindDeadBird);
+
+    // Recorded on the flow, not written yet: one visit, one request.
+    expect(find.text(de.findingKindDeadBird), findsOneWidget);
+    verifyNever(
+      () => visits.submit(any(), idempotencyKey: any(named: 'idempotencyKey')),
+    );
+
+    await press(tester, de.visitFlowFinishAction);
+
+    final captured = verify(
+      () => visits.submit(
+        captureAny(),
+        idempotencyKey: captureAny(named: 'idempotencyKey'),
+      ),
+    ).captured;
+    final draft = captured.first as VisitDraft;
+    expect(draft.checks.length, 1);
+    expect(draft.findings.single.kind, FindingKind.deadBird);
+    expect(draft.findings.single.count, 1);
+  });
+
+  testWidgets('two Funde of the same kind are two entries', (tester) async {
+    // A list and not a map: two dead pigeons in two corners of the same loft
+    // are two entries, and keying them by kind would make the second overwrite
+    // the first without saying so.
+    await pump(tester);
+    await recordFinding(tester, de.findingKindDeadBird);
+    await recordFinding(tester, de.findingKindDeadBird);
+    await press(tester, de.visitFlowFinishAction);
+
+    final draft =
+        verify(
+              () => visits.submit(
+                captureAny(),
+                idempotencyKey: any(named: 'idempotencyKey'),
+              ),
+            ).captured.first
+            as VisitDraft;
+    expect(draft.findings.length, 2);
+  });
+
+  testWidgets('discarding a Fund removes it', (tester) async {
+    // Null from an EXISTING entry means "discard", and it has to actually
+    // remove the row — a stale draft left behind would record something nobody
+    // confirmed.
+    await pump(tester);
+    await recordFinding(tester, de.findingKindChick);
+    expect(find.text(de.findingKindChick), findsOneWidget);
+
+    await tester.tap(find.text(de.findingKindChick));
+    await tester.pumpAndSettle();
+    await press(tester, de.findingDiscardAction);
+
+    expect(find.text(de.findingsNone), findsOneWidget);
+    await press(tester, de.visitFlowFinishAction);
+    final draft =
+        verify(
+              () => visits.submit(
+                captureAny(),
+                idempotencyKey: any(named: 'idempotencyKey'),
+              ),
+            ).captured.first
+            as VisitDraft;
+    expect(draft.findings, isEmpty);
+  });
+
+  testWidgets('a "nicht geprüft" visit still carries its Funde', (
+    tester,
+  ) async {
+    // "Netz an der Nordseite, nicht mehr reingekommen" is a non-event whose
+    // REASON is a Fund, seen from outside. The endpoint accepts findings on a
+    // skip and refuses checks, and this form must not be stricter than it: the
+    // alternative is nowhere to record why somebody turned round.
+    await pump(tester);
+    await recordFinding(tester, de.findingKindSiteChange);
+    await press(tester, de.visitSkipAction);
+    await press(tester, de.skipReasonAccessBlocked);
+    await press(tester, de.visitSkipConfirmAction);
+
+    final draft =
+        verify(
+              () => visits.submit(
+                captureAny(),
+                idempotencyKey: any(named: 'idempotencyKey'),
+              ),
+            ).captured.first
+            as VisitDraft;
+    expect(draft.outcome, VisitOutcome.skipped);
+    expect(draft.checks, isEmpty);
+    expect(draft.findings.single.kind, FindingKind.siteChange);
+  });
+
+  testWidgets('a Fund can name the nest it belongs to', (tester) async {
+    // Optional, and the option is the point: a dead bird on the floor belongs
+    // to no nest. When it IS about one, the label rides along, because an id
+    // with no label next to it is a bug in this app.
+    await pump(tester);
+    await press(tester, de.findingsAddAction);
+    await chooseKind(tester, de.findingKindChick);
+    await tester.tap(find.text(de.findingNestNone));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('N1').last);
+    await tester.pumpAndSettle();
+    await press(tester, de.findingApplyAction);
+    await press(tester, de.visitFlowFinishAction);
+
+    final draft =
+        verify(
+              () => visits.submit(
+                captureAny(),
+                idempotencyKey: any(named: 'idempotencyKey'),
+              ),
+            ).captured.first
+            as VisitDraft;
+    expect(draft.findings.single.nest, 'n1');
+    expect(draft.findings.single.nestLabel, 'N1');
+  });
 }

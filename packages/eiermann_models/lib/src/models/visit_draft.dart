@@ -1,4 +1,5 @@
 import 'package:eiermann_models/src/enums.dart';
+import 'package:eiermann_models/src/models/finding_draft.dart';
 import 'package:eiermann_models/src/models/nest_check_draft.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:zugvogel_core/zugvogel_core.dart';
@@ -38,6 +39,20 @@ abstract class VisitDraft with _$VisitDraft {
     /// a stale id fails loudly rather than quietly dropping the grouping.
     String? tourRun,
     @Default(<NestCheckDraft>[]) List<NestCheckDraft> checks,
+
+    /// The Funde: dead birds, chicks, other species, changes to the building.
+    ///
+    /// In the same body as the checks because they are the same event — what
+    /// somebody saw while they were there — and because the alternative is a
+    /// second request that can fail on its own and leave a visit whose findings
+    /// are missing without anything saying so.
+    ///
+    /// A [VisitOutcome.skipped] visit CAN carry them, and that is not an
+    /// oversight: "Netz an der Nordseite, nicht mehr reingekommen" is a
+    /// non-event with a reason, and the reason is the finding. The endpoint
+    /// refuses checks on a skip — those would be observations of nests nobody
+    /// reached — but a Fund is exactly what a person saw from outside.
+    @Default(<FindingDraft>[]) List<FindingDraft> findings,
   }) = _VisitDraft;
 }
 
@@ -64,10 +79,13 @@ extension VisitDraftBody on VisitDraft {
     VisitOutcome.checked => checks.every((check) => check.isCoherent),
   };
 
+  /// Whether any Fund on this visit is one that can end with a closing.
+  bool get suggestsClosing =>
+      findings.any((finding) => finding.suggestsClosing);
+
   /// The request body of `POST /api/eiermann/visit`.
   ///
-  /// One body, one transaction, one Idempotency-Key. `findings` is absent until
-  /// Phase 06 builds the Funde form; the endpoint already reads it.
+  /// One body, one transaction, one Idempotency-Key.
   Map<String, dynamic> toBody() => {
     'spot': spot,
     'outcome': outcome.wire,
@@ -79,6 +97,13 @@ extension VisitDraftBody on VisitDraft {
       if (skipNote case final text? when text.isNotEmpty) 'skip_note': text,
     },
     'checks': [for (final check in checks) check.toBody()],
+    // Present even when empty, unlike the optional fields above. The hook
+    // treats an absent key and an empty array as the same request, but the
+    // Idempotency-Key hashes the canonical BODY — so the two are different
+    // fingerprints, and a body whose shape depends on its own contents is one
+    // whose fingerprint moves for reasons that have nothing to do with what
+    // was recorded. One shape per request is the cheaper invariant.
+    'findings': [for (final finding in findings) finding.toBody()],
   };
 }
 

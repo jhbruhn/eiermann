@@ -1,4 +1,6 @@
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/findings/finding_labels.dart';
+import 'package:eiermann/features/findings/finding_sheet.dart';
 import 'package:eiermann/features/nests/nest_labels.dart';
 import 'package:eiermann/features/nests/nest_list.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
@@ -69,6 +71,14 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
   /// What has been recorded so far, by nest id.
   final Map<String, NestCheckDraft> _checks = {};
 
+  /// The Funde, in the order they were recorded.
+  ///
+  /// A list and not a map, because a Fund has no natural key: two dead pigeons
+  /// found in two different corners of the same loft are two entries, and
+  /// keying them by nest — or by kind — would silently make the second
+  /// overwrite the first.
+  final List<FindingDraft> _findings = [];
+
   /// The key for THIS visit, generated on the first send and kept for every
   /// retry.
   ///
@@ -134,6 +144,27 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
     });
   }
 
+  Future<void> _openFinding(List<NestState> nests, {int? index}) async {
+    final draft = await showFindingSheet(
+      context,
+      nests: nests,
+      existing: index == null ? null : _findings[index],
+    );
+    if (!mounted) return;
+    setState(() {
+      if (index == null) {
+        // Null from the NEW sheet is "never mind", which records nothing.
+        if (draft != null) _findings.add(draft);
+      } else if (draft == null) {
+        // Null from an EXISTING entry is "discard this one" — the same meaning
+        // it has on the nest sheet, and it has to actually remove the row.
+        _findings.removeAt(index);
+      } else {
+        _findings[index] = draft;
+      }
+    });
+  }
+
   Future<void> _skip() async {
     final skip = await showVisitSkipSheet(context);
     if (skip == null || !mounted) return;
@@ -145,6 +176,12 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
         skipNote: skip.note,
         note: _noteOrNull,
         tourRun: widget.tourRun,
+        // The Funde ride along, and the endpoint accepts them on a skip. That
+        // is not an inconsistency with the checks below it: "Netz an der
+        // Nordseite, nicht mehr reingekommen" is a non-event whose REASON is a
+        // Fund, seen from outside. A check would be an observation of a nest
+        // nobody reached; a Fund is what the person actually saw.
+        findings: _findings,
         // A skipped visit cannot carry checks — the endpoint refuses it, and
         // for a reason worth repeating: a check inside a non-event would be an
         // observation, and the rhythm would advance on a nest nobody saw.
@@ -164,6 +201,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
           note: _noteOrNull,
           tourRun: widget.tourRun,
           checks: _checks.values.toList(),
+          findings: _findings,
         ),
   );
 
@@ -236,6 +274,11 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       // exists.
       if (result.halfClutches.isNotEmpty)
         l10n.visitFlowSummaryHalfClutch(result.halfClutches.length),
+      // From the DRAFT: the endpoint reports the findings it wrote, but the
+      // count is the same one this form sent and the summary is a confirmation
+      // of what the volunteer did, not a second reading of it.
+      if (draft.findings.isNotEmpty)
+        l10n.visitFlowSummaryFindings(draft.findings.length),
     ].join(' · ');
   }
 
@@ -248,7 +291,11 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       // Leaving throws away work nothing else holds: the recorded nests, or an
       // attempt that failed and is still waiting to be resent. A successful
       // send pops programmatically, which PopScope does not intercept.
-      canPop: _checks.isEmpty && _lastAttempt == null && !_busy,
+      canPop:
+          _checks.isEmpty &&
+          _findings.isEmpty &&
+          _lastAttempt == null &&
+          !_busy,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final navigator = Navigator.of(context);
@@ -283,6 +330,14 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                       draft: _checks[nest.id],
                       onTap: _busy ? null : () => _openNest(nest),
                     ),
+                const SizedBox(height: ZugvogelSpacing.lg),
+                _FindingsSection(
+                  findings: _findings,
+                  onAdd: _busy ? null : () => _openFinding(rows),
+                  onEdit: _busy
+                      ? null
+                      : (index) => _openFinding(rows, index: index),
+                ),
                 const SizedBox(height: ZugvogelSpacing.lg),
                 AppTextField(
                   controller: _note,
@@ -418,6 +473,78 @@ class _NestRow extends StatelessWidget {
             )
           : const Icon(Icons.check),
       onTap: onTap,
+    );
+  }
+}
+
+/// The Funde recorded on this visit, and the way to add one.
+///
+/// It sits BELOW the nests and above the note, which is the order the work
+/// happens in: you climb, you look in the nests, and the dead bird on the floor
+/// is what you noticed on the way. Above the note because a Fund is a
+/// structured record — it reaches the statistics and the report — and the note
+/// is what is left when nothing structured fits.
+///
+/// The empty state says out loud that nothing found is the normal case.
+/// Without that sentence the block reads as a form field somebody forgot, and a
+/// volunteer who believes every visit needs a Fund will invent one.
+class _FindingsSection extends StatelessWidget {
+  const _FindingsSection({
+    required this.findings,
+    required this.onAdd,
+    required this.onEdit,
+  });
+
+  final List<FindingDraft> findings;
+  final VoidCallback? onAdd;
+  final ValueChanged<int>? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.findingsTitle, style: theme.textTheme.titleMedium),
+        const SizedBox(height: ZugvogelSpacing.sm),
+        if (findings.isEmpty)
+          Text(
+            l10n.findingsNone,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          for (final (index, finding) in findings.indexed)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: Icon(
+                findingKindIcon(finding.kind),
+                color: findingKindColor(context, finding.kind),
+              ),
+              title: Text(
+                findingSummary(
+                  l10n,
+                  finding.kind,
+                  count: finding.count,
+                  speciesLabel: finding.speciesLabel,
+                  nestLabel: finding.nestLabel,
+                ),
+              ),
+              subtitle: finding.note == null ? null : Text(finding.note!),
+              trailing: const Icon(Icons.edit_outlined),
+              onTap: onEdit == null ? null : () => onEdit!(index),
+            ),
+        const SizedBox(height: ZugvogelSpacing.sm),
+        OutlinedButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(Icons.add),
+          label: Text(l10n.findingsAddAction),
+        ),
+      ],
     );
   }
 }

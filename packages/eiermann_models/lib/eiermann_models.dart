@@ -8,6 +8,7 @@ library;
 export 'src/enums.dart';
 export 'src/models/app_user.dart';
 export 'src/models/area.dart';
+export 'src/models/finding_draft.dart';
 export 'src/models/follow_up.dart';
 export 'src/models/nest.dart';
 export 'src/models/nest_check_draft.dart';
