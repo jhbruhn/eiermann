@@ -246,6 +246,44 @@
       }
     }
   },
+  "areaPinReviewTitle": "Pins prüfen",
+  "@areaPinReviewTitle": {
+    "description": "The forced review pass after a photo change (eiermann-bmg.5). A heading, not a warning sentence: this is the work, not a problem report."
+  },
+  "areaPinReviewExplainer": "Das Foto ist neu, die Pins stehen noch an den Stellen des alten Fotos. Vergleiche beide Bilder: zieh jeden Pin an die richtige Stelle oder bestätige ihn.",
+  "@areaPinReviewExplainer": {
+    "description": "Says WHY every pin has to be touched: the coordinates survived the photo change, so each one is a claim nobody has checked against the new picture."
+  },
+  "areaPinReviewBefore": "Vorheriges Foto",
+  "@areaPinReviewBefore": {
+    "description": "Caption over the outgoing photo, kept for exactly this pass. Without the old picture beside the new one a reviewer is guessing at what moved."
+  },
+  "areaPinReviewAfter": "Neues Foto",
+  "areaPinReviewProgress": "{done} von {total} geprüft",
+  "@areaPinReviewProgress": {
+    "description": "Progress of the pass. Counted rather than only shown as ticks, because the finish button stays out of reach until it reads full and the reader has to know how far off it is.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "areaPinReviewConfirmAction": "Passt",
+  "@areaPinReviewConfirmAction": {
+    "description": "Confirms one pin sits right on the new photo. Short because it appears once per nest."
+  },
+  "areaPinReviewConfirmed": "Geprüft",
+  "areaPinReviewFinishAction": "Prüfung abschließen",
+  "@areaPinReviewFinishAction": {
+    "description": "Ends the pass: the flag comes down and the server drops the old photo with it."
+  },
+  "areaPinReviewLockedHint": "Erst prüfen, dann ergänzen: neue Nester gehen nach dem Abschluss.",
+  "@areaPinReviewLockedHint": {
+    "description": "Replaces areaEditorHint during the pass. Tapping the photo does NOT create a nest while pins are unchecked — a new pin placed against a picture whose old pins are still wrong adds to the confusion."
+  },
   "nestSheetTitleNew": "Nest anlegen",
   "nestSheetTitleEdit": "Nest bearbeiten",
   "nestFieldLabel": "Bezeichnung",

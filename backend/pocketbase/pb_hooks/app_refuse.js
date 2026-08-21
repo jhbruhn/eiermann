@@ -65,6 +65,9 @@ const CODES = {
   spotPauseNeedsReason: "spot_pause_needs_reason",
   spotCloseNeedsReason: "spot_close_needs_reason",
 
+  // ── Bereiche: the photo-replacement review pass ──
+  areaReviewFieldNotWritable: "area_review_field_not_writable",
+
   // ── Nests ──
   nestNeedsArea: "nest_needs_area",
   nestAreaNotFound: "nest_area_not_found",

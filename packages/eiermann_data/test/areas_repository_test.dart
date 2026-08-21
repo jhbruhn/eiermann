@@ -161,4 +161,31 @@ void main() {
       expect(url.toString(), isNot(contains('token')));
     });
   });
+
+  group('the review pass', () {
+    test('finishing it writes ONE field, and nothing about files', () async {
+      // The outgoing photo is the hook's to drop (`app_area_photo.js`). A
+      // client that cleared `previous_photo` itself would hold one side of a
+      // two-field invariant — and that is the side the next screen forgets.
+      when(
+        () => areas.update(
+          any(),
+          body: any(named: 'body'),
+          files: any(named: 'files'),
+          query: any(named: 'query'),
+          expand: any(named: 'expand'),
+          fields: any(named: 'fields'),
+        ),
+      ).thenAnswer((_) async => record('a1'));
+
+      await repo.finishPinReview('a1');
+
+      final body =
+          verify(
+                () => areas.update('a1', body: captureAny(named: 'body')),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(body, {'pins_need_review': false});
+    });
+  });
 }

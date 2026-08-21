@@ -264,6 +264,18 @@ The hook runtime is not Node and not a browser. Each of these has cost real time
   something specific must put it in the `message` — which means the message
   carries no untranslated wire value, because it is German prose. The client
   already holds the record it tried to write.
+- **A file copied between fields must outlive its filesystem.**
+  `fsys.getReuploadableFile(key, false)` does not copy anything — it returns a
+  File whose reader still points into that filesystem, and the bytes are pulled
+  during the save. Closing the filesystem first (which the JSVM docs' "make sure
+  to `Close()`" invites) leaves an unreadable reader, and PocketBase sniffs the
+  content type off the same reader: the write fails with
+  `validation_invalid_mime_type` on a field the client never sent. So the hook
+  that makes the copy takes `next` and calls `e.next()` **inside** the block
+  holding the filesystem open (`app_area_photo.js`). Reusing the outgoing
+  filename instead of a fresh key does not help: both fields sit in one record
+  directory, and PocketBase deletes the file that left the first field after the
+  save — measured, the second field then 404s.
 - `cronAdd` jobs are invisible to the rule suite — nothing can trigger them.
   They get a separate harness with a rewritten schedule. A window measured in
   days cannot be reached by backdating, because `created` belongs to the

@@ -68,16 +68,7 @@ class AreaPhoto extends ConsumerWidget {
     }
 
     if (showAsCanvas) {
-      // The width comes from the constraints and the height from the picture.
-      // `double.infinity` is NOT an option here: the width is also what sizes
-      // the decode, and `Infinity.round()` throws — measured, as a red test.
-      return LayoutBuilder(
-        builder: (context, constraints) => CachedFileImage(
-          url: repo.fileUrl(area.id, photo, thumb: _photoThumb),
-          width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
-          fit: BoxFit.fitWidth,
-        ),
-      );
+      return AreaCanvasPhoto(areaId: area.id, file: photo);
     }
 
     return Semantics(
@@ -116,6 +107,44 @@ class AreaPhoto extends ConsumerWidget {
     context,
     imageUrls: [repo.fileUrl(area.id, photo).toString()],
   );
+}
+
+/// One Bereich photo drawn as a pin canvas: width from the parent, height from
+/// the picture.
+///
+/// The shape is the whole point, which is why this is a widget and not a branch
+/// inside a card: the box IS the image rect, so a normalised coordinate maps
+/// onto it exactly. Inside a box of some other shape `BoxFit.contain`
+/// letterboxes, the bars belong to the box, and every pin sits slightly off.
+///
+/// Takes a file NAME rather than an [Area], because the review pass draws two
+/// of them from one record — the current photo and the outgoing one.
+class AreaCanvasPhoto extends ConsumerWidget {
+  const AreaCanvasPhoto({
+    required this.areaId,
+    required this.file,
+    super.key,
+  });
+
+  final String areaId;
+
+  /// The stored filename, from `photo` or from `previous_photo`.
+  final String file;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(areasRepositoryProvider).value;
+    if (repo == null) return const LoadingView();
+    // `double.infinity` is NOT an option for the width: it also sizes the
+    // decode, and `Infinity.round()` throws — measured, as a red test.
+    return LayoutBuilder(
+      builder: (context, constraints) => CachedFileImage(
+        url: repo.fileUrl(areaId, file, thumb: _photoThumb),
+        width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
+        fit: BoxFit.fitWidth,
+      ),
+    );
+  }
 }
 
 /// The no-photo state: the whole box is the way to fix it.

@@ -34,6 +34,7 @@ void main() {
   late AppLocalizations de;
   late _MockAreas areas;
   late _MockNests nests;
+  late Area current;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -58,7 +59,10 @@ void main() {
     required Area area,
     List<Nest> rows = const [],
   }) async {
-    when(() => areas.getOne(any())).thenAnswer((_) async => area);
+    // Read through a variable, so a test can let the flag come down the way the
+    // server does: the next read of the Bereich answers differently.
+    current = area;
+    when(() => areas.getOne(any())).thenAnswer((_) async => current);
     when(() => nests.forArea(any())).thenAnswer((_) async => rows);
     await tester.pumpApp(
       const AreaEditorScreen(areaId: 'a1'),
@@ -157,5 +161,107 @@ void main() {
 
     expect(find.text(de.areaEditorPlacingHint('N2')), findsOneWidget);
     expect(find.text(de.areaEditorHint), findsNothing);
+  });
+
+  const flagged = Area(
+    id: 'a1',
+    name: 'Dachboden Nord',
+    spot: 's1',
+    photo: 'neu.jpg',
+    previousPhoto: 'alt.jpg',
+    pinsNeedReview: true,
+  );
+
+  testWidgets('a flagged Bereich opens the PASS, not the editor', (
+    tester,
+  ) async {
+    // The photo is new and every pin still holds the coordinates it was given
+    // on the old one. Placing more nests against it first would add to exactly
+    // the confusion being cleared, so the editor's own instruction is gone.
+    await pump(
+      tester,
+      area: flagged,
+      rows: [nest(id: 'n1', x: 0.5, y: 0.5)],
+    );
+
+    expect(find.text(de.areaPinReviewTitle), findsOneWidget);
+    expect(find.text(de.areaEditorHint), findsNothing);
+    expect(find.text(de.areaPinReviewLockedHint), findsOneWidget);
+  });
+
+  testWidgets('during the pass a tap on the photo creates NOTHING', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      area: flagged,
+      rows: [nest(id: 'n1', x: 0.5, y: 0.5)],
+    );
+
+    final canvases = tester.widgetList<PinCanvas>(find.byType(PinCanvas));
+    // Neither picture installs a tap layer during the pass — a tap that landed
+    // somewhere it is ignored reads as a broken screen.
+    expect(canvases.map((canvas) => canvas.onTap), everyElement(isNull));
+    // Exactly one of them answers a drag: the NEW photo. Dragging a pin is how
+    // the pass gets done, and a pin dragged on the outgoing picture would write
+    // a coordinate measured against the image being replaced.
+    expect(
+      canvases.where((canvas) => canvas.onMoved != null),
+      hasLength(1),
+    );
+    // ...and an unplaced nest is not offered either, for the same reason.
+    expect(find.byType(ChoiceChip), findsNothing);
+  });
+
+  testWidgets('finishing the pass writes the flag down, once', (tester) async {
+    when(() => areas.finishPinReview(any())).thenAnswer((_) async {
+      // What the server does: the flag comes down and the copy goes with it.
+      return current = const Area(
+        id: 'a1',
+        name: 'Dachboden Nord',
+        spot: 's1',
+        photo: 'neu.jpg',
+      );
+    });
+    await pump(
+      tester,
+      area: flagged,
+      rows: [nest(id: 'n1', x: 0.5, y: 0.5)],
+    );
+
+    await tester.tap(find.text(de.areaPinReviewConfirmAction));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(FilledButton, de.areaPinReviewFinishAction),
+    );
+    await tester.pumpAndSettle();
+
+    verify(() => areas.finishPinReview('a1')).called(1);
+    // Back to the editor: the pass is over and placing nests is the work again.
+    expect(find.text(de.areaEditorHint), findsOneWidget);
+    expect(find.text(de.areaPinReviewTitle), findsNothing);
+  });
+
+  testWidgets('a refused finish keeps the ticks', (tester) async {
+    // A stairwell drops the connection on the last tap. Clearing the ticks
+    // would send somebody through the whole pass again for it.
+    when(
+      () => areas.finishPinReview(any()),
+    ).thenThrow(const RepositoryException('offline'));
+    await pump(
+      tester,
+      area: flagged,
+      rows: [nest(id: 'n1', x: 0.5, y: 0.5)],
+    );
+
+    await tester.tap(find.text(de.areaPinReviewConfirmAction));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(FilledButton, de.areaPinReviewFinishAction),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(de.areaPinReviewProgress(1, 1)), findsOneWidget);
+    expect(find.text(de.areaPinReviewConfirmed), findsOneWidget);
   });
 }

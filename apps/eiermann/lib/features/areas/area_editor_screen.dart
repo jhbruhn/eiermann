@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/areas/area_photo.dart';
+import 'package:eiermann/features/areas/area_pin_review.dart';
 import 'package:eiermann/features/areas/areas_providers.dart';
 import 'package:eiermann/features/areas/pin_canvas.dart';
 import 'package:eiermann/features/nests/nest_labels.dart';
@@ -60,6 +61,25 @@ class _EditorState extends ConsumerState<_Editor> {
   /// a stairwell cannot promise.
   String? _placing;
 
+  /// The nests confirmed or moved so far in the review pass.
+  ///
+  /// Client-side, and it has to be: confirming a pin that already sits right
+  /// writes nothing, so there is no server state to hold. An interrupted
+  /// pass is therefore started over — which loses nothing, because the flag
+  /// and the old photo both survive the interruption. The alternative was a
+  /// per-nest "reviewed" column that exists only to record that somebody
+  /// looked.
+  final Set<String> _reviewed = {};
+
+  /// The pins as they stood when the pass opened, for the outgoing photo.
+  ///
+  /// Snapshotted, because that picture's whole value is showing the position
+  /// being corrected: read live, it would show each correction the moment it
+  /// was made and there would be nothing left to compare against.
+  List<PinnedNest>? _before;
+
+  bool _finishing = false;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -91,6 +111,51 @@ class _EditorState extends ConsumerState<_Editor> {
       onRetry: () => ref.invalidate(nestsForAreaProvider(area.id)),
       data: (rows) {
         final unpinned = rows.where((nest) => !nest.hasPin).toList();
+        final reviewing = area.pinsNeedReview;
+        // Assigned in build rather than in a setState, because it IS the
+        // build's input: the snapshot has to be the positions this frame drew
+        // before any of them was dragged. It triggers no rebuild of its own.
+        final before = reviewing
+            ? _before ??= PinnedNest.fromNests(rows)
+            : const <PinnedNest>[];
+
+        final canvas = PinCanvas(
+          // The photo is passed IN rather than built here, which is what
+          // makes the coordinate maths testable: a widget test can hand
+          // this a box of a known size, where a network image never
+          // resolves and the canvas would have no height to divide by.
+          photo: AreaPhoto(area: area, showAsCanvas: true),
+          nests: PinnedNest.fromNests(rows),
+          // No new nest during the pass. `null` also removes the gesture layer
+          // entirely, so a tap cannot land anywhere it would be ignored — a
+          // dead tap reads as a broken screen.
+          onTap: reviewing ? null : _onTap,
+          onMoved: (pin, to) => _persist(pin.id, to),
+          onOpen: (pin) => showNestSheet(
+            context,
+            areaId: area.id,
+            nest: rows.firstWhere((nest) => nest.id == pin.id),
+          ),
+        );
+
+        if (reviewing) {
+          return ListView(
+            padding: const EdgeInsets.all(ZugvogelSpacing.md),
+            children: [
+              AreaPinReview(
+                area: area,
+                nests: rows,
+                before: before,
+                canvas: canvas,
+                reviewed: _reviewed,
+                isFinishing: _finishing,
+                onConfirm: (id) => setState(() => _reviewed.add(id)),
+                onFinish: _finish,
+              ),
+            ],
+          );
+        }
+
         return ListView(
           padding: const EdgeInsets.all(ZugvogelSpacing.md),
           children: [
@@ -103,21 +168,7 @@ class _EditorState extends ConsumerState<_Editor> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: ZugvogelSpacing.sm),
-            PinCanvas(
-              // The photo is passed IN rather than built here, which is what
-              // makes the coordinate maths testable: a widget test can hand
-              // this a box of a known size, where a network image never
-              // resolves and the canvas would have no height to divide by.
-              photo: AreaPhoto(area: area, showAsCanvas: true),
-              nests: PinnedNest.fromNests(rows),
-              onTap: _onTap,
-              onMoved: (pin, to) => _persist(pin.id, to),
-              onOpen: (pin) => showNestSheet(
-                context,
-                areaId: area.id,
-                nest: rows.firstWhere((nest) => nest.id == pin.id),
-              ),
-            ),
+            canvas,
             if (unpinned.isNotEmpty) ...[
               const SizedBox(height: ZugvogelSpacing.md),
               Text(
@@ -172,7 +223,30 @@ class _EditorState extends ConsumerState<_Editor> {
     );
   }
 
+  /// Ends the review pass, and only then forgets it was running.
+  ///
+  /// The local ticks are dropped on success alone: cleared on a failed write,
+  /// somebody would walk the whole pass again because a stairwell lost the
+  /// connection.
+  Future<void> _finish() async {
+    setState(() => _finishing = true);
+    final done = await finishPinReview(context, ref, area: widget.area);
+    if (!mounted) return;
+    setState(() {
+      _finishing = false;
+      if (done) {
+        _reviewed.clear();
+        _before = null;
+      }
+    });
+  }
+
   Future<void> _persist(String nestId, ({double x, double y}) at) async {
+    // A dragged pin IS a reviewed pin — it was just placed against the new
+    // photo, which is the whole thing the pass asks for. Marked before the
+    // write: the tick describes what the volunteer did, and a refused write
+    // shows its own message.
+    setState(() => _reviewed.add(nestId));
     final l10n = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     try {

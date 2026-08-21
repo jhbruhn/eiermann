@@ -1131,6 +1131,188 @@ status, _ = h.req(
 h.check("an unknown species value is refused", status >= 400, f"status {status}")
 
 
+# ── The photo-replacement review pass (eiermann-bmg.5) ──────────────────────
+#
+# A pin is a normalised coordinate ON A PHOTO. Replace the photo and every pin
+# still holds the same two numbers while they point somewhere else in the
+# building: nothing in the data is wrong and every pin is a lie. Nobody notices
+# until somebody stands in an attic looking at the wrong rafter.
+#
+# So a replacement is a state the Bereich announces — the outgoing photo copied
+# to `previous_photo`, `pins_need_review` up — and the review state is the
+# server's on every path. These assertions are what makes it not a convention.
+
+print("\n[Bereichsfoto: der Prüfdurchlauf]")
+
+# A real PNG, because PocketBase sniffs the CONTENT against the field's
+# mimeTypes: a text blob named .png is refused and every assertion below would
+# then pass over an upload that never happened.
+import base64
+
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/"
+    "q842iQAAAABJRU5ErkJggg=="
+)
+
+
+def put_photo(area_id, token=None):
+    """Uploads a photo to [area_id]. (status, record)."""
+    return h.upload_file(
+        "PATCH", f"/api/collections/areas/records/{area_id}", token or member_token,
+        "photo", "bereich.png", "image/png", PNG,
+    )
+
+
+def area_now(area_id):
+    _, row = h.req(
+        "GET", f"/api/collections/areas/records/{area_id}", coord_token
+    )
+    return row or {}
+
+
+swap_host = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Fotohaus", "phase": "active"}
+)
+swap = h.mk(
+    member_token,
+    "areas",
+    {"org": ORG, "spot": swap_host["id"], "name": "Lichtschacht"},
+)
+h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": swap["id"], "label": "N1", "species": "unknown",
+     "status": "active", "pin_x": 0.4, "pin_y": 0.6},
+)
+
+status, first = put_photo(swap["id"])
+h.check("a Bereich photo uploads", h.ok(status), f"status {status}")
+h.check(
+    "the FIRST photo starts no review pass",
+    not (first or {}).get("pins_need_review")
+    and not (first or {}).get("previous_photo"),
+    f"{ {k: (first or {}).get(k) for k in ('pins_need_review', 'previous_photo')} }"
+    " — nothing was ever placed against an earlier image, so nothing can have "
+    "drifted; a flag here would demand a pass over a Bereich nobody changed",
+)
+original_photo = (first or {}).get("photo")
+
+status, second = put_photo(swap["id"])
+h.check("replacing the photo succeeds", h.ok(status), f"status {status}")
+h.check(
+    "...and raises the review flag",
+    (second or {}).get("pins_need_review") is True,
+    f"pins_need_review={(second or {}).get('pins_need_review')!r} — the pins "
+    "kept their coordinates and now point somewhere else in the building",
+)
+kept = (second or {}).get("previous_photo")
+h.check(
+    "...and keeps the outgoing photo to compare against",
+    bool(kept),
+    "without the old picture beside the new one a reviewer is guessing at what "
+    "moved",
+)
+h.check(
+    "...under a file key of its own, not the outgoing name",
+    kept != original_photo and kept != (second or {}).get("photo"),
+    f"previous_photo={kept!r} photo={original_photo!r} — both fields live in "
+    "one record directory, so re-using the name would leave two fields on one "
+    "blob and PocketBase deletes the file that left `photo` after the save",
+)
+
+# THE assertion the shape of this hook exists for: the kept copy is a real file,
+# not a name. A dangling `previous_photo` is a review pass with nothing to
+# compare against, and it would be discovered by the volunteer, not by us.
+_, file_token = h.req("POST", "/api/files/token", member_token)
+status, blob, _ = h.req_bytes(
+    "GET",
+    f"/api/files/areas/{swap['id']}/{kept}?token={(file_token or {}).get('token', '')}",
+)
+h.check(
+    "the kept photo can actually be fetched",
+    h.ok(status) and len(blob) > 0,
+    f"status {status}, {len(blob)} bytes — a `previous_photo` naming a file "
+    "that is gone is worse than none: the pass demands a comparison it cannot "
+    "show",
+)
+
+status, body = h.req(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    {"previous_photo": ""},
+)
+h.check(
+    "a client cannot drop the outgoing photo",
+    status >= 400 and refused_with(body, "area_review_field_not_writable"),
+    f"status {status}, {refusal_codes(body)} — that leaves the flag standing "
+    "over a comparison the screen can no longer show",
+)
+h.check(
+    "...and it is still there",
+    area_now(swap["id"]).get("previous_photo") == kept,
+    "a refusal that refuses and writes anyway is the worst of both",
+)
+
+status, body = h.upload_file(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    "previous_photo", "geschmuggelt.png", "image/png", PNG,
+)
+h.check(
+    "...nor upload one INTO the field",
+    status >= 400 and refused_with(body, "area_review_field_not_writable"),
+    f"status {status}, {refusal_codes(body)} — a file field is writable as a "
+    "multipart part as well as by name, so the guard reads the request body "
+    "rather than a list of JSON keys",
+)
+
+status, body = h.req(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    {"pins_need_review": True},
+)
+h.check(
+    "a client cannot RAISE the review flag",
+    status >= 400 and refused_with(body, "area_review_field_not_writable"),
+    f"status {status}, {refusal_codes(body)} — the flag means 'the pins were "
+    "kept across a photo change', and only the hook that copied the photo "
+    "knows that happened",
+)
+
+status, done = h.req(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    {"pins_need_review": False},
+)
+h.check(
+    "the pass can be finished",
+    h.ok(status) and not (done or {}).get("pins_need_review"),
+    f"status {status} — the one write a client makes to the review state",
+)
+h.check(
+    "...and the outgoing photo goes with it",
+    not (done or {}).get("previous_photo"),
+    f"previous_photo={(done or {}).get('previous_photo')!r} — these are "
+    "pictures of the inside of somebody's building; once the pins are "
+    "confirmed nothing justifies keeping a second one",
+)
+
+# A Bereich nobody has pinned has nothing to review, and flagging it would keep
+# a picture of somebody's property for the duration of a formality.
+bare = h.mk(
+    member_token,
+    "areas",
+    {"org": ORG, "spot": swap_host["id"], "name": "Ohne Nester"},
+)
+put_photo(bare["id"])
+status, replaced = put_photo(bare["id"])
+h.check(
+    "a Bereich with no pin is not sent through a pass",
+    h.ok(status)
+    and not (replaced or {}).get("pins_need_review")
+    and not (replaced or {}).get("previous_photo"),
+    f"{ {k: (replaced or {}).get(k) for k in ('pins_need_review', 'previous_photo')} }"
+    " — there is no coordinate that can have drifted, and the pass would be a "
+    "formality paid for with a stored photo of a building",
+)
+
+
 # ── Custom routes ──────────────────────────────────────────────────────────
 #
 # The rule suite covers collections; these routes are the part of the API that

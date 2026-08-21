@@ -36,6 +36,22 @@ class AreasRepository extends PbRepository<Area> {
     sort: 'sort_index,name',
   );
 
+  /// Ends the photo-replacement review pass.
+  ///
+  /// The only write a client is allowed to make to the review state, and it is
+  /// one field: `pins_need_review` goes false. The outgoing photo is dropped
+  /// by the hook that sees the flag come down (`app_area_photo.js`) — a client
+  /// that had to delete `previous_photo` itself would be holding one side of a
+  /// two-field invariant, and that is the side a later screen forgets.
+  ///
+  /// Nothing here checks that the pins were actually looked at: confirming a
+  /// pin that has not moved writes nothing, so there is no record of it to
+  /// check against. The forced pass is the editor's (see `AreaPinReview`); the
+  /// flag is what makes every other screen say the photo cannot be trusted
+  /// yet.
+  Future<Area> finishPinReview(String id) =>
+      update(id, {'pins_need_review': false});
+
   /// The body a create or an update sends.
   ///
   /// [spot] belongs to the create path only — see the class doc. Nothing here
