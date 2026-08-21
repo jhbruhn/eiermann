@@ -18,4 +18,6 @@ export 'src/repositories/nests_repository.dart';
 export 'src/repositories/spot_contacts_repository.dart';
 export 'src/repositories/spot_overview_repository.dart';
 export 'src/repositories/spots_repository.dart';
+export 'src/repositories/tour_runs_repository.dart';
+export 'src/repositories/tours_repository.dart';
 export 'src/repositories/visits_repository.dart';

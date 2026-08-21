@@ -296,10 +296,37 @@ function writeVisit(app, auth, body) {
   }
   const visitedAt = String(body.visited_at || "") || new DateTime().string();
 
+  // The round this visit was walked on, if any. `tour_run` is the ONLY link
+  // between a tour and the work done on it — there is no per-stop progress row,
+  // because every state such a row could hold is already this visit (see
+  // migration 015). So an unchecked run id here would put somebody else's field
+  // work into a round, which is exactly what the statistics in Phase 07 count.
+  //
+  // Refusing a FINISHED run is not tidiness. A completed round is a statement
+  // about what was done on it; a visit landing in one afterwards rewrites that
+  // statement, and the run's own `finished_at` would then be earlier than a
+  // visit it contains.
+  const runId = String(body.tour_run || "");
+  let run = null;
+  if (runId) {
+    try {
+      run = app.findRecordById("tour_runs", runId);
+    } catch (_) {
+      refuse(CODES.visitTourRunNotFound, `tour run not found: ${runId}`);
+    }
+    if (String(run.get("org") || "") !== orgId) {
+      refuse(CODES.visitTourRunNotFound, `tour run not found: ${runId}`);
+    }
+    if (String(run.get("finished_at") || "")) {
+      refuse(CODES.visitTourRunFinished, `tour run already finished: ${runId}`);
+    }
+  }
+
   const visits = app.findCollectionByNameOrId("visits");
   const visit = new Record(visits);
   visit.set("org", orgId);
   visit.set("spot", spot.id);
+  if (run) visit.set("tour_run", run.id);
   visit.set("visited_at", visitedAt);
   visit.set("outcome", outcome);
   visit.set("note", String(body.note || ""));

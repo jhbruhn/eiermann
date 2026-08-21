@@ -973,5 +973,211 @@
     "description": "The one arithmetic the form can produce only through a race — a second visit on the same nest between reading and sending."
   },
   "serverErrorVisitSkipNeedsReason": "Ein nicht geprüfter Besuch braucht einen Grund.",
-  "serverErrorVisitOutcomeInvalid": "Dieser Besuch lässt sich nicht speichern — der Ausgang ist unbekannt."
+  "serverErrorVisitOutcomeInvalid": "Dieser Besuch lässt sich nicht speichern — der Ausgang ist unbekannt.",
+  "navTours": "Touren",
+  "@navTours": {
+    "description": "The fourth navigation destination. A round is where the day starts, which is why it is a destination and not a dashboard tile."
+  },
+  "toursTitle": "Touren",
+  "toursEmptyTitle": "Noch keine Tour",
+  "toursEmptyMessage": "Eine Tour ist eine Liste von Gebäuden in der Reihenfolge, in der ihr sie abgeht. Wer sie zum ersten Mal läuft, liest dieselbe Liste wie alle anderen — genau das macht die Übergabe erträglich.",
+  "@toursEmptyMessage": {
+    "description": "The empty state names WHY a template exists rather than describing the button. The painful handover is one of the three field problems this app was built for."
+  },
+  "toursRetiredTitle": "Nicht mehr im Umlauf",
+  "@toursRetiredTitle": {
+    "description": "Retired templates. Kept and readable, because the rounds walked under them are still in the history."
+  },
+  "tourNewAction": "Tour anlegen",
+  "tourSheetTitleNew": "Tour anlegen",
+  "tourSheetTitleEdit": "Tour umbenennen",
+  "tourFieldName": "Name",
+  "tourFieldNameHint": "z. B. Tour 1 oder Nordstadt",
+  "tourFieldNote": "Notiz",
+  "tourFieldNoteHint": "Was die Liste nicht sagt: welcher Tag, wo parken, welcher Schlüssel",
+  "tourNameTaken": "Diesen Namen trägt schon eine Tour. „Tour 1 fortsetzen“ muss eindeutig sein — sonst sagt der Satz nicht, welche gemeint ist.",
+  "@tourNameTaken": {
+    "description": "The unique index on (org, name). Not a refusal code from a hook — it comes from the database constraint, so the client recognises it as a validation failure on the name."
+  },
+  "tourRenameAction": "Umbenennen",
+  "tourRetireAction": "Aus dem Umlauf nehmen",
+  "@tourRetireAction": {
+    "description": "Not 'delete'. Deleting is the coordination's and takes the stop list with it while orphaning every round walked under the route."
+  },
+  "tourReactivateAction": "Wieder in den Umlauf",
+  "tourStopsLoading": "Stopps werden geladen",
+  "@tourStopsLoading": {
+    "description": "Said out loud rather than showing 0 — '0 Spots' would read as an empty route and send somebody to fix one that is fine."
+  },
+  "tourStartAction": "{tour} starten",
+  "@tourStartAction": {
+    "placeholders": {
+      "tour": {
+        "type": "String"
+      }
+    }
+  },
+  "tourStopCount": "{count, plural, =0{noch kein Stopp} =1{1 Stopp} other{{count} Stopps}}",
+  "@tourStopCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tourStopAddAction": "Spot hinzufügen",
+  "tourStopAddTitle": "Welches Gebäude?",
+  "tourStopSearchLabel": "Suchen",
+  "tourStopAddNothingLeft": "Kein weiteres Gebäude übrig — alle stehen schon auf der Liste.",
+  "tourStopRemoveAction": "Vom Weg nehmen",
+  "tourStopUnknownSpot": "Unbekanntes Gebäude",
+  "@tourStopUnknownSpot": {
+    "description": "The fallback when neither the expand nor the loaded overview has a name. Never the id: an id without a label next to it is a bug in this app."
+  },
+  "tourStopsEmptyTitle": "Noch kein Stopp",
+  "tourStopsEmptyMessage": "Die Reihenfolge ist der Weg. Füge die Gebäude in der Reihenfolge hinzu, in der du sie abgehst — ziehen ändert sie später.",
+  "tourAdHocTitle": "Runde ohne Vorlage",
+  "tourAdHocMessage": "Drei überfällige Gebäude auf dem Heimweg sind auch eine Runde. Sie braucht keine Vorlage und trägt keinen Namen — die Besuche sind der Eintrag.",
+  "@tourAdHocMessage": {
+    "description": "The ad-hoc mode is not a fallback for a missing template: tour scale in this group runs from one building to a full-day sweep, and the small case is the one an app most easily pushes out into a WhatsApp message."
+  },
+  "tourAdHocStartAction": "Runde starten",
+  "tourRunTitle": "Runde",
+  "tourRunTitleAdHoc": "Runde ohne Vorlage",
+  "tourRunResume": "{tour} fortsetzen",
+  "@tourRunResume": {
+    "placeholders": {
+      "tour": {
+        "type": "String"
+      }
+    }
+  },
+  "tourRunResumeAdHoc": "Offene Runde fortsetzen",
+  "tourRunStartedAt": "begonnen am {date}",
+  "@tourRunStartedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "tourRunAlreadyOpen": "Es läuft schon eine Runde. Erst die beenden oder verwerfen.",
+  "@tourRunAlreadyOpen": {
+    "description": "Two open rounds for one person is a state nothing in the app wants: visits would land in whichever one the screen happened to hold. An access rule cannot count rows, so the client prevents it."
+  },
+  "tourRunWalkedBy": "gelaufen von {who}",
+  "@tourRunWalkedBy": {
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "tourRunProgress": "{done} von {planned} erledigt",
+  "@tourRunProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "planned": {
+        "type": "int"
+      }
+    }
+  },
+  "tourRunProgressAdHoc": "{count, plural, =0{noch nichts erfasst} =1{1 Gebäude erfasst} other{{count} Gebäude erfasst}}",
+  "@tourRunProgressAdHoc": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    },
+    "description": "'3 von 7' is meaningless on a round with no plan — every stop there is an addition."
+  },
+  "tourRunAdded": "{count, plural, =1{1 Gebäude zusätzlich} other{{count} Gebäude zusätzlich}}",
+  "@tourRunAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tourRunAddedStop": "zusätzlich",
+  "tourRunStopChecked": "geprüft",
+  "tourRunStopSkipped": "nicht geprüft — {reason}",
+  "@tourRunStopSkipped": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    },
+    "description": "A skip carries its reason. Without one the record cannot say whether anybody tried."
+  },
+  "tourRunCheckAction": "Prüfen",
+  "tourRunSkipAction": "Nicht geprüft",
+  "@tourRunSkipAction": {
+    "description": "Same size and same row as 'Prüfen'. Both are outcomes — 'nobody there' is a fact about the building, not a failure of the round."
+  },
+  "tourRunAddSpotAction": "Spot ergänzen",
+  "tourRunFinishAction": "Runde abschließen",
+  "tourRunFinishEarlyHint": "{count, plural, =1{1 Stopp bleibt offen — abschließen geht trotzdem.} other{{count} Stopps bleiben offen — abschließen geht trotzdem.}}",
+  "@tourRunFinishEarlyHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    },
+    "description": "Finishing early is allowed and says so. A disabled button would leave discarding as the only way out of a round that cannot be completed today — and the visits already made deserve better."
+  },
+  "tourRunFinished": "Diese Runde ist abgeschlossen.",
+  "tourRunEmptyTitle": "Noch nichts auf dieser Runde",
+  "tourRunEmptyMessage": "Ergänze ein Gebäude oder nimm einen Vorschlag von unten. Gespeichert wird erst der Besuch.",
+  "tourRunDiscardAction": "Runde verwerfen",
+  "tourRunDiscardTitle": "Diese Runde verwerfen?",
+  "tourRunDiscardIntro": "Die Runde selbst wird gelöscht. Das ist für den Fehlgriff auf dem Dashboard gedacht — sonst wird sie ewig als „fortsetzen“ angeboten.",
+  "tourRunDiscardNothingRecorded": "Es ist noch kein Besuch erfasst.",
+  "tourRunDiscardVisitsStay": "{count, plural, =1{1 bereits erfasster Besuch bleibt bestehen — ohne Runde.} other{{count} bereits erfasste Besuche bleiben bestehen — ohne Runde.}}",
+  "@tourRunDiscardVisitsStay": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    },
+    "description": "What survives is the part people get wrong. A visit is the observation this app exists to keep; the round is only the bag it was carried in."
+  },
+  "tourNearbyTitle": "Überfällig in meiner Nähe",
+  "tourNearbyLocateAction": "Standort verwenden",
+  "tourNearbyByDistance": "Nach Entfernung sortiert.",
+  "tourNearbyNoFix": "Ohne Standort nach Dringlichkeit sortiert. Tippe auf das Ortungssymbol für die Reihenfolge nach Entfernung.",
+  "@tourNearbyNoFix": {
+    "description": "Which order the list is in, said out loud. Without it a list sorted by urgency looks like a distance list that is simply wrong."
+  },
+  "tourNearbyEmpty": "Nichts Überfälliges übrig.",
+  "tourNearbyMetres": "{metres} m",
+  "@tourNearbyMetres": {
+    "placeholders": {
+      "metres": {
+        "type": "int"
+      }
+    }
+  },
+  "tourNearbyKilometres": "{km} km",
+  "@tourNearbyKilometres": {
+    "placeholders": {
+      "km": {
+        "type": "double",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "tourNearbyLocationDenied": "Ohne Standortfreigabe bleibt die Liste nach Dringlichkeit sortiert.",
+  "@tourNearbyLocationDenied": {
+    "description": "This screen's own denied case; the map's version offers the search field instead. The other three refusals reuse the map's strings, which say nothing about a map."
+  },
+  "serverErrorTourRunAlreadyFinished": "Diese Runde ist schon abgeschlossen. Eine abgeschlossene Runde lässt sich nicht wieder öffnen.",
+  "serverErrorVisitTourRunFinished": "Diese Runde ist abgeschlossen — in sie lässt sich kein Besuch mehr eintragen. Starte eine neue Runde oder erfasse den Besuch ohne Runde.",
+  "@serverErrorVisitTourRunFinished": {
+    "description": "Otherwise the round's finished_at would be earlier than a visit it contains, and it is a statement about what was done on it."
+  },
+  "serverErrorTourNotFound": "Diese Tour gibt es nicht mehr. Lade die Touren neu.",
+  "serverErrorTourStopSpotNotFound": "Dieses Gebäude gibt es nicht mehr. Lade die Liste neu."
 }

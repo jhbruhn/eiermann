@@ -29,6 +29,14 @@ abstract class VisitDraft with _$VisitDraft {
     String? note,
     SkipReason? skipReason,
     String? skipNote,
+
+    /// The round this visit is being made on, or null for a visit outside any.
+    ///
+    /// The only link between a Tour and the work done on it — there is no
+    /// per-stop progress record, because every state one could hold is already
+    /// a visit. The server refuses a run that is finished or another org's, so
+    /// a stale id fails loudly rather than quietly dropping the grouping.
+    String? tourRun,
     @Default(<NestCheckDraft>[]) List<NestCheckDraft> checks,
   }) = _VisitDraft;
 }
@@ -63,6 +71,7 @@ extension VisitDraftBody on VisitDraft {
   Map<String, dynamic> toBody() => {
     'spot': spot,
     'outcome': outcome.wire,
+    'tour_run': ?tourRun,
     if (visitedAt case final at?) 'visited_at': at.toUtc().toIso8601String(),
     if (note case final text? when text.isNotEmpty) 'note': text,
     if (outcome == VisitOutcome.skipped) ...{

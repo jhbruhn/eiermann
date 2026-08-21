@@ -10,6 +10,9 @@ import 'package:eiermann/features/spots/spot_detail_screen.dart';
 import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
 import 'package:eiermann/features/startup/splash_screen.dart';
+import 'package:eiermann/features/tours/tour_editor_screen.dart';
+import 'package:eiermann/features/tours/tour_run_screen.dart';
+import 'package:eiermann/features/tours/tours_screen.dart';
 import 'package:eiermann/features/visits/visit_flow_screen.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +44,24 @@ abstract final class Routes {
   /// leads somewhere a web reader can keep — and so the pipeline is a place
   /// rather than a mode of the Spot list.
   static const prospects = '/prospects';
+
+  /// The Touren screen: the templates, and the way into a round.
+  ///
+  /// A nav destination rather than a dashboard tile, unlike the Erkundung
+  /// funnel. The funnel is a periodic review — "bei wem hängt es?" — while a
+  /// tour is where a round STARTS, which is the first thing somebody does when
+  /// they open the app in the car. A tile would put that behind a count.
+  static const tours = '/tours';
+
+  /// One template's ordered stop list.
+  static const tourEditorPattern = '/tours/:id';
+
+  /// One round in progress.
+  ///
+  /// Its own top-level location rather than a mode of the Touren screen: a
+  /// round is the thing a phone sits on for two hours, and a URL that names it
+  /// is what makes a state restore come back on the right one.
+  static const tourRunPattern = '/runs/:id';
   static const spotDetailPattern = '/spots/:id';
 
   /// The Besuchsablauf for one building.
@@ -61,6 +82,14 @@ abstract final class Routes {
   /// equal-rank buttons, the way the concept draws them.
   static const skipParam = 'skip';
 
+  /// The query parameter that says which round a visit belongs to.
+  ///
+  /// In the location for the same reason the skip flag is: the visit screen can
+  /// be restored after Android reclaims the process, and a round handed down
+  /// through a provider would be gone by then — leaving a visit that quietly
+  /// records itself outside the round somebody is walking.
+  static const runParam = 'run';
+
   /// The detail route for one Spot. A function, not a constant, so the pattern
   /// above stays the single spelling of it — a hand-built '/spots/$id' at a
   /// call site is how a rename leaves a dead link behind.
@@ -68,8 +97,19 @@ abstract final class Routes {
 
   /// The Besuchsablauf for one Spot. [skipped] opens the "nicht geprüft" sheet
   /// on arrival, which is where the dossier's second button leads.
-  static String spotVisit(String id, {bool skipped = false}) =>
-      '/spots/$id/visit${skipped ? '?$skipParam=1' : ''}';
+  static String spotVisit(String id, {bool skipped = false, String? run}) {
+    final query = [
+      if (skipped) '$skipParam=1',
+      if (run != null) '$runParam=$run',
+    ].join('&');
+    return '/spots/$id/visit${query.isEmpty ? '' : '?$query'}';
+  }
+
+  /// One template's stop list.
+  static String tourEditor(String tourId) => '/tours/$tourId';
+
+  /// One round in progress.
+  static String tourRun(String runId) => '/runs/$runId';
 
   /// The pin editor for one Bereich.
   ///
@@ -107,6 +147,7 @@ abstract final class _RestoreIds {
   static const dashboardBranch = 'branch-dashboard';
   static const mapBranch = 'branch-map';
   static const spotsBranch = 'branch-spots';
+  static const toursBranch = 'branch-tours';
 }
 
 /// The app's router, with one redirect gate in front of everything.
@@ -196,6 +237,15 @@ List<RouteBase> appRoutes() {
             ),
           ],
         ),
+        StatefulShellBranch(
+          restorationScopeId: _RestoreIds.toursBranch,
+          routes: [
+            GoRoute(
+              path: Routes.tours,
+              builder: (_, _) => const ToursScreen(),
+            ),
+          ],
+        ),
       ],
     ),
     // The Erkundung funnel: over the shell like the dossier, and for the same
@@ -206,6 +256,27 @@ List<RouteBase> appRoutes() {
     GoRoute(
       path: Routes.prospects,
       builder: (_, _) => const ProspectsScreen(),
+    ),
+    // The template editor and the running round: over the shell, like the
+    // dossier, so no branch can be parked on either. The run especially — a
+    // branch sitting on a finished round would offer to continue it.
+    GoRoute(
+      path: Routes.tourEditorPattern,
+      builder: (_, state) {
+        final id = state.pathParameters['id'];
+        return id == null || id.isEmpty
+            ? const ToursScreen()
+            : TourEditorScreen(tourId: id);
+      },
+    ),
+    GoRoute(
+      path: Routes.tourRunPattern,
+      builder: (_, state) {
+        final id = state.pathParameters['id'];
+        return id == null || id.isEmpty
+            ? const ToursScreen()
+            : TourRunScreen(runId: id);
+      },
     ),
     // The pin editor: over the shell, for the same reason as the dossier under
     // it — and full-screen because the photo is the working surface.
@@ -233,6 +304,7 @@ List<RouteBase> appRoutes() {
                 spotId: id,
                 startSkipped:
                     state.uri.queryParameters[Routes.skipParam] == '1',
+                tourRun: state.uri.queryParameters[Routes.runParam],
               );
       },
     ),

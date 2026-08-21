@@ -27,6 +27,10 @@ class _MockAreas extends Mock implements AreasRepository {}
 
 class _MockNestStates extends Mock implements NestStateRepository {}
 
+class _MockTours extends Mock implements ToursRepository {}
+
+class _MockTourRuns extends Mock implements TourRunsRepository {}
+
 SpotOverview row({
   required String id,
   required String name,
@@ -50,6 +54,8 @@ void main() {
   late _MockContacts contacts;
   late _MockAreas areas;
   late _MockNestStates nestStates;
+  late _MockTours tours;
+  late _MockTourRuns tourRuns;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -62,6 +68,10 @@ void main() {
     contacts = _MockContacts();
     areas = _MockAreas();
     nestStates = _MockNestStates();
+    tours = _MockTours();
+    tourRuns = _MockTourRuns();
+    when(() => tours.all()).thenAnswer((_) async => []);
+    when(() => tourRuns.openFor(any())).thenAnswer((_) async => null);
     when(() => nestStates.forSpot(any())).thenAnswer((_) async => []);
     when(() => contacts.forSpot(any())).thenAnswer((_) async => []);
     when(() => areas.forSpot(any())).thenAnswer((_) async => []);
@@ -96,6 +106,10 @@ void main() {
           spotContactsRepositoryProvider.overrideWith((ref) async => contacts),
           areasRepositoryProvider.overrideWith((ref) async => areas),
           nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
+          // The Touren branch is a real destination now, and a branch whose
+          // read never resolves makes `pumpAndSettle` hang rather than fail.
+          toursRepositoryProvider.overrideWith((ref) async => tours),
+          tourRunsRepositoryProvider.overrideWith((ref) async => tourRuns),
           currentUserProvider.overrideWith(
             (ref) async => const AppUser(
               id: 'u1',
@@ -136,19 +150,42 @@ void main() {
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationRail), findsNothing);
-    for (final label in [de.navDashboard, de.navMap, de.navSpots]) {
+    for (final label in [
+      de.navDashboard,
+      de.navMap,
+      de.navSpots,
+      de.navTours,
+    ]) {
       expect(destination(label), findsOneWidget);
     }
   });
 
-  testWidgets('a wide window gets the rail instead, with the same three', (
+  testWidgets('Touren is a destination of its own, not a dashboard tile', (
+    tester,
+  ) async {
+    // A round is where the day STARTS, which is the difference from the
+    // Erkundung funnel: that one is a periodic review reached from a tile.
+    await pumpShell(tester);
+
+    await tester.tap(destination(de.navTours));
+    await tester.pumpAndSettle();
+
+    expect(find.text(de.toursTitle), findsWidgets);
+  });
+
+  testWidgets('a wide window gets the rail instead, with the same four', (
     tester,
   ) async {
     await pumpShell(tester, size: const Size(1200, 900));
 
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
-    for (final label in [de.navDashboard, de.navMap, de.navSpots]) {
+    for (final label in [
+      de.navDashboard,
+      de.navMap,
+      de.navSpots,
+      de.navTours,
+    ]) {
       expect(railDestination(label), findsOneWidget);
     }
   });

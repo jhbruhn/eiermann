@@ -57,6 +57,15 @@ class NavShell extends StatelessWidget {
         selectedIcon: Icons.list_alt,
         label: l10n.navSpots,
       ),
+      // Fourth destination, and the reason it is a destination at all: a round
+      // is where the day STARTS. The Erkundung funnel stayed a dashboard tile
+      // because it is a periodic review; this is the screen somebody opens in
+      // the car. Four is still inside Material's 3–5 for a NavigationBar.
+      (
+        icon: Icons.route_outlined,
+        selectedIcon: Icons.route,
+        label: l10n.navTours,
+      ),
     ];
     final sizeClass = context.windowSizeClass;
 

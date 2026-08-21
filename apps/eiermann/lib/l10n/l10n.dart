@@ -136,6 +136,15 @@ class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
     'visit_skip_has_checks' => _l10n.serverErrorVisitSkipHasChecks,
     'visit_idempotency_key_reused' =>
       _l10n.serverErrorVisitIdempotencyKeyReused,
+    // The round's own guards. `tour_run_already_finished` and
+    // `visit_tour_run_finished` are the same fact reached from two sides —
+    // finishing a finished round, and recording into one — and they get
+    // different sentences because the reader's next move differs: one is "it is
+    // already done", the other is "start a new one".
+    'tour_run_already_finished' => _l10n.serverErrorTourRunAlreadyFinished,
+    'visit_tour_run_finished' => _l10n.serverErrorVisitTourRunFinished,
+    'tour_not_found' => _l10n.serverErrorTourNotFound,
+    'tour_stop_spot_not_found' => _l10n.serverErrorTourStopSpotNotFound,
     _ => null,
   };
 }

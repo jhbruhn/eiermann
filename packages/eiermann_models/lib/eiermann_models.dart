@@ -17,5 +17,8 @@ export 'src/models/organisation.dart';
 export 'src/models/spot.dart';
 export 'src/models/spot_contact.dart';
 export 'src/models/spot_overview.dart';
+export 'src/models/tour.dart';
+export 'src/models/visit.dart';
 export 'src/models/visit_draft.dart';
 export 'src/spot_transitions.dart';
+export 'src/tour_progress.dart';

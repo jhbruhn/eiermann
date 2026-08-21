@@ -2201,6 +2201,432 @@ h.check(
 )
 
 
+# ── Touren: the template, the route, the round ──────────────────────────────
+#
+# eiermann-avq.6. Three collections and one field on `visits`, and the property
+# they exist to hold: a round says truthfully what was walked, under what name,
+# by whom, and when it ended.
+#
+# Two of the three have a `createRule` of the form "the body's org is my org"
+# while pointing at a row the caller names by id — trap 11 in the same shape it
+# bit `nests`. Those are the assertions that matter most here; the rest is the
+# one-way door of `finished_at` and the snapshots that let a run outlive its
+# template.
+
+print("\n[Touren]")
+
+# A second member, so "your own open round" can be told from "somebody else's".
+other_member = h.mk(
+    coord_token,
+    "users",
+    {
+        "email": "zweite@eiermann.test",
+        "password": h.user_pass,
+        "passwordConfirm": h.user_pass,
+        "org": ORG,
+        "role": "member",
+        "is_active": True,
+    },
+)
+_, other_token = h.login("zweite@eiermann.test")
+h.check("a second member can sign in", other_token is not None)
+
+tour = h.mk(
+    member_token,
+    "tours",
+    {"org": ORG, "name": "Tour 1", "is_active": True, "sort_index": 0},
+)
+h.check(
+    "a member — not only the coordination — can build a route template",
+    bool(tour.get("id")),
+    "the person who knows a route is the one who walks it, which in this group "
+    "is not necessarily the person holding the coordinator role",
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/tours/records", guest_token,
+    {"org": ORG, "name": "Gastentour", "is_active": True},
+)
+h.check("a guest cannot", status >= 400, f"status {status}")
+
+status, _ = h.req(
+    "POST", "/api/collections/tours/records", member_token,
+    {"org": ORG, "name": "tour 1", "is_active": True},
+)
+h.check(
+    "a second route cannot take the same name, differing only in case",
+    status >= 400,
+    f'status {status} — "Tour 1 fortsetzen" has to mean one thing; two rows '
+    'called "Tour 1" make every sentence the app says about a tour ambiguous',
+)
+
+status, _ = h.req(
+    "DELETE", f"/api/collections/tours/records/{tour['id']}", member_token
+)
+h.check(
+    "a member cannot delete a template",
+    status >= 400,
+    f"status {status} — deleting one orphans every round ever walked under it; "
+    "`is_active = false` keeps both and is the move",
+)
+
+# ── The stops, and the two parents that have to be checked ─────────────────
+
+stop_one = h.mk(
+    member_token,
+    "tour_spots",
+    {"org": ORG, "tour": tour["id"], "spot": vhost["id"], "sort_index": 0},
+)
+h.check("a stop can be added to a route", bool(stop_one.get("id")))
+h.check(
+    "...with its org taken from the tour, not from the body",
+    stop_one.get("org") == ORG,
+    str(stop_one.get("org")),
+)
+
+status, body = h.req(
+    "POST", "/api/collections/tour_spots/records", member_token,
+    {"org": ORG, "tour": tour["id"], "spot": foreign_spot["id"]},
+)
+h.check(
+    "a stop cannot point at ANOTHER org's building",
+    status >= 400,
+    f"status {status} — the rule passes (the body's org is the caller's own); "
+    "only a hook can dereference the spot and see whose it is",
+)
+h.check(
+    "...and it is the same code as a spot that does not exist",
+    refused_with(body, "tour_stop_spot_not_found"),
+    f"{refusal_codes(body)} — a distinct code would tell the caller the id "
+    "exists in another organisation",
+)
+
+foreign_tour = h.mk(
+    T, "tours", {"org": "org00000foreign", "name": "Fremde Tour", "is_active": True}
+)
+status, body = h.req(
+    "POST", "/api/collections/tour_spots/records", member_token,
+    {"org": ORG, "tour": foreign_tour["id"], "spot": vhost["id"]},
+)
+h.check(
+    "a stop cannot be hung off ANOTHER org's route",
+    status >= 400 and refused_with(body, "tour_not_found"),
+    f"status {status}, {refusal_codes(body)} — this is the tenancy SOURCE: "
+    "unchecked, the caller's own org in the body plus a foreign tour id moves "
+    "the row into the other organisation",
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/tour_spots/records", member_token,
+    {"org": ORG, "tour": tour["id"], "spot": vhost["id"], "sort_index": 5},
+)
+h.check(
+    "the same building cannot be a stop on one route twice",
+    status >= 400,
+    f'status {status} — it makes progress uncountable ("2 of 7" over six '
+    "distinct buildings) and there is no field trip it describes",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/tour_spots/records/{stop_one['id']}", member_token,
+    {"sort_index": 3},
+)
+h.check("a stop can be reordered", status == 200, f"status {status}")
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/tour_spots/records/{stop_one['id']}", member_token,
+    {"spot": other_spot["id"]},
+)
+h.check(
+    "a stop cannot be re-pointed at another building",
+    status >= 400,
+    f"status {status} — that silently rewrites what a route IS while every "
+    "screen keeps showing the same row; remove and re-add is the honest edit",
+)
+
+stop_two = h.mk(
+    member_token,
+    "tour_spots",
+    {"org": ORG, "tour": tour["id"], "spot": other_spot["id"], "sort_index": 1},
+)
+status, _ = h.req(
+    "DELETE", f"/api/collections/tour_spots/records/{stop_two['id']}", member_token
+)
+h.check(
+    "a member can take a stop off a route",
+    h.ok(status),
+    f"status {status} — no visit, no nest and no history hangs off a stop, so "
+    "this is ordinary editing",
+)
+
+# ── A round: server-owned identity ─────────────────────────────────────────
+
+run = h.mk(
+    member_token,
+    "tour_runs",
+    {
+        "org": ORG,
+        "tour": tour["id"],
+        # Every one of these is a lie the client is allowed to send and the
+        # server must not believe.
+        "tour_name": "Ganz andere Tour",
+        "started_by": coord["id"],
+        "started_by_name": "Jemand anders",
+        "started_at": "2020-01-01 08:00:00.000Z",
+        "finished_at": "2020-01-01 09:00:00.000Z",
+    },
+)
+h.check(
+    "the round's name is copied from the template, not from the body",
+    run.get("tour_name") == "Tour 1",
+    f"{run.get('tour_name')} — a snapshot the client supplies is a snapshot "
+    "that can lie in the one direction nobody can catch: the field exists "
+    "precisely because the template may be gone",
+)
+h.check(
+    "...it is walked by whoever started it",
+    run.get("started_by") == member["id"],
+    f"{run.get('started_by')} — 'started by' is a fact about the request",
+)
+h.check(
+    "...it started now, not in 2020",
+    not str(run.get("started_at", "")).startswith("2020"),
+    f"{run.get('started_at')} — a backdated start puts its visits inside a "
+    "window they were not walked in, and Phase 07 counts exactly that window",
+)
+h.check(
+    "...and it begins OPEN",
+    not run.get("finished_at"),
+    f"{run.get('finished_at')} — a round that was over before it began would "
+    "never be offered as 'fortsetzen', which is the whole of avq.4",
+)
+
+adhoc = h.mk(member_token, "tour_runs", {"org": ORG, "tour_name": "Erfunden"})
+h.check(
+    "a round with no template is legal — that IS the ad-hoc mode",
+    bool(adhoc.get("id")) and not adhoc.get("tour"),
+    "a schema needing a template first would push the three-Spots-on-the-way-"
+    "home case out of the app, and somebody then walks it and writes nothing",
+)
+h.check(
+    "...and it carries no name at all",
+    adhoc.get("tour_name") == "",
+    f"{adhoc.get('tour_name')} — an empty name is how a reader tells "
+    "'improvised' from 'the template is gone', which is a different claim",
+)
+
+status, body = h.req(
+    "POST", "/api/collections/tour_runs/records", member_token,
+    {"org": ORG, "tour": foreign_tour["id"]},
+)
+h.check(
+    "a round cannot be walked on ANOTHER org's route",
+    status >= 400 and refused_with(body, "tour_not_found"),
+    f"status {status}, {refusal_codes(body)}",
+)
+
+# ── The visits are the progress ────────────────────────────────────────────
+
+status, body = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "tour_run": run["id"],
+     "checks": [{"nest": vn1["id"], "state": "empty"}]},
+    key="tour-run-visit-1",
+)
+h.check("a visit can be recorded as part of a round", status == 200, f"status {status}")
+_, walked = h.req(
+    "GET", f"/api/collections/visits/records/{(body or {}).get('visit')}", member_token
+)
+h.check(
+    "...and it carries the round",
+    (walked or {}).get("tour_run") == run["id"],
+    f"{(walked or {}).get('tour_run')} — this relation is the ONLY link between "
+    "a tour and the work done on it; there is no per-stop progress row, because "
+    "every state one could hold is already this visit",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/visits/records/{walked['id']}", member_token,
+    {"tour_run": adhoc["id"]},
+)
+h.check(
+    "a recorded visit cannot be moved into another round afterwards",
+    status >= 400,
+    f"status {status} — it would rewrite what a completed round says was done "
+    "on it, and the note is the only thing a visit lets you correct",
+)
+
+status, body = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "tour_run": "nonexistent00000", "checks": []},
+    key="tour-run-visit-missing",
+)
+h.check(
+    "a visit cannot name a round that does not exist",
+    status >= 400 and refused_with(body, "visit_tour_run_not_found"),
+    f"status {status}, {refusal_codes(body)}",
+)
+
+# ── Finishing, once ────────────────────────────────────────────────────────
+
+status, finished = h.req(
+    "PATCH", f"/api/collections/tour_runs/records/{run['id']}", member_token,
+    {"finished_at": "2020-01-01 09:00:00.000Z", "note": "Alles abgelaufen"},
+)
+h.check("a round can be finished", status == 200, f"status {status}")
+h.check(
+    "...stamped by the server, not by the body",
+    status == 200 and not str((finished or {}).get("finished_at", "")).startswith("2020"),
+    f"{(finished or {}).get('finished_at')} — the client says THAT it is done, "
+    "the server says when",
+)
+h.check(
+    "...and the note it carries is kept",
+    (finished or {}).get("note") == "Alles abgelaufen",
+    str((finished or {}).get("note")),
+)
+
+status, body = h.req(
+    "PATCH", f"/api/collections/tour_runs/records/{run['id']}", member_token,
+    {"finished_at": None},
+)
+h.check(
+    "a finished round cannot be reopened",
+    status >= 400 and refused_with(body, "tour_run_already_finished"),
+    f"status {status}, {refusal_codes(body)} — `finished_at` IS the open/closed "
+    "state, so blanking it is the one edit no rule can see: a rule reads the "
+    "stored row, where the timestamp is still there",
+)
+
+status, body = h.req(
+    "PATCH", f"/api/collections/tour_runs/records/{run['id']}", member_token,
+    {"finished_at": h.stamp()},
+)
+h.check(
+    "...nor re-finished at a different time",
+    status >= 400 and refused_with(body, "tour_run_already_finished"),
+    f"status {status}, {refusal_codes(body)}",
+)
+
+status, body = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "tour_run": run["id"], "checks": []},
+    key="tour-run-visit-after-finish",
+)
+h.check(
+    "no visit lands in a round that is already over",
+    status >= 400 and refused_with(body, "visit_tour_run_finished"),
+    f"status {status}, {refusal_codes(body)} — the round's `finished_at` would "
+    "then be earlier than a visit it contains, and it is a STATEMENT about what "
+    "was done",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/tour_runs/records/{run['id']}", member_token,
+    {"tour": None, "started_by": coord["id"]},
+)
+h.check(
+    "a round's identity is pinned after the fact",
+    status >= 400,
+    f"status {status} — the template, the name, the walker and the start are "
+    "what the visits inside it are grouped BY",
+)
+
+# ── Discarding an accidental start ─────────────────────────────────────────
+
+mine = h.mk(member_token, "tour_runs", {"org": ORG, "tour": tour["id"]})
+status, _ = h.req(
+    "DELETE", f"/api/collections/tour_runs/records/{mine['id']}", other_token
+)
+h.check(
+    "one member cannot discard another's open round",
+    status >= 400,
+    f"status {status}",
+)
+status, _ = h.req(
+    "DELETE", f"/api/collections/tour_runs/records/{mine['id']}", member_token
+)
+h.check(
+    "...but you can discard your OWN, while it is still open",
+    h.ok(status),
+    f"status {status} — a wrong tap on the dashboard otherwise sits there being "
+    "offered as 'fortsetzen' forever",
+)
+
+status, _ = h.req(
+    "DELETE", f"/api/collections/tour_runs/records/{run['id']}", coord_token
+)
+h.check(
+    "a FINISHED round is history, and not even the coordination deletes one",
+    status >= 400,
+    f"status {status} — it is what a set of visits was walked as, and those "
+    "visits cannot be deleted either",
+)
+
+# ── What a round outlives ──────────────────────────────────────────────────
+
+disposable = h.mk(
+    coord_token, "tours", {"org": ORG, "name": "Wegwerftour", "is_active": True}
+)
+disposable_stop = h.mk(
+    coord_token,
+    "tour_spots",
+    {"org": ORG, "tour": disposable["id"], "spot": vhost["id"], "sort_index": 0},
+)
+disposable_run = h.mk(member_token, "tour_runs", {"org": ORG, "tour": disposable["id"]})
+status, body = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "skipped", "skip_reason": "no_key",
+     "visited_at": h.stamp(), "tour_run": disposable_run["id"]},
+    key="tour-run-visit-2",
+)
+h.check(
+    "a skipped Spot is recorded as an ordinary skipped visit in the round",
+    status == 200,
+    f"status {status} — adding and skipping are equal-rank actions, and here "
+    "that is true in the SCHEMA: both write the same row shape",
+)
+orphan_visit = (body or {}).get("visit")
+
+status, _ = h.req(
+    "DELETE", f"/api/collections/tours/records/{disposable['id']}", coord_token
+)
+h.check("a coordinator can delete a template", h.ok(status), f"status {status}")
+
+status, _ = h.req(
+    "GET", f"/api/collections/tour_spots/records/{disposable_stop['id']}", coord_token
+)
+h.check("...and its stop list goes with it", status >= 400, f"status {status}")
+
+status, survived = h.req(
+    "GET", f"/api/collections/tour_runs/records/{disposable_run['id']}", coord_token
+)
+h.check(
+    "...but the round walked under it stands",
+    status == 200 and not (survived or {}).get("tour"),
+    f"status {status} — a deleted route must not erase last spring's rounds",
+)
+h.check(
+    "...and still says what it was called",
+    (survived or {}).get("tour_name") == "Wegwerftour",
+    f"{(survived or {}).get('tour_name')} — an id whose target is gone "
+    "describes the past wrongly: 'a run of (nothing)'",
+)
+
+status, _ = h.req(
+    "GET", f"/api/collections/visits/records/{orphan_visit}", coord_token
+)
+h.check(
+    "...and so does the visit made on it",
+    status == 200,
+    f"status {status} — the visit is the observation this app exists to keep; "
+    "the round is only the bag it was carried in",
+)
+
+
 # ── The delete-effect registry ─────────────────────────────────────────────
 #
 # A cascading delete does not LEAVE a forgotten collection behind. It DESTROYS
@@ -2251,6 +2677,11 @@ DELETE_EFFECTS = {
     "findings.nest": "a finding attached to a nest goes when the nest goes",
     "follow_ups.spot": "outstanding Nachkontrollen for the building",
     "follow_ups.nest": "the Halbgelege follow-up for that nest",
+    "tour_spots.tour": "the route's ordered stop list",
+    # Read this one next to the `spots.*` block above. It is the only thing
+    # deleting a Spot destroys that is NOT part of that building's own memory:
+    # a route somebody else walks loses a stop.
+    "tour_spots.spot": "the building's place on every route it was a stop on",
 }
 
 # Relations that deliberately do NOT cascade, with the reason. Listed so that
@@ -2291,6 +2722,22 @@ NO_CASCADE = {
     "follow_ups.created_from_check": "same — the Nachkontrolle outlives the "
                                      "check that caused it",
     "follow_ups.resolved_by_check": "same",
+    "tours.org": "same",
+    "tour_spots.org": "same",
+    "tour_runs.org": "same",
+    # A run is history: it happened, on a day, walked by somebody. Neither the
+    # template it followed nor the account that walked it may take it with them
+    # — which is why the run stores `tour_name` and `started_by_name` beside
+    # both ids. An id whose target is gone describes the past wrongly.
+    "tour_runs.tour": "a retired or deleted route must not erase the rounds "
+                      "walked under it; `tour_name` carries what it was called",
+    "tour_runs.started_by": "a deleted account must not erase the rounds it "
+                            "walked",
+    # The visit is the observation this app exists to keep; the run is only the
+    # bag it was carried in. Discarding an accidentally started run must not
+    # take real field work with it.
+    "visits.tour_run": "deleting a round must never delete the visits made "
+                       "during it",
 }
 
 schema = h.collections(T)
@@ -2472,6 +2919,9 @@ for collection in (
     "findings",
     "follow_ups",
     "nest_state",
+    "tours",
+    "tour_spots",
+    "tour_runs",
 ):
     h.check(
         f"a guest reads nothing from {collection}",

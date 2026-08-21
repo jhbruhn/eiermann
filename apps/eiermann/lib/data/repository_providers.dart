@@ -76,6 +76,36 @@ Future<NestEggsRepository> nestEggsRepository(Ref ref) async =>
 Future<VisitsRepository> visitsRepository(Ref ref) async =>
     VisitsRepository(await _client(ref));
 
+/// The route templates: "Tour 1" as a shared name and identity.
+@Riverpod(keepAlive: true)
+Future<ToursRepository> toursRepository(Ref ref) async =>
+    ToursRepository(await _client(ref));
+
+/// The ordered stops of a route.
+///
+/// Its own repository rather than a method on [toursRepository], because
+/// `tour_spots` is its own collection with its own rules — only `sort_index` is
+/// editable, so a stop cannot be quietly re-pointed at another building.
+@Riverpod(keepAlive: true)
+Future<TourStopsRepository> tourStopsRepository(Ref ref) async =>
+    TourStopsRepository(await _client(ref));
+
+/// One walking of a route — including the improvised one, which has no
+/// template at all.
+@Riverpod(keepAlive: true)
+Future<TourRunsRepository> tourRunsRepository(Ref ref) async =>
+    TourRunsRepository(await _client(ref));
+
+/// The READ side of `visits`.
+///
+/// Separate from [visitsRepository] because the collection has no create rule:
+/// the endpoint above is the only writer, and this type has no write methods at
+/// all. A round's progress is these rows and nothing else — there is no
+/// per-stop progress table.
+@Riverpod(keepAlive: true)
+Future<VisitLogRepository> visitLogRepository(Ref ref) async =>
+    VisitLogRepository(await _client(ref));
+
 /// The Nachkontrollen — the second date that beats the rhythm.
 @Riverpod(keepAlive: true)
 Future<FollowUpsRepository> followUpsRepository(Ref ref) async =>

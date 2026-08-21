@@ -1,3 +1,4 @@
+import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
@@ -14,6 +15,8 @@ import '../../support/harness.dart';
 class _MockOverview extends Mock implements SpotOverviewRepository {}
 
 class _MockFollowUps extends Mock implements FollowUpsRepository {}
+
+class _MockTourRuns extends Mock implements TourRunsRepository {}
 
 SpotOverview overview({
   required String id,
@@ -48,6 +51,7 @@ void main() {
   late AppLocalizations de;
   late _MockOverview repo;
   late _MockFollowUps followUps;
+  late _MockTourRuns runs;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -56,21 +60,34 @@ void main() {
   setUp(() {
     repo = _MockOverview();
     followUps = _MockFollowUps();
+    runs = _MockTourRuns();
     when(followUps.open).thenAnswer((_) async => []);
+    when(() => runs.openFor(any())).thenAnswer((_) async => null);
   });
 
   Future<void> pump(
     WidgetTester tester,
     List<SpotOverview> rows, {
     List<FollowUp> open = const [],
+    TourRun? openRun,
   }) async {
     when(() => repo.search(any())).thenAnswer((_) async => rows);
     when(followUps.open).thenAnswer((_) async => open);
+    when(() => runs.openFor(any())).thenAnswer((_) async => openRun);
     await tester.pumpApp(
       const DashboardScreen(),
       overrides: [
         spotOverviewRepositoryProvider.overrideWith((ref) async => repo),
         followUpsRepositoryProvider.overrideWith((ref) async => followUps),
+        tourRunsRepositoryProvider.overrideWith((ref) async => runs),
+        currentUserProvider.overrideWith(
+          (ref) async => const AppUser(
+            id: 'u1',
+            email: 'feld@eiermann.test',
+            role: UserRole.member,
+            org: 'org00000default',
+          ),
+        ),
       ],
     );
     await tester.pumpAndSettle();
@@ -284,5 +301,36 @@ void main() {
       expect(find.text(de.dashboardHalfClutchTitle), findsNothing);
       expect(find.byType(KpiCard), findsWidgets);
     });
+  });
+  testWidgets('an open round is offered above everything else', (tester) async {
+    // Above even the Halbgelege, and that is a ranking of INTERRUPTION rather
+    // than of importance: somebody who left a round half-walked and reopened
+    // the app is in the middle of something, and the first thing they need is
+    // the way back into it.
+    await pump(
+      tester,
+      [overview(id: 's1', urgency: SpotUrgency.overdue.rank)],
+      open: [followUp()],
+      openRun: TourRun(
+        id: 'r1',
+        tour: 't1',
+        tourName: 'Tour 1',
+        startedBy: 'u1',
+        startedAt: DateTime.utc(2026, 8, 21, 7),
+      ),
+    );
+
+    expect(find.text(de.tourRunResume('Tour 1')), findsOneWidget);
+    final resume = tester.getTopLeft(find.text(de.tourRunResume('Tour 1')));
+    final halfClutch = tester.getTopLeft(
+      find.text(de.dashboardHalfClutchTitle),
+    );
+    expect(resume.dy, lessThan(halfClutch.dy));
+  });
+
+  testWidgets('no open round means no card, not an empty one', (tester) async {
+    await pump(tester, [overview(id: 's1', urgency: SpotUrgency.overdue.rank)]);
+
+    expect(find.textContaining('fortsetzen'), findsNothing);
   });
 }

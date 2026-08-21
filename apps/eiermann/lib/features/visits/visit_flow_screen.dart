@@ -2,6 +2,7 @@ import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/nests/nest_labels.dart';
 import 'package:eiermann/features/nests/nest_list.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
+import 'package:eiermann/features/tours/tours_providers.dart';
 import 'package:eiermann/features/visits/check_labels.dart';
 import 'package:eiermann/features/visits/nest_check_sheet.dart';
 import 'package:eiermann/features/visits/packing_card.dart';
@@ -35,10 +36,19 @@ class VisitFlowScreen extends ConsumerStatefulWidget {
   const VisitFlowScreen({
     required this.spotId,
     this.startSkipped = false,
+    this.tourRun,
     super.key,
   });
 
   final String spotId;
+
+  /// The round this visit is being made on, or null for a lone visit.
+  ///
+  /// Travels in the LOCATION rather than in a provider handed down from the run
+  /// screen: a state restore then comes back on the visit AND still knows it is
+  /// part of a round, which is the case this app has no other answer for — the
+  /// form itself does not survive the process being killed.
+  final String? tourRun;
 
   /// Opens the "nicht geprüft" sheet on arrival — where the dossier's second
   /// button leads.
@@ -134,6 +144,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
         skipReason: skip.reason,
         skipNote: skip.note,
         note: _noteOrNull,
+        tourRun: widget.tourRun,
         // A skipped visit cannot carry checks — the endpoint refuses it, and
         // for a reason worth repeating: a check inside a non-event would be an
         // observation, and the rhythm would advance on a nest nobody saw.
@@ -151,6 +162,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
           spot: widget.spotId,
           outcome: VisitOutcome.checked,
           note: _noteOrNull,
+          tourRun: widget.tourRun,
           checks: _checks.values.toList(),
         ),
   );
@@ -183,6 +195,10 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       // Everything a visit touches at once: the eggs, the nests' rhythm state,
       // the Spot's date, the follow-ups.
       invalidateAfterVisit(ref);
+      // The round's progress IS these visits, so it is stale the moment one
+      // lands. Only when there is a round: a lone visit must not make the
+      // dashboard re-read something it did not change.
+      if (widget.tourRun != null) invalidateRunViews(ref);
       messenger.showSnackBar(
         SnackBar(content: Text(_summary(l10n, draft, result))),
       );

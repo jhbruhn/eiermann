@@ -2,6 +2,7 @@ import 'package:eiermann/features/home/sign_out_action.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
+import 'package:eiermann/features/tours/tours_screen.dart';
 import 'package:eiermann/features/visits/visits_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/router.dart';
@@ -94,6 +95,13 @@ class _Tiles extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(ZugvogelSpacing.md),
         children: [
+          // An open round sits above even the Halbgelege, and that is not a
+          // ranking of importance — it is a ranking of INTERRUPTION. Somebody
+          // who left a round half-walked and reopened the app is in the middle
+          // of something, and the first thing they need is the way back into
+          // it. The Halbgelege below it is the loudest DEADLINE; this is the
+          // loudest unfinished thing.
+          const ContentBounds(child: OpenRunCard()),
           const ContentBounds(child: _HalfClutchBlock()),
           const SizedBox(height: ZugvogelSpacing.md),
           ContentBounds(

@@ -75,6 +75,13 @@ const CODES = {
   nestProtectedNeedsCoordinator: "nest_protected_needs_coordinator",
   nestProtectedNoEggChanges: "nest_protected_no_egg_changes",
 
+  // ── Touren ──
+  tourNotFound: "tour_not_found",
+  tourStopNeedsTour: "tour_stop_needs_tour",
+  tourStopNeedsSpot: "tour_stop_needs_spot",
+  tourStopSpotNotFound: "tour_stop_spot_not_found",
+  tourRunAlreadyFinished: "tour_run_already_finished",
+
   // ── The visit transaction ──
   visitNeedsSpot: "visit_needs_spot",
   visitSpotNotFound: "visit_spot_not_found",
@@ -87,6 +94,8 @@ const CODES = {
   visitNestForeignSpot: "visit_nest_foreign_spot",
   visitEggsRemovedExceedPresent: "visit_eggs_removed_exceed_present",
   visitEggsDoNotBalance: "visit_eggs_do_not_balance",
+  visitTourRunNotFound: "visit_tour_run_not_found",
+  visitTourRunFinished: "visit_tour_run_finished",
   visitIdempotencyKeyReused: "visit_idempotency_key_reused",
 };
 
