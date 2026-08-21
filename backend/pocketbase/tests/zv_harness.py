@@ -81,11 +81,21 @@ class H:
 
     # ── requests ───────────────────────────────────────────────────────────
 
-    def req(self, method, path, token=None, body=None):
-        """Returns (status, parsed_json_or_None)."""
-        headers = {"Content-Type": "application/json"}
+    def req(self, method, path, token=None, body=None, headers=None):
+        """Returns (status, parsed_json_or_None).
+
+        [headers] adds request headers — needed for anything a route reads off
+        the request rather than out of the body, `Idempotency-Key` above all. A
+        transactional endpoint's retry behaviour cannot be tested without it,
+        and an untested retry is the one that writes the visit twice.
+        """
+        request_headers = {"Content-Type": "application/json"}
         if token:
-            headers["Authorization"] = token
+            request_headers["Authorization"] = token
+        for name, value in (headers or {}).items():
+            if value is not None:
+                request_headers[name] = value
+        headers = request_headers
         data = json.dumps(body).encode() if body is not None else None
         r = urllib.request.Request(
             self.base + path, data=data, headers=headers, method=method

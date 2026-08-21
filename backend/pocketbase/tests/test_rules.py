@@ -1081,6 +1081,484 @@ h.check(
 )
 
 
+# ── The visit transaction ──────────────────────────────────────────────────
+#
+# The one property everything else rests on: a partial visit must not be
+# representable. Seven REST writes would make an aborted round produce a visit in
+# which five nests have no check — indistinguishable from five nests somebody
+# deliberately did not touch. So the collections are closed and the endpoint is
+# the only door.
+
+print("\n[the visit transaction]")
+
+VISIT = "/api/eiermann/visit"
+
+
+def counts(token):
+    """How many visits, checks, eggs and findings exist right now."""
+    out = {}
+    for name in ("visits", "nest_checks", "nest_eggs", "findings", "follow_ups"):
+        _, body = h.req("GET", f"/api/collections/{name}/records?perPage=1", token)
+        out[name] = (body or {}).get("totalItems", 0)
+    return out
+
+
+def post_visit(token, payload, key=None):
+    return h.req("POST", VISIT, token, payload,
+                 headers={"Idempotency-Key": key} if key else None)
+
+
+vhost = h.mk(coord_token, "spots", {"org": ORG, "name": "Besuchshaus", "phase": "active"})
+varea = h.mk(
+    coord_token, "areas", {"org": ORG, "spot": vhost["id"], "name": "Dachboden"}
+)
+
+
+def mknest(label, species="feral_pigeon"):
+    return h.mk(
+        coord_token,
+        "nests",
+        {"org": ORG, "area": varea["id"], "label": label, "species": species,
+         "status": "active"},
+    )
+
+
+vn1 = mknest("V1")
+vn2 = mknest("V2")
+
+# The three collections the endpoint owns are closed to clients in every
+# direction. This is what makes the transaction the only path.
+for name, payload in (
+    ("visits", {"org": ORG, "spot": vhost["id"], "visited_at": h.stamp(),
+                "outcome": "checked"}),
+    ("nest_checks", {"org": ORG, "nest": vn1["id"], "state": "empty",
+                     "checked_at": h.stamp()}),
+    ("nest_eggs", {"org": ORG, "nest": vn1["id"], "slot_index": 0,
+                   "kind": "dummy", "since": h.stamp()}),
+):
+    status, _ = h.req("POST", f"/api/collections/{name}/records", coord_token, payload)
+    h.check(
+        f"a client cannot create a {name} row directly",
+        status >= 400,
+        f"status {status} — the endpoint has to be the only writer, or a "
+        "partial visit becomes representable again",
+    )
+
+status, _ = h.req("POST", VISIT, None, {"spot": vhost["id"], "outcome": "checked"})
+h.check("the endpoint refuses an anonymous caller", status == 401, f"status {status}")
+
+status, _ = post_visit(roleless_token, {"spot": vhost["id"], "outcome": "checked"})
+h.check(
+    "...and a role-less account",
+    status >= 400,
+    f"status {status} — a custom route does not inherit the clause every access "
+    "rule opens with; forgetting it makes the endpoint the one door a "
+    "deactivated account can still walk through",
+)
+
+# THE ROLLBACK. One good nest and one that does not belong to this Spot: nothing
+# at all may be written, because the alternative is a visit that claims one nest
+# was checked and says nothing about the other.
+other_spot = h.mk(coord_token, "spots", {"org": ORG, "name": "Anderes", "phase": "active"})
+other_area = h.mk(
+    coord_token, "areas", {"org": ORG, "spot": other_spot["id"], "name": "Fremd"}
+)
+stranger = h.mk(
+    coord_token,
+    "nests",
+    {"org": ORG, "area": other_area["id"], "label": "X1", "species": "feral_pigeon",
+     "status": "active"},
+)
+
+before = counts(coord_token)
+status, body = post_visit(
+    member_token,
+    {
+        "spot": vhost["id"],
+        "outcome": "checked",
+        "checks": [
+            {"nest": vn1["id"], "state": "empty"},
+            {"nest": stranger["id"], "state": "empty"},
+        ],
+    },
+)
+h.check("a nest from another Spot is refused", status == 400, f"status {status}")
+after = counts(coord_token)
+h.check(
+    "...and NOTHING was written — the whole visit rolled back",
+    after == before,
+    f"{before} -> {after}: the first nest's check survived a failure on the "
+    "second, which is exactly the state that cannot be told apart from a nest "
+    "somebody chose not to touch",
+)
+
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked",
+     "checks": [{"nest": vn1["id"], "state": "empty"},
+                {"nest": vn1["id"], "state": "swapped"}]},
+)
+h.check(
+    "one nest cannot be checked twice in one visit",
+    status == 400,
+    f"status {status} — both cannot be true, and the rhythm would apply twice",
+)
+
+status, _ = post_visit(
+    member_token, {"spot": "nonexistentspot", "outcome": "checked", "checks": []}
+)
+h.check("a visit to a Spot that does not exist is refused", status == 400)
+
+status, _ = post_visit(member_token, {"spot": vhost["id"], "outcome": "skipped"})
+h.check(
+    "a skipped visit needs a reason",
+    status == 400,
+    f"status {status} — without one the record cannot say whether anybody tried",
+)
+
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "skipped", "skip_reason": "no_key",
+     "checks": [{"nest": vn1["id"], "state": "empty"}]},
+)
+h.check(
+    "a skipped visit cannot carry nest checks",
+    status == 400,
+    f"status {status} — a skip documents a non-event; a check inside one is an "
+    "observation, and the rhythm would advance on a nest nobody saw",
+)
+
+# The arithmetic is the server's.
+for label, payload, why in (
+    ("more real eggs removed than were there",
+     {"state": "swapped", "real_before": 1, "removed_real": 3, "added_dummy": 3},
+     "the count would go negative"),
+    ("client numbers that do not add up",
+     {"state": "swapped", "real_before": 2, "removed_real": 2, "added_dummy": 2,
+      "real_after": 2, "dummy_after": 0},
+     "the two sides disagree about what happened, and overwriting would hide a "
+     "bug in the form"),
+):
+    body = dict(payload)
+    body["nest"] = vn1["id"]
+    status, _ = post_visit(
+        member_token,
+        {"spot": vhost["id"], "outcome": "checked", "checks": [body]},
+    )
+    h.check(f"refused: {label}", status == 400, f"status {status} — {why}")
+
+# A real round.
+status, body = post_visit(
+    member_token,
+    {
+        "spot": vhost["id"],
+        "outcome": "checked",
+        "note": "Erste Runde",
+        "checks": [
+            {"nest": vn1["id"], "state": "swapped", "real_before": 2,
+             "dummy_before": 0, "removed_real": 2, "added_dummy": 2},
+            {"nest": vn2["id"], "state": "swapped", "real_before": 2,
+             "dummy_before": 0, "removed_real": 1, "added_dummy": 1},
+        ],
+        "findings": [{"kind": "dead_bird", "count": 1, "note": "unter dem Fenster"}],
+    },
+    key="suite-round-1",
+)
+h.check("a complete visit is accepted", status == 200, f"status {status} {body}")
+written = {c["nest"]: c["state"] for c in (body or {}).get("checks") or []}
+h.check(
+    "a swap that leaves a real egg behind is RECONCILED to partial",
+    written.get(vn2["id"]) == "partial",
+    f"{written} — the client called it swapped; the follow-up that keeps a half "
+    "clutch from hatching unnoticed hangs off this flag, so it is derived from "
+    "the arithmetic rather than trusted",
+)
+h.check(
+    "...and a clean swap stays swapped",
+    written.get(vn1["id"]) == "swapped",
+    str(written),
+)
+
+_, eggs = h.req(
+    "GET",
+    f"/api/collections/nest_eggs/records?filter=nest='{vn2['id']}'&sort=slot_index",
+    member_token,
+)
+kinds = [e["kind"] for e in (eggs or {}).get("items") or []]
+h.check(
+    "the nest now holds exactly what the check says",
+    kinds == ["real", "dummy"],
+    f"{kinds} — nest_eggs is derived from the checks; two writers of derived "
+    "state drift and no screen can show which is wrong",
+)
+
+_, ups = h.req(
+    "GET",
+    f"/api/collections/follow_ups/records?filter=nest='{vn2['id']}'",
+    member_token,
+)
+open_ups = [
+    f for f in (ups or {}).get("items") or [] if not f.get("resolved_at")
+]
+h.check(
+    "the Halbgelege created a Nachkontrolle",
+    len(open_ups) == 1 and open_ups[0]["reason"] == "half_clutch",
+    f"{[(f['reason'], f.get('due_at')) for f in open_ups]} — this is field "
+    "problem two: the half clutch is missed, the nest comes round on the normal "
+    "rhythm, and by then the remaining egg has hatched",
+)
+
+_, spot_now = h.req(
+    "GET", f"/api/collections/spots/records/{vhost['id']}", member_token
+)
+h.check(
+    "the Spot's due date is the follow-up, not the ladder",
+    (spot_now or {}).get("next_due_at", "")[:10] == open_ups[0]["due_at"][:10],
+    f"spot {spot_now and spot_now.get('next_due_at')} vs follow-up "
+    f"{open_ups[0]['due_at']} — the Nachkontrolle is earlier, so it wins the "
+    "minimum; that is the entire point of it",
+)
+
+# The retry button. Three presses, one visit.
+before = counts(coord_token)
+for attempt in range(3):
+    status, replayed = post_visit(
+        member_token,
+        {
+            "spot": vhost["id"],
+            "outcome": "checked",
+            "note": "Erste Runde",
+            "checks": [
+                {"nest": vn1["id"], "state": "swapped", "real_before": 2,
+                 "dummy_before": 0, "removed_real": 2, "added_dummy": 2},
+                {"nest": vn2["id"], "state": "swapped", "real_before": 2,
+                 "dummy_before": 0, "removed_real": 1, "added_dummy": 1},
+            ],
+            "findings": [
+                {"kind": "dead_bird", "count": 1, "note": "unter dem Fenster"}
+            ],
+        },
+        key="suite-round-1",
+    )
+    h.check(
+        f"retry {attempt + 1} replays the stored response",
+        status == 200 and (replayed or {}).get("visit") == body.get("visit"),
+        f"status {status}, visit {(replayed or {}).get('visit')} vs "
+        f"{body.get('visit')}",
+    )
+h.check(
+    "...and no second visit was written",
+    counts(coord_token) == before,
+    "'press it three times' has to mean three times, or the retry button "
+    "produces the damage it exists to avoid",
+)
+
+status, reused = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "skipped", "skip_reason": "no_key"},
+    key="suite-round-1",
+)
+h.check(
+    "the same key with a DIFFERENT body is a 409",
+    status == 409,
+    f"status {status} — answering with the first visit's response would mean "
+    "the second visit is never written while the app reports success",
+)
+
+# Order-independence: the same body with its JSON keys shuffled is the same
+# request. `e.requestInfo().body` arrives from a Go map, whose iteration order Go
+# randomises, so a naive hash of it differs on every request and turns every
+# legitimate retry into a 409.
+status, shuffled = post_visit(
+    member_token,
+    {
+        "findings": [
+            {"note": "unter dem Fenster", "count": 1, "kind": "dead_bird"}
+        ],
+        "checks": [
+            {"added_dummy": 2, "state": "swapped", "nest": vn1["id"],
+             "removed_real": 2, "dummy_before": 0, "real_before": 2},
+            {"added_dummy": 1, "state": "swapped", "nest": vn2["id"],
+             "removed_real": 1, "dummy_before": 0, "real_before": 2},
+        ],
+        "note": "Erste Runde",
+        "outcome": "checked",
+        "spot": vhost["id"],
+    },
+    key="suite-round-1",
+)
+h.check(
+    "reordered JSON keys still count as the same request",
+    status == 200 and (shuffled or {}).get("visit") == body.get("visit"),
+    f"status {status} — the fingerprint has to be canonical, or a client that "
+    "re-serialises its body between attempts cannot retry at all",
+)
+
+
+# ── The ladder, through the endpoint ───────────────────────────────────────
+
+print("\n[the rhythm]")
+
+ladder_nest = mknest("L1")
+
+
+def empty_check(nest_id, when):
+    status, _ = post_visit(
+        member_token,
+        {"spot": vhost["id"], "outcome": "checked", "visited_at": when,
+         "checks": [{"nest": nest_id, "state": "empty"}]},
+    )
+    return status
+
+
+def nest_now(nest_id):
+    _, body = h.req(
+        "GET", f"/api/collections/nests/records/{nest_id}", member_token
+    )
+    return body or {}
+
+
+for i in range(3):
+    empty_check(ladder_nest["id"], h.stamp(days=-30 + i))
+state = nest_now(ladder_nest["id"])
+h.check(
+    "three empty checks advance the ladder one rung",
+    state.get("empty_streak") == 3 and state.get("interval_days") == 14,
+    f"streak={state.get('empty_streak')} interval={state.get('interval_days')}",
+)
+
+for i in range(3):
+    empty_check(ladder_nest["id"], h.stamp(days=-20 + i))
+state = nest_now(ladder_nest["id"])
+h.check(
+    "six advance it to the cap",
+    state.get("empty_streak") == 6 and state.get("interval_days") == 28,
+    f"streak={state.get('empty_streak')} interval={state.get('interval_days')}",
+)
+
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(days=-1),
+     "checks": [{"nest": ladder_nest["id"], "state": "swapped", "real_before": 1,
+                 "dummy_before": 0, "removed_real": 1, "added_dummy": 1}]},
+)
+state = nest_now(ladder_nest["id"])
+h.check(
+    "one egg drops it straight back to base, from any height",
+    state.get("empty_streak") == 0 and state.get("interval_days") == 7,
+    f"streak={state.get('empty_streak')} interval={state.get('interval_days')} — "
+    "the two errors do not cost the same: checking a dead nest too often wastes "
+    "an hour, checking a live one too rarely means a clutch hatches",
+)
+
+unreached = mknest("U1")
+empty_check(unreached["id"], h.stamp(days=-10))
+before_state = nest_now(unreached["id"])
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "checks": [{"nest": unreached["id"], "state": "not_reachable"}]},
+)
+h.check("a not_reachable check is accepted", status == 200, f"status {status}")
+after_state = nest_now(unreached["id"])
+h.check(
+    "...and moves the rhythm NOT AT ALL",
+    (after_state.get("empty_streak"), after_state.get("next_due_at"))
+    == (before_state.get("empty_streak"), before_state.get("next_due_at")),
+    f"{before_state.get('empty_streak')}/{before_state.get('next_due_at')} -> "
+    f"{after_state.get('empty_streak')}/{after_state.get('next_due_at')} — "
+    "somebody tried and could not get to it; treating that as 'looked, found "
+    "nothing' stretches the interval on a nest nobody has seen, the one "
+    "direction the rhythm must never drift",
+)
+
+# A later check on the nest settles the Nachkontrolle — not time passing.
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked", "visited_at": h.stamp(),
+     "checks": [{"nest": vn2["id"], "state": "swapped", "real_before": 1,
+                 "dummy_before": 1, "removed_real": 1, "added_dummy": 1}]},
+)
+h.check("the return visit completes the swap", status == 200, f"status {status}")
+_, ups = h.req(
+    "GET",
+    f"/api/collections/follow_ups/records?filter=nest='{vn2['id']}'",
+    member_token,
+)
+items = (ups or {}).get("items") or []
+h.check(
+    "the Nachkontrolle is resolved by the check that completed the swap",
+    all(f.get("resolved_at") for f in items),
+    f"{[(f['reason'], f.get('resolved_at')) for f in items]}",
+)
+h.check(
+    "...and no second one was stacked on top",
+    len([f for f in items if not f.get("resolved_at")]) == 0,
+    "a nest that is partial twice running would otherwise show up twice in the "
+    "due list with two dates",
+)
+
+# The protected guard, on the transactional path.
+guarded = mknest("P1", species="protected")
+before = counts(coord_token)
+status, body = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked",
+     "checks": [
+         {"nest": vn1["id"], "state": "empty"},
+         {"nest": guarded["id"], "state": "swapped", "real_before": 2,
+          "dummy_before": 0, "removed_real": 2, "added_dummy": 2},
+     ]},
+)
+h.check(
+    "an egg swap on a protected nest is refused",
+    status == 400,
+    f"status {status}",
+)
+h.check("...naming the law", "§44" in str(body), str(body)[:200])
+h.check(
+    "...and the OTHER nest's check rolled back with it",
+    counts(coord_token) == before,
+    "a warning would be the wrong shape here: §44 BNatSchG is not advisory, so "
+    "the visit fails rather than writing the rest and skipping this nest",
+)
+
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked",
+     "checks": [{"nest": guarded["id"], "state": "untouched",
+                 "note": "Dohle sitzt drauf"}]},
+)
+h.check(
+    "but the nest can still be OBSERVED and noted",
+    status == 200,
+    f"status {status} — the guard is on touching the eggs, not on recording "
+    "what is there",
+)
+
+undetermined = mknest("Q1", species="unknown")
+status, _ = post_visit(
+    member_token,
+    {"spot": vhost["id"], "outcome": "checked",
+     "checks": [{"nest": undetermined["id"], "state": "protected",
+                 "species_label": "Turmfalke"}]},
+)
+h.check("a nest can be reported protected on a visit", status == 200, f"status {status}")
+state = nest_now(undetermined["id"])
+h.check(
+    "...and the NEST is marked, not just the check",
+    state.get("species") == "protected" and state.get("species_label") == "Turmfalke",
+    f"species={state.get('species')!r} label={state.get('species_label')!r} — "
+    "recording only the check would leave the egg-swap path open next visit",
+)
+h.check(
+    "...and it leaves the due lists",
+    not state.get("next_due_at"),
+    "nothing may be DONE there, and a work list that keeps offering an item "
+    "nobody may act on trains people to ignore the list",
+)
+
+
 # ── The delete-effect registry ─────────────────────────────────────────────
 #
 # A cascading delete does not LEAVE a forgotten collection behind. It DESTROYS
@@ -1102,14 +1580,35 @@ h.check(
 print("\n[delete-effect registry]")
 
 # collection.field -> what deleting the PARENT row destroys.
+# Read the `spots.*` rows together before touching any of them. Deleting ONE
+# Spot now destroys, in one 200: its Bereiche and their photos, every nest,
+# every check ever recorded on those nests, the current egg state, every visit
+# to the building, every finding, every photo that belonged to no nest, and
+# every outstanding Nachkontrolle. That is the entire memory of a building.
+#
+# Which is the argument for `phase = closed`, and why deleting is
+# coordinator-only: closing keeps all of it. If the list below ever looks
+# alarming, that is the list working.
 DELETE_EFFECTS = {
-    # A Spot is the dossier. Deleting one is coordinator-only for exactly this
-    # reason, and the alternative — closing it — keeps all of the below.
     "areas.spot": "the Bereich, its photo, and every nest in it",
     "spot_contacts.spot": "the caretaker's name and phone number (this IS the "
                           "retention policy — there is no scrub cron)",
     "nests.spot": "every nest in the building, and its whole check history",
     "nests.area": "every nest pinned on that Bereich's photo",
+    "visits.spot": "every visit ever made to the building",
+    "visit_photos.visit": "the door, the new lock, the scaffolding",
+    "nest_checks.visit": "what was found on that trip",
+    "nest_checks.nest": "the nest's whole history — the answer to 'what was in "
+                        "here in April'",
+    "nest_eggs.nest": "the current egg state; derived, so this one is "
+                      "recoverable in principle and the checks above are not",
+    "findings.visit": "the dead birds, chicks and structural changes recorded "
+                      "on that trip",
+    "findings.spot": "the same, reached the other way — findings are "
+                     "denormalised onto the Spot",
+    "findings.nest": "a finding attached to a nest goes when the nest goes",
+    "follow_ups.spot": "outstanding Nachkontrollen for the building",
+    "follow_ups.nest": "the Halbgelege follow-up for that nest",
 }
 
 # Relations that deliberately do NOT cascade, with the reason. Listed so that
@@ -1127,6 +1626,29 @@ NO_CASCADE = {
     "users.invited_by": "deleting an inviter must never delete the people they "
                         "invited — that would take out the whole team from one "
                         "coordinator's account",
+    "visits.org": "same",
+    "visit_photos.org": "same",
+    "nest_checks.org": "same",
+    "nest_eggs.org": "same",
+    "findings.org": "same",
+    "follow_ups.org": "same",
+    # An author is a relation to an account, and an account CAN be deleted. It
+    # must not take the record with it: a visit somebody made still happened
+    # after they leave, and the history has to stand. This is why every
+    # audit-shaped row also stores `author_name` — an id whose target is gone
+    # tells the past wrongly, and a relation without a snapshot beside it is a
+    # bug.
+    "visits.author": "a deleted account must not erase the visits it recorded",
+    "nest_checks.author": "same — the check stands, `author_name` carries who",
+    "findings.author": "same",
+    # A check is immutable and nothing can delete one, so these never fire. They
+    # are non-cascading deliberately rather than by default, so that a future
+    # cascade on checks cannot silently reach into the follow-ups and the eggs.
+    "nest_eggs.source_check": "checks are immutable; a cascade here would be a "
+                              "path that must not come to exist",
+    "follow_ups.created_from_check": "same — the Nachkontrolle outlives the "
+                                     "check that caused it",
+    "follow_ups.resolved_by_check": "same",
 }
 
 schema = h.collections(T)

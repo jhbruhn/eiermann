@@ -73,6 +73,37 @@ function positiveNumber(settings, key, fallback, opts) {
   return n > 0 || (allowZero && n === 0) ? n : fallback;
 }
 
+/**
+ * An ascending list of positive numbers, else [fallback].
+ *
+ * For settings that are LADDERS — eiermann's `interval_steps` ([7, 14, 28]:
+ * base, stretched, cap). Three properties are checked rather than assumed,
+ * because each failure is silent and lands somewhere far away:
+ *
+ *   * not an array, or empty → the whole ladder is missing, and a caller
+ *     indexing into it gets `undefined`, which becomes `NaN` in a date
+ *     computation and a nest that is never due again;
+ *   * a non-number or a non-positive entry → same, one rung in;
+ *   * not ascending → the "cap" is not the largest value, so a nest that has
+ *     been empty longest gets checked most often. Nothing errors; the rhythm
+ *     just quietly inverts.
+ *
+ * A rejected ladder falls back WHOLE. Repairing it entry by entry would produce
+ * a third ladder that neither the admin nor this code intended.
+ */
+function positiveNumberList(settings, key, fallback) {
+  const raw = settings ? settings[key] : null;
+  if (!Array.isArray(raw) || raw.length === 0) return fallback;
+  const out = [];
+  for (const entry of raw) {
+    const n = parseFloat(entry);
+    if (isNaN(n) || n <= 0) return fallback;
+    if (out.length && n < out[out.length - 1]) return fallback;
+    out.push(n);
+  }
+  return out;
+}
+
 /** True only when the org explicitly opted in — anything else is off. */
 function flag(settings, key) {
   return !!settings && settings[key] === true;
@@ -81,5 +112,6 @@ function flag(settings, key) {
 module.exports = {
   settingsOf: settingsOf,
   positiveNumber: positiveNumber,
+  positiveNumberList: positiveNumberList,
   flag: flag,
 };
