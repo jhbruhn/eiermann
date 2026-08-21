@@ -1765,6 +1765,138 @@ h.check(
 )
 
 
+# ── nest_state ─────────────────────────────────────────────────────────────
+#
+# The nest list in the dossier reads this and nothing else, so the same two
+# things hold as for spot_overview: a view does NOT inherit the rules of the
+# tables under it, and its computed columns are a contract the client sorts and
+# draws by.
+#
+# Placed here on purpose — after the rhythm and the protected-species sections —
+# because the interesting rows only exist once something has driven them: a nest
+# with eggs in it, a nest the ladder has given a due date, and a nest a visit
+# reported as protected.
+
+print("\n[nest_state]")
+
+status, body = h.req("GET", "/api/collections/nest_state/records", member_token)
+h.check("a member reads the nest states", status == 200, f"status {status}")
+h.check("...and it has rows", bool((body or {}).get("items")))
+
+h.check(
+    "the view is NOT readable anonymously",
+    h.reads_nothing("nest_state"),
+    "a view does not inherit the rules of the tables under it",
+)
+h.check(
+    "a role-less account reads no nest states",
+    h.reads_nothing("nest_state", roleless_token),
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/nest_state/records", coord_token,
+    {"org": ORG, "label": "nope"},
+)
+h.check("the view is not writable, by anybody", status >= 400, f"status {status}")
+
+# Created by a member OF that org, not by the superuser: the nest hook derives
+# `spot` from the area and checks the area against the CALLER's org, and a
+# superuser has no org at all — measured, a superuser cannot create a nest.
+foreign_member = h.mkuser(
+    T, "fremd@eiermann.test", "member", "org00000foreign"
+)
+_, foreign_token = h.login("fremd@eiermann.test", h.user_pass)
+foreign_nest = h.mk(
+    foreign_token,
+    "nests",
+    {"org": "org00000foreign", "area": foreign_area["id"], "label": "F1",
+     "species": "feral_pigeon", "status": "active"},
+)
+h.check(
+    "another org's nest is not in the view at all",
+    h.reads_nothing("nest_state", member_token, record_id=foreign_nest["id"]),
+    "org scope on the view itself, not borrowed from `nests`",
+)
+
+
+def state_of(nest_id):
+    _, body = h.req(
+        "GET", f"/api/collections/nest_state/records/{nest_id}", member_token
+    )
+    return body or {}
+
+
+# The counts ARE the Ist-Gelege, so they have to equal the rows they count. A
+# view that drifted here would show a swapped nest as empty — which reads as
+# "nothing to pack" at the car.
+_, eggs = h.req(
+    "GET",
+    f"/api/collections/nest_eggs/records?filter=nest='{vn2['id']}'&perPage=200",
+    coord_token,
+)
+egg_rows = (eggs or {}).get("items") or []
+real = len([e for e in egg_rows if e.get("kind") == "real"])
+dummy = len([e for e in egg_rows if e.get("kind") == "dummy"])
+row = state_of(vn2["id"])
+h.check(
+    "the egg counts equal the egg rows",
+    row.get("real_count") == real and row.get("dummy_count") == dummy,
+    f"view says {row.get('real_count')}/{row.get('dummy_count')}, "
+    f"nest_eggs has {real}/{dummy}",
+)
+h.check(
+    "...and there were eggs to count in the first place",
+    real + dummy > 0,
+    "a count of zero against zero rows would pass over a broken subquery",
+)
+h.check(
+    "the oldest egg's date comes out as the raw stored value",
+    row.get("oldest_since") == min(e.get("since") for e in egg_rows),
+    f"{row.get('oldest_since')!r} — the client subtracts these dates, so a "
+    "value computed in SQL would be a day out in CET",
+)
+
+# The urgency ladder. Everything the client sorts by, and three of the six rungs
+# cannot be reached by writing a field: `next_due_at` is refused from a client,
+# so a due rank exists only where the rhythm put one.
+gone_nest = mknest("G1")
+status, _ = h.req(
+    "PATCH", f"/api/collections/nests/records/{gone_nest['id']}", coord_token,
+    {"status": "gone"},
+)
+h.check("a nest can be recorded as gone", h.ok(status), f"status {status}")
+h.check(
+    "a gone nest ranks last",
+    state_of(gone_nest["id"]).get("urgency") == 5,
+    f"rank {state_of(gone_nest['id']).get('urgency')} — it is recorded history, "
+    "not work",
+)
+h.check(
+    "a protected nest has a rank of its OWN, not a due rank",
+    state_of(undetermined["id"]).get("urgency") == 4,
+    f"rank {state_of(undetermined['id']).get('urgency')} — nothing may be done "
+    "there, and it must still be visible before somebody goes up",
+)
+fresh = mknest("N0")
+h.check(
+    "a nest with no due date yet ranks as in-rhythm, not overdue",
+    state_of(fresh["id"]).get("urgency") == 3,
+    "a nest nobody has checked is not overdue, and painting every fresh nest "
+    "red is how a colour stops being read",
+)
+
+due_row = state_of(ladder_nest["id"])
+due = (due_row.get("next_due_at") or "")[:10]
+today = h.stamp()[:10]
+expected = 0 if due < today else (1 if due == today else 2)
+h.check(
+    "a nest the rhythm dated ranks by that date",
+    due and due_row.get("urgency") == expected,
+    f"due {due!r} against today {today!r} ranked {due_row.get('urgency')}, "
+    f"expected {expected}",
+)
+
+
 # ── The delete-effect registry ─────────────────────────────────────────────
 #
 # A cascading delete does not LEAVE a forgotten collection behind. It DESTROYS
