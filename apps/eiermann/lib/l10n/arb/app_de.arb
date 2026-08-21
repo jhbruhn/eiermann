@@ -948,6 +948,13 @@
   "@findingSiteChangeHint": {
     "description": "Separates the observation from the decision. A netted building is a fact; closing the Spot is a decision about the programme, and the second does not follow from the first without somebody saying so."
   },
+  "findingCloseOfferTitle": "Spot schließen?",
+  "findingCloseOfferMessage": "Der Besuch ist gespeichert, die bauliche Veränderung auch. Fällt das Gebäude damit aus dem Programm, kannst du den Spot jetzt schließen — mit Grund, damit später nachvollziehbar ist, warum.\nNicht jetzt heißt nicht verloren: der Fund steht in der Chronologie, und schließen geht vom Dossier aus jederzeit.",
+  "@findingCloseOfferMessage": {
+    "description": "Offered only AFTER the visit is written. A structural change is a fact about the building; closing the Spot is a decision about the programme, and the second does not follow from the first without somebody saying so. The second sentence is what makes declining safe — a volunteer who fears losing the entry will close a Spot they were unsure about."
+  },
+  "findingCloseOfferConfirm": "Spot schließen",
+  "findingCloseOfferDismiss": "Nicht jetzt",
   "findingApplyAction": "Übernehmen",
   "findingDiscardAction": "Fund verwerfen",
   "visitFlowSummaryFindings": "{count, plural, =1{1 Fund} other{{count} Funde}}",

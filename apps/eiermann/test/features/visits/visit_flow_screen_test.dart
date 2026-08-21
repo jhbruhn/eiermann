@@ -15,6 +15,8 @@ class _MockNestState extends Mock implements NestStateRepository {}
 
 class _MockEggs extends Mock implements NestEggsRepository {}
 
+class _MockSpots extends Mock implements SpotsRepository {}
+
 NestState nestRow({String id = 'n1', String label = 'N1'}) => NestState(
   id: id,
   label: label,
@@ -28,18 +30,30 @@ void main() {
   late _MockVisits visits;
   late _MockNestState nestStates;
   late _MockEggs eggs;
+  late _MockSpots spots;
+
+  /// The building, as the closing offer re-reads it after the write.
+  const spot = Spot(
+    id: 's1',
+    name: 'Bahnhofstraße 12',
+    phase: SpotPhase.active,
+  );
 
   setUpAll(() async {
     de = await germanStrings();
     registerFallbackValue(
       const VisitDraft(spot: 's1', outcome: VisitOutcome.checked),
     );
+    registerFallbackValue(<String, dynamic>{});
   });
 
   setUp(() {
     visits = _MockVisits();
     nestStates = _MockNestState();
     eggs = _MockEggs();
+    spots = _MockSpots();
+    when(() => spots.getOne(any())).thenAnswer((_) async => spot);
+    when(() => spots.update(any(), any())).thenAnswer((_) async => spot);
     when(() => nestStates.forSpot(any())).thenAnswer((_) async => [nestRow()]);
     when(() => eggs.forNest(any())).thenAnswer(
       (_) async => [
@@ -87,6 +101,7 @@ void main() {
         visitsRepositoryProvider.overrideWith((ref) async => visits),
         nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
         nestEggsRepositoryProvider.overrideWith((ref) async => eggs),
+        spotsRepositoryProvider.overrideWith((ref) async => spots),
       ],
     );
     await tester.tap(find.text('go'));
@@ -450,6 +465,10 @@ void main() {
     await press(tester, de.visitSkipAction);
     await press(tester, de.skipReasonAccessBlocked);
     await press(tester, de.visitSkipConfirmAction);
+    // The structural change offers the closing here too, and it should: "Netz
+    // an der Nordseite, nicht mehr reingekommen" is exactly the visit after
+    // which somebody decides. Declined, so this test stays about the body.
+    await press(tester, de.findingCloseOfferDismiss);
 
     final draft =
         verify(
@@ -488,5 +507,99 @@ void main() {
             as VisitDraft;
     expect(draft.findings.single.nest, 'n1');
     expect(draft.findings.single.nestLabel, 'N1');
+  });
+
+  testWidgets('a structural change offers the closing AFTER the write', (
+    tester,
+  ) async {
+    // The order is the point. A netted building is a fact; closing the Spot is
+    // a decision about the programme, and the second does not follow from the
+    // first without somebody saying so. So the Fund is written first and the
+    // question comes second — a volunteer who declines has still recorded what
+    // they saw.
+    await pump(tester);
+    await recordFinding(tester, de.findingKindSiteChange);
+    await press(tester, de.visitFlowFinishAction);
+
+    verify(
+      () => visits.submit(any(), idempotencyKey: any(named: 'idempotencyKey')),
+    ).called(1);
+    expect(find.text(de.findingCloseOfferTitle), findsOneWidget);
+    // Declining leaves the Spot exactly as it was.
+    await press(tester, de.findingCloseOfferDismiss);
+    verifyNever(() => spots.update(any(), any()));
+    expect(find.byType(VisitFlowScreen), findsNothing);
+  });
+
+  testWidgets('accepting the offer opens the ONE closing path', (tester) async {
+    // The same sheet the dossier's phase control opens, not a second closing
+    // route: it is what collects the reason the server requires, and a closing
+    // without one is the state nobody can act on later.
+    await pump(tester);
+    await recordFinding(tester, de.findingKindSiteChange);
+    await press(tester, de.visitFlowFinishAction);
+    await press(tester, de.findingCloseOfferConfirm);
+
+    expect(find.text(de.spotCloseFieldReason), findsOneWidget);
+    await press(tester, de.spotMoveClose);
+    // Refused in the form: a closing needs a reason.
+    verifyNever(() => spots.update(any(), any()));
+
+    await tester.tap(find.text(de.spotCloseFieldReason));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(de.closedReasonNetted).last);
+    await tester.pumpAndSettle();
+    await press(tester, de.spotMoveClose);
+
+    final body =
+        verify(() => spots.update('s1', captureAny())).captured.single
+            as Map<String, dynamic>;
+    expect(body['phase'], SpotPhase.closed.wire);
+    expect(body['closed_reason'], ClosedReason.netted.wire);
+  });
+
+  testWidgets('a dead bird offers nothing', (tester) async {
+    // Offering the closing on every Fund would make the offer meaningless, and
+    // a dead pigeon is the most common entry in this work.
+    await pump(tester);
+    await recordFinding(tester, de.findingKindDeadBird);
+    await press(tester, de.visitFlowFinishAction);
+
+    expect(find.text(de.findingCloseOfferTitle), findsNothing);
+    expect(find.byType(VisitFlowScreen), findsNothing);
+  });
+
+  testWidgets('a Spot that cannot be closed is not offered the move', (
+    tester,
+  ) async {
+    // The transition graph is the server's. Offering a move it refuses is a
+    // button whose only function is to produce an error message.
+    when(() => spots.getOne(any())).thenAnswer(
+      (_) async => const Spot(id: 's1', name: 'Zu', phase: SpotPhase.closed),
+    );
+
+    await pump(tester);
+    await recordFinding(tester, de.findingKindSiteChange);
+    await press(tester, de.visitFlowFinishAction);
+
+    expect(find.text(de.findingCloseOfferTitle), findsNothing);
+    expect(find.byType(VisitFlowScreen), findsNothing);
+  });
+
+  testWidgets('a Spot that cannot be READ costs the offer, not the visit', (
+    tester,
+  ) async {
+    // The visit is already written by the time this runs. An error banner over
+    // a successful visit would tell the volunteer their work failed.
+    when(
+      () => spots.getOne(any()),
+    ).thenAnswer((_) async => throw const RepositoryException('nope'));
+
+    await pump(tester);
+    await recordFinding(tester, de.findingKindSiteChange);
+    await press(tester, de.visitFlowFinishAction);
+
+    expect(find.text(de.visitFlowSendFailedTitle), findsNothing);
+    expect(find.byType(VisitFlowScreen), findsNothing);
   });
 }

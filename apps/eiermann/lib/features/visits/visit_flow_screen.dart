@@ -4,6 +4,8 @@ import 'package:eiermann/features/findings/finding_sheet.dart';
 import 'package:eiermann/features/nests/nest_labels.dart';
 import 'package:eiermann/features/nests/nest_list.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
+import 'package:eiermann/features/spots/spot_phase_sheet.dart';
+import 'package:eiermann/features/spots/spots_providers.dart';
 import 'package:eiermann/features/tours/tours_providers.dart';
 import 'package:eiermann/features/visits/check_labels.dart';
 import 'package:eiermann/features/visits/nest_check_sheet.dart';
@@ -240,6 +242,21 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       messenger.showSnackBar(
         SnackBar(content: Text(_summary(l10n, draft, result))),
       );
+      // AFTER the write, and only then. A structural change is a fact about the
+      // building; closing the Spot is a decision about the programme, and the
+      // second does not follow from the first without somebody saying so. Asked
+      // here rather than left to the dossier because this is the moment the
+      // person knows what they saw — and the offer names that nothing is lost
+      // by declining, because the Fund is already in the chronology.
+      if (draft.suggestsClosing) {
+        // The send is DONE, so the button stops claiming work is in flight.
+        // Left spinning it would turn behind a modal dialog for as long as the
+        // dialog is open, which says "still saving" about a visit that is
+        // saved — and the question on top of it is not about the saving.
+        setState(() => _busy = false);
+        await _offerClosing();
+      }
+      if (!mounted) return;
       navigator.pop();
     } on RepositoryException catch (e) {
       if (!mounted) return;
@@ -256,6 +273,55 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
         _error = strings.errorGenericTitle;
       });
     }
+  }
+
+  /// Offers to close the Spot, after a visit that recorded a structural change.
+  ///
+  /// Everything here is best-effort by design: the visit IS written by the
+  /// time this runs, so a failure to read the Spot, a phase that cannot be
+  /// closed, or a reader who says "nicht jetzt" all end the same way —
+  /// silently, with the Fund recorded. The one thing that must not happen is an
+  /// error banner over a successful visit.
+  Future<void> _offerClosing() async {
+    final Spot spot;
+    try {
+      // Re-read rather than reused: `invalidateAfterVisit` above just dropped
+      // this provider, and the phase is exactly the field a visit can move —
+      // offering to close a Spot the server already closed would be an error
+      // message for pressing the button the app offered.
+      spot = await ref.read(spotProvider(widget.spotId).future);
+    } on Object {
+      return;
+    }
+    if (!mounted) return;
+    // Not every Spot can be closed from where it stands, and the graph is the
+    // server's. Offering a move it refuses is a button whose only function is
+    // to produce an error.
+    if (!spot.allowedPhases.contains(SpotPhase.closed)) return;
+
+    final l10n = context.l10n;
+    final close = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.findingCloseOfferTitle),
+        content: Text(l10n.findingCloseOfferMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.findingCloseOfferDismiss),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.findingCloseOfferConfirm),
+          ),
+        ],
+      ),
+    );
+    if (close != true || !mounted) return;
+    // The SAME sheet the dossier's phase control opens, not a second closing
+    // path. It is what collects the reason the server requires — and a closing
+    // without one is the state nobody can act on later.
+    await showSpotPhaseSheet(context, spot: spot, target: SpotPhase.closed);
   }
 
   /// What the visit did, in one line — the confirmation somebody reads while
