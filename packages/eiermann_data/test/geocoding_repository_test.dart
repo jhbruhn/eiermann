@@ -236,4 +236,92 @@ void main() {
       },
     );
   });
+
+  group('the address parts read back out of displayName', () {
+    // They exist because the proxy returns `city` separately but not the street
+    // or the postcode, and the Spot form fills empty address fields from a pin.
+    // The recipe being inverted is our own (`zv_geocode.js`), not a geocoder's.
+    // See eiermann-8ak for the upstream fix that deletes all of this.
+
+    ({String? street, String? postalCode}) parts(
+      String displayName, {
+      String city = '',
+    }) {
+      final r = GeoResult(
+        lat: 53.1,
+        lon: 8.2,
+        displayName: displayName,
+        city: city,
+      );
+      return (street: r.street, postalCode: r.postalCode);
+    }
+
+    test('the full shape splits into street and postcode', () {
+      final p = parts(
+        'Bahnhofstraße 12, 26122 Oldenburg',
+        city: 'Oldenburg',
+      );
+      expect(p.street, 'Bahnhofstraße 12');
+      expect(p.postalCode, '26122');
+    });
+
+    test('a locality with no postcode gives a street and nothing else', () {
+      final p = parts('Bahnhofstraße 12, Oldenburg', city: 'Oldenburg');
+      expect(p.street, 'Bahnhofstraße 12');
+      expect(p.postalCode, isNull);
+    });
+
+    test('a street on its own is a street, not a locality', () {
+      final p = parts('Am Wall');
+      expect(p.street, 'Am Wall');
+      expect(p.postalCode, isNull);
+    });
+
+    test('a locality on its own yields no street', () {
+      // No road upstream — a bridge underside, a field boundary.
+      final p = parts('26122 Oldenburg', city: 'Oldenburg');
+      expect(p.street, isNull);
+      expect(p.postalCode, '26122');
+    });
+
+    test('a postcode with no city still reads as a postcode', () {
+      final p = parts('Bahnhofstraße 12, 26122');
+      expect(p.street, 'Bahnhofstraße 12');
+      expect(p.postalCode, '26122');
+    });
+
+    test("the geocoder's OWN long form is refused, not half-parsed", () {
+      // The proxy falls back to Nominatim's `display_name` when there was no
+      // road at all. Its first segment is a HOUSE NUMBER, and "3" in a street
+      // field looks exactly like something a person typed.
+      final p = parts(
+        '3, Nachbarhaus, Innenstadt, Oldenburg, Niedersachsen, 26122, '
+        'Deutschland',
+        city: 'Oldenburg',
+      );
+      expect(p.street, isNull);
+      expect(p.postalCode, isNull);
+    });
+
+    test('a house number is never mistaken for a postcode', () {
+      // No city, so the postcode search runs over every segment — and "12" must
+      // not win it.
+      final p = parts('Bahnhofstraße 12');
+      expect(p.street, 'Bahnhofstraße 12');
+      expect(p.postalCode, isNull);
+    });
+
+    test('an empty displayName yields nothing at all', () {
+      final p = parts('');
+      expect(p.street, isNull);
+      expect(p.postalCode, isNull);
+    });
+
+    test('a four-digit postcode works too', () {
+      // Austria and Switzerland, for a group near a border.
+      final p = parts('Hauptstraße 4, 4020 Linz', city: 'Linz');
+      expect(p.street, 'Hauptstraße 4');
+      expect(p.postalCode, '4020');
+    });
+  });
 }

@@ -189,39 +189,82 @@ void main() {
       expect(find.text('Bahnhofstraße 12, Oldenburg'), findsOneWidget);
     });
 
-    testWidgets('a placed pin is CONFIRMED, and its address is not written', (
+    testWidgets('a placed pin FILLS the empty address fields', (tester) async {
+      // The ordinary case: a building with a front door on a street. Retyping
+      // an address the app already knows is pointless work.
+      const found = GeoResult(
+        lat: 53.1435,
+        lon: 8.2146,
+        displayName: 'Bahnhofstraße 12, 26122 Oldenburg',
+        city: 'Oldenburg',
+      );
+      when(
+        () => geocoding.reverse(any(), any()),
+      ).thenAnswer((_) async => found);
+      when(() => geocoding.forward(any())).thenAnswer((_) async => [found]);
+      await openSheet(tester);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, de.spotFieldName),
+        'Bahnhofstraße 12',
+      );
+      await tester.tap(find.text(de.spotPinSetAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Bahnhofstraße 12');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(de.spotPinConfirmAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(de.actionSave));
+      await tester.pumpAndSettle();
+
+      final body = createdBody();
+      expect(body['geo'], {'lon': 8.2146, 'lat': 53.1435});
+      // Somebody looked at the map and put it there.
+      expect(body['geo_confirmed'], true);
+      // Read back out of the proxy's own composed displayName.
+      expect(body['street'], 'Bahnhofstraße 12');
+      expect(body['postal_code'], '26122');
+      expect(body['city'], 'Oldenburg');
+    });
+
+    testWidgets('...and NEVER overwrites what a person already typed', (
       tester,
     ) async {
-      // The invariant the rework turns on. The geocoder's answer is shown as
-      // context so a person can read it; writing it into the address fields is
-      // exactly how a Spot in a courtyard acquires a neighbour's address.
-      // The neighbouring building is what the geocoder has to offer for a light
-      // well; both directions answer with it, which is the realistic case.
+      // The half that keeps this form honest for the case its field order
+      // exists to handle. A courtyard has no address of its own, so what
+      // somebody wrote about it beats the neighbour's official one — and a form
+      // that replaced it would be quietly wrong in exactly that situation.
       const neighbour = GeoResult(
         lat: 53.1435,
         lon: 8.2146,
         displayName: 'Nachbarhaus 3, 26122 Oldenburg',
         city: 'Oldenburg',
       );
-      when(() => geocoding.reverse(any(), any())).thenAnswer(
-        (_) async => neighbour,
-      );
-      when(() => geocoding.forward(any())).thenAnswer((_) async => [neighbour]);
+      when(
+        () => geocoding.reverse(any(), any()),
+      ).thenAnswer((_) async => neighbour);
+      when(
+        () => geocoding.forward(any()),
+      ).thenAnswer((_) async => [neighbour]);
       await openSheet(tester);
       await tester.enterText(
         find.widgetWithText(TextFormField, de.spotFieldName),
         'Lichtschacht hinterm Block',
       );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, de.spotFieldStreet),
+        'Ecke Bahnhofstraße / Am Wall',
+      );
       await tester.tap(find.text(de.spotPinSetAction));
       await tester.pumpAndSettle();
-      // Search inside the picker, which is where address search lives now.
       await tester.enterText(find.byType(TextField), 'Nachbarhaus 3');
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
       await tester.tap(find.text(de.spotPinConfirmAction));
       await tester.pumpAndSettle();
 
-      // Shown as what the map says, not as the Spot's address.
+      // The map's answer stays visible as the provenance — and, here, as the
+      // warning that it belongs to the building next door.
       expect(
         find.text(de.spotPinAccordingToMap('Nachbarhaus 3, 26122 Oldenburg')),
         findsOneWidget,
@@ -231,14 +274,51 @@ void main() {
       await tester.pumpAndSettle();
 
       final body = createdBody();
-      expect(body['geo'], {'lon': 8.2146, 'lat': 53.1435});
-      // Somebody looked at the map and put it there.
-      expect(body['geo_confirmed'], true);
-      // And the address fields are still empty — the courtyard has no address
-      // and did not borrow one.
+      expect(body['street'], 'Ecke Bahnhofstraße / Am Wall');
+      // The empty ones still got filled — the rule is per field, not per form.
+      expect(body['postal_code'], '26122');
+      expect(body['city'], 'Oldenburg');
+    });
+
+    testWidgets('a pin the geocoder cannot name invents no address', (
+      tester,
+    ) async {
+      // A bridge underside. The proxy falls back to the geocoder's own long
+      // form, whose first segment is a house number — "3" in a street field
+      // would look exactly like something a person typed.
+      const unnameable = GeoResult(
+        lat: 53.1435,
+        lon: 8.2146,
+        displayName: '3, Nachbarhaus, Innenstadt, Oldenburg, 26122, '
+            'Deutschland',
+        city: 'Oldenburg',
+      );
+      when(
+        () => geocoding.reverse(any(), any()),
+      ).thenAnswer((_) async => unnameable);
+      when(
+        () => geocoding.forward(any()),
+      ).thenAnswer((_) async => [unnameable]);
+      await openSheet(tester);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, de.spotFieldName),
+        'Unter der Brücke',
+      );
+      await tester.tap(find.text(de.spotPinSetAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Brücke');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(de.spotPinConfirmAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(de.actionSave));
+      await tester.pumpAndSettle();
+
+      final body = createdBody();
       expect(body['street'], '');
-      expect(body['city'], '');
       expect(body['postal_code'], '');
+      // The city IS reliable — the proxy returns it as its own field.
+      expect(body['city'], 'Oldenburg');
     });
   });
 

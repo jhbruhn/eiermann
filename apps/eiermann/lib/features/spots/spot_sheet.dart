@@ -32,11 +32,16 @@ Future<String?> showSpotSheet(BuildContext context, {Spot? spot}) {
 /// get a neighbouring building's address — precise, official-looking and wrong
 /// — or get no location at all and disappear off the map.
 ///
-/// So the pin comes first, it is offered on its own terms, and the address
-/// fields below it are what a person writes for another person ("Ecke
-/// Bahnhofstraße / Am Wall"). The geocoder's answer for the pin is shown as
-/// CONTEXT next to it and never written into those fields: auto-filling them
-/// is exactly how a Spot between buildings acquires a wrong address.
+/// So the pin comes first and the address fields sit below it — what a person
+/// writes for another person ("Ecke Bahnhofstraße / Am Wall").
+///
+/// Placing a pin fills those fields from what the map said, but only the ones
+/// that are still EMPTY. Both halves of that matter. Filling saves retyping an
+/// address the app already knows, which is the ordinary case. Not overwriting
+/// is what keeps this form honest for the case it is shaped around: whatever a
+/// person wrote about a courtyard beats a neighbour's official address, and a
+/// form that replaced it would be quietly wrong in exactly the situation the
+/// order of these fields exists to handle.
 ///
 /// The pin is still not required. A building somebody walked past is worth
 /// recording before anybody has stood in front of it, and the form says what a
@@ -184,12 +189,36 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
     setState(() {
       _geo = picked.point;
       _geoConfirmed = true;
-      // Kept for the line under the control, NOT written into the address
-      // fields. Filling those from a geocoder is exactly how a Spot between
-      // buildings acquires a neighbour's address.
       _resolved = picked.resolved;
+      _fillEmptyAddress(picked.resolved);
       markDirty();
     });
+  }
+
+  /// Fills the address fields that are still EMPTY from what the map said.
+  ///
+  /// Empty only, and that is the whole rule. For the ordinary case — a building
+  /// with a front door on a street — retyping an address the app already knows
+  /// is pointless work. For the case this form is shaped around — a light well,
+  /// a courtyard reached through another building — whatever a person wrote is
+  /// better than a neighbour's address, so anything already typed is left
+  /// exactly as it is. Clearing a field and re-placing the pin is the way to
+  /// take the map's answer instead.
+  ///
+  /// Nothing is invented: `GeoResult.street` and `.postalCode` are null when
+  /// the proxy fell back to the geocoder's own long form, and a null fills
+  /// nothing. A pin under a bridge stays without a street.
+  void _fillEmptyAddress(GeoResult? resolved) {
+    if (resolved == null) return;
+    void fill(TextEditingController field, String? value) {
+      if (field.text.trim().isEmpty && value != null && value.isNotEmpty) {
+        field.text = value;
+      }
+    }
+
+    fill(_street, resolved.street);
+    fill(_postalCode, resolved.postalCode);
+    fill(_city, resolved.city);
   }
 
   @override
@@ -425,10 +454,12 @@ class _PinField extends StatelessWidget {
                           ),
                         ),
                       ],
-                      // What the map thinks is there. Context, not data: the
-                      // address fields below are the person's to write, and a
-                      // Spot between two blocks must not inherit a neighbour's
-                      // address just because the geocoder had one to offer.
+                      // What the map thinks is there, kept visible after the
+                      // fields have been filled from it: it is the provenance
+                      // of that text, and for a Spot between two blocks it is
+                      // also the warning — the address belongs to a
+                      // neighbouring building, and correcting it is the
+                      // reader's call.
                       if (resolved?.displayName case final address?
                           when address.isNotEmpty) ...[
                         const SizedBox(height: ZugvogelSpacing.xs),

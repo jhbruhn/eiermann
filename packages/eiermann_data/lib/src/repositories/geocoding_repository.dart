@@ -48,6 +48,75 @@ class GeoResult {
 
   /// The candidate as the app's own geo type.
   GeoPoint get point => GeoPoint(lat: lat, lon: lon);
+
+  /// The street line out of [displayName], or null when it cannot be told
+  /// apart from the rest.
+  ///
+  /// [displayName] is composed by our OWN proxy, not by the geocoder, and the
+  /// recipe is short enough to invert: `zv_geocode.js` builds
+  /// `"<road> <house_number>, <postcode> <city>"`, dropping whichever parts the
+  /// upstream did not supply. So it has at most TWO comma-separated segments,
+  /// and that is the check — anything with more is the geocoder's own long
+  /// `display_name`, which the proxy falls back to when there was no road at
+  /// all. Those are not parsed: "3, Nachbarhaus, Innenstadt, Oldenburg,
+  /// Niedersachsen, 26122, Deutschland" has a house number where a street
+  /// should be, and half an address in a form field looks like something a
+  /// person typed.
+  ///
+  /// The postcode and street are not returned by the proxy as separate fields
+  /// (only `city` is), which is why this exists at all. Adding them upstream
+  /// would be the better fix and needs a new zugvogel-pb-base image —
+  /// eiermann-8ak.
+  String? get street {
+    final parts = _ownParts;
+    if (parts == null) return null;
+    final street = parts.$1;
+    return street.isEmpty ? null : street;
+  }
+
+  /// The postcode out of [displayName], or null when there is none to read.
+  String? get postalCode {
+    final parts = _ownParts;
+    if (parts == null) return null;
+    final code = parts.$2;
+    return code.isEmpty ? null : code;
+  }
+
+  /// `(street, postcode)` when [displayName] has the shape our proxy composes,
+  /// null otherwise.
+  (String, String)? get _ownParts {
+    final segments = displayName
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    // Our composer emits one or two segments. More means the fallback form.
+    if (segments.isEmpty || segments.length > 2) return null;
+
+    // Which segment is the locality half: the one carrying the city, or — when
+    // the upstream gave no city — a bare postcode.
+    final localityAt = city.isEmpty
+        ? segments.lastIndexWhere(_postcode.hasMatch)
+        : segments.lastIndexWhere((s) => s.endsWith(city));
+    if (localityAt < 0) {
+      // No locality half at all, so the whole thing is the street:
+      // `[street, locality]` with an empty locality is just the street.
+      return (segments.join(', '), '');
+    }
+
+    final locality = segments[localityAt];
+    final code = city.isEmpty
+        ? locality
+        : locality.substring(0, locality.length - city.length).trim();
+    return (
+      segments.take(localityAt).join(', '),
+      _postcode.hasMatch(code) ? code : '',
+    );
+  }
+
+  /// Four or five digits, which covers German postcodes and the neighbours'
+  /// without matching a house number.
+  static final _postcode = RegExp(r'^\d{4,5}$');
 }
 
 /// Address ⇄ coordinate lookups, through eiermann's own backend.

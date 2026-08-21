@@ -195,7 +195,7 @@
   "spotsMapTitle": "Map",
   "spotsMapOpenAction": "Open the dossier",
   "spotsMapUnpinned": "{count, plural, =1{1 Spot has no pin and is missing from this map} other{{count} Spots have no pin and are missing from this map}}",
-  "spotAddressAsLabel": "Here the address is only a label for people — the pin says where the Spot is. A light well between two blocks has no address of its own; then these fields stay empty, or carry a description like “corner of Bahnhofstraße and Am Wall”.",
+  "spotAddressAsLabel": "Filled in from the pin as far as the map knew — empty fields only. Anything you write yourself stays: a light well between two blocks has no address of its own, and “corner of Bahnhofstraße and Am Wall” beats the neighbour's house number there.",
   "spotFieldStreetHint": "Street and number, or a description",
   "spotPinMoveAction": "Move the pin",
   "spotPinAccordingToMap": "According to the map: {address}",

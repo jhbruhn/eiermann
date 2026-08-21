@@ -361,9 +361,9 @@
       }
     }
   },
-  "spotAddressAsLabel": "Die Adresse ist hier nur eine Beschriftung für Menschen — der Pin sagt, wo der Spot ist. Ein Lichtschacht zwischen zwei Blöcken hat keine eigene Adresse; dann bleiben diese Felder leer oder tragen eine Beschreibung wie „Ecke Bahnhofstraße / Am Wall\".",
+  "spotAddressAsLabel": "Aus dem Pin ausgefüllt, soweit die Karte etwas wusste — nur leere Felder. Was du selbst schreibst, bleibt stehen: ein Lichtschacht zwischen zwei Blöcken hat keine eigene Adresse, und „Ecke Bahnhofstraße / Am Wall\" ist dort besser als die Hausnummer des Nachbarn.",
   "@spotAddressAsLabel": {
-    "description": "The inversion this form is built on: the pin is the location, the address is a label. Auto-filling the address from the pin is exactly how a Spot between buildings acquires a neighbour's address."
+    "description": "States both halves of the fill rule. Filling saves retyping in the ordinary case; not overwriting is what keeps the form honest for a Spot that has no address of its own."
   },
   "spotFieldStreetHint": "Straße und Hausnummer, oder eine Beschreibung",
   "spotPinMoveAction": "Pin verschieben",
