@@ -1,0 +1,51 @@
+# eiermann — DEV-ONLY OIDC profile. Adds a throwaway mock OpenID provider so the
+# OAuth2 sign-in path (eiermann-h7q.18) can be exercised end to end without a
+# real identity provider. NEVER use this in production: the client secret is in
+# this file, and the mock signs a token for anybody who types an address.
+#
+# The override is auto-loaded only when no `-f` is given, so list all three:
+#
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.override.yml \
+#                  -f docker-compose.oidc.yml up --build
+#
+# Then open http://localhost:8091 and use "Mock SSO". At the mock's login page,
+# enter the address of an EXISTING account — the coordinator from
+# EIERMANN_COORDINATOR_EMAIL is the one a fresh instance has — and the sign-in
+# links the identity to it.
+#
+# An address that belongs to NO account is refused with a 403, on purpose:
+# eiermann is invite-only, and `oauth2_provisioning.pb.js` says why in full.
+# Adapted from federfall's file, which provisions instead, because that app
+# allows self-registration and this one does not.
+#
+# Why network_mode: the mock derives its issuer from the request Host header, so
+# the browser (on the host) and PocketBase (in its container) have to reach it at
+# the SAME address. Sharing the app's network namespace makes both use
+# localhost:9080, which gives one consistent issuer.
+
+services:
+  eiermann:
+    # Publish the mock's port from the app's namespace (the mock shares it), so
+    # localhost:9080 resolves to the mock for the browser and for PocketBase.
+    ports:
+      - "9080:9080"
+    environment:
+      EIERMANN_OAUTH2_PROVIDERS: "oidc"
+      EIERMANN_OAUTH2_OIDC_CLIENT_ID: "eiermann"
+      EIERMANN_OAUTH2_OIDC_CLIENT_SECRET: "dev-secret"
+      EIERMANN_OAUTH2_OIDC_DISPLAY_NAME: "Mock SSO"
+      EIERMANN_OAUTH2_OIDC_AUTH_URL: "http://localhost:9080/eiermann/authorize"
+      EIERMANN_OAUTH2_OIDC_TOKEN_URL: "http://localhost:9080/eiermann/token"
+      EIERMANN_OAUTH2_OIDC_USERINFO_URL: "http://localhost:9080/eiermann/userinfo"
+      EIERMANN_OAUTH2_OIDC_PKCE: "true"
+
+  oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:2.1.10
+    container_name: eiermann_oidc
+    # Share the app's network namespace so the issuer is the same localhost:9080
+    # everywhere (see the header). The port is published by `eiermann` above.
+    network_mode: "service:eiermann"
+    environment:
+      SERVER_PORT: "9080"
+    restart: unless-stopped
