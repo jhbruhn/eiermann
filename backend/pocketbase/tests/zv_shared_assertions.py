@@ -429,3 +429,56 @@ def info(
     # so a key set here IS public.
     check("the provider API key is handed to the client",
           prescribed.get("apiKey") == map_api_key, prescribed)
+
+
+def rate_limits(check, req, admin_token, service, expected_labels):
+    """zv_rate_limits: the app's budgets are merged, and the factory's survive.
+
+    [expected_labels] is what this app declared — the point of naming them at the
+    call site is that a budget silently not applied is otherwise invisible.
+
+    Does NOT raise the caps afterwards. That is harness housekeeping (a suite
+    must not run throttled) and it belongs to the caller, which knows which of
+    its own budgets a later flood test still depends on.
+    """
+    status, settings = req("GET", "/api/settings", admin_token)
+    check("settings are readable", status == 200 and bool(settings),
+          f"status {status}")
+    limits = (settings or {}).get("rateLimits") or {}
+    rules = limits.get("rules") or []
+    labels = [str(rule.get("label")) for rule in rules]
+
+    check("rate limiting is enabled", limits.get("enabled") is True, limits)
+
+    for label in expected_labels:
+        check(f"the budget for {label!r} is applied", label in labels, labels)
+
+    # Matching is not longest-prefix-wins: an exact rule wins, and failing that
+    # the FIRST prefix rule in stored order does. So a bare "/api/<service>/x"
+    # loses to the factory "/api/" rule ahead of it and budgets nothing —
+    # an inert label that looks exactly like a working one.
+    check(
+        "no inert unqualified label is left lying around",
+        not [x for x in labels if x.startswith(f"/api/{service}/")],
+        labels,
+    )
+    # Merging naively drops the rules nobody named, and a missing "*:auth" is an
+    # open door to credential stuffing.
+    check("PocketBase's own auth brake survives the merge", "*:auth" in labels,
+          labels)
+
+    # And it is not merely STORED: the brake actually bites. Nothing else in a
+    # rule suite proves a stored rule is enforced.
+    hit_429 = False
+    for _ in range(8):
+        status, _ = req(
+            "POST",
+            "/api/collections/users/auth-with-password",
+            None,
+            {"identity": "nobody@invalid.local", "password": "WrongWrong1!"},
+        )
+        if status == 429:
+            hit_429 = True
+            break
+    check("hammering auth-with-password hits a 429", hit_429,
+          "no 429 within 8 attempts")

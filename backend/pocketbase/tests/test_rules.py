@@ -1980,6 +1980,24 @@ h.check(
 # uploaded files live. The map values the derivation looks for are the ones
 # run.sh puts in the environment, which both harnesses set identically.
 
+print("\n[shared hooks: rate limits]")
+
+# The assertions are zugvogel's; the label is this app's. Naming it here is the
+# point: the geocode proxy hits an upstream with a usage policy, and a budget
+# silently not applied is invisible otherwise.
+#
+# Safe to run here and not earlier: it deliberately trips PocketBase's `*:auth`
+# brake, and every login this suite needs happened during fixture setup. The
+# brake's window is three seconds, so nothing after it is affected.
+shared_assertions.rate_limits(
+    h.check,
+    h.req,
+    T,
+    "eiermann",
+    ["GET /api/eiermann/geocode", "GET /api/eiermann/geocode/"],
+)
+
+
 print("\n[shared hooks: web headers]")
 
 shared_assertions.web_headers(
