@@ -1,5 +1,6 @@
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:pocketbase/pocketbase.dart';
+import 'package:zugvogel_core/zugvogel_core.dart';
 import 'package:zugvogel_data/zugvogel_data.dart';
 
 /// Reads and writes `spots`.
@@ -24,6 +25,8 @@ class SpotsRepository extends PbRepository<Spot> {
   /// (`@request.body.org:isset = false`), since an update rule resolves field
   /// references against the STORED record and would authorise the write
   /// against the old org while landing it in the new one.
+  /// [geo] and [geoConfirmed] travel together on purpose — see the parameter
+  /// docs below.
   static Map<String, dynamic> body({
     required String name,
     required SpotPhase phase,
@@ -34,6 +37,8 @@ class SpotsRepository extends PbRepository<Spot> {
     String? accessNote,
     String? note,
     String? org,
+    GeoPoint? geo,
+    bool geoConfirmed = false,
   }) => {
     'name': name,
     'phase': phase.wire,
@@ -49,6 +54,19 @@ class SpotsRepository extends PbRepository<Spot> {
     // goes active, so a form that does not offer the field must not wipe it.
     if (prospectStage != null) 'prospect_stage': prospectStage.wire,
     'org': ?org,
+    // Omitted when there is no pin rather than written as {0, 0}. PocketBase
+    // has no null for a geoPoint, so the two are the same thing on the wire —
+    // but a form that has not resolved a pin yet must not overwrite one another
+    // screen placed, and the map picker is a separate step from this form.
+    if (geo != null) ...{
+      'geo': geo.toPb(),
+      // Only ever alongside a pin, and only ever the truth about THAT pin. A
+      // geocoder's guess can sit on the wrong side of a courtyard, which sends
+      // the next person to the wrong door; the flag is what makes the guess
+      // legible as one, so it must never ride along with a pin somebody did not
+      // look at.
+      'geo_confirmed': geoConfirmed,
+    },
   };
 
   /// The body ONE PHASE TRANSITION sends: the phase, and the fields that

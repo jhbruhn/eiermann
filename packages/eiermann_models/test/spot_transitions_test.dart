@@ -44,10 +44,9 @@ Map<String, List<String>> _hookGraph(String source) {
   ).allMatches(block!.group(1)!);
   return {
     for (final entry in entries)
-      entry.group(1)!: RegExp('"([^"]+)"')
-          .allMatches(entry.group(2)!)
-          .map((m) => m.group(1)!)
-          .toList(),
+      entry.group(1)!: RegExp(
+        '"([^"]+)"',
+      ).allMatches(entry.group(2)!).map((m) => m.group(1)!).toList(),
   };
 }
 
