@@ -548,6 +548,219 @@ h.check(
 )
 
 
+# ── The Spot lifecycle ─────────────────────────────────────────────────────
+#
+# Enforced by a hook, not a rule, and the reason is worth restating: a plain
+# field reference in an UPDATE rule resolves against the STORED record, so a
+# rule can see the phase a Spot is LEAVING but not the one it is entering. A
+# transition is a statement about both.
+
+print("\n[spot lifecycle]")
+
+
+def phase_of(spot_id):
+    _, body = h.req("GET", f"/api/collections/spots/records/{spot_id}", coord_token)
+    return (body or {}).get("phase")
+
+
+def move(spot_id, token=None, **fields):
+    return h.req(
+        "PATCH", f"/api/collections/spots/records/{spot_id}",
+        token or member_token, fields,
+    )
+
+
+funnel = h.mk(
+    member_token,
+    "spots",
+    {"org": ORG, "name": "Erkundung läuft", "phase": "prospect",
+     "prospect_stage": "untouched"},
+)
+
+status, body = move(funnel["id"], phase="active")
+h.check(
+    "a prospect cannot go active before the Erkundung reaches a yes",
+    status == 400,
+    f"status {status} — entering a building nobody agreed to is the one legal "
+    "risk in the product, so it is gated on the data and not on somebody "
+    "remembering to check",
+)
+# The message is a fallback for whoever sees the raw error, so it has to be
+# German — and it has to be German ALL THE WAY. The wire value belongs in the
+# structured data, where the client can translate it.
+message = str((body or {}).get("message") or "")
+h.check(
+    "the refusal message is German and self-sufficient",
+    "Zusage" in message,
+    message,
+)
+h.check(
+    "...and carries no wire value in its prose",
+    not any(wire in message for wire in
+            ("untouched", "tenant_spoken", "owner_spoken", "permitted", "refused")),
+    f"{message!r} — a sentence half in each language is what keeping the "
+    "vocabulary in the client is meant to prevent",
+)
+# Not asserted: the wire value riding along in the error's `data`. PocketBase
+# coerces every leaf of an ApiError's data into `{code, message}` at any depth,
+# so that channel is structurally a field-name → validation-error map and
+# cannot carry a value. The client holds the record it just tried to update, so
+# it already knows the stage.
+
+status, _ = move(funnel["id"], prospect_stage="tenant_spoken")
+h.check("the funnel itself advances freely", h.ok(status), f"status {status}")
+status, _ = move(funnel["id"], prospect_stage="permitted")
+h.check("...up to a yes", h.ok(status), f"status {status}")
+
+status, _ = move(funnel["id"], phase="active")
+h.check("with the yes recorded, it goes active", h.ok(status), f"status {status}")
+_, body = h.req(
+    "GET", f"/api/collections/spots/records/{funnel['id']}", coord_token
+)
+h.check(
+    "and prospect_stage SURVIVES going active",
+    (body or {}).get("prospect_stage") == "permitted",
+    "how permission was obtained is part of the dossier — losing it is how the "
+    "same conversation gets had twice",
+)
+
+status, _ = move(funnel["id"], phase="prospect")
+h.check(
+    "an active Spot cannot go back to Erkundung",
+    status == 400,
+    f"status {status} — permission is not un-learned; losing it is a close "
+    "with permission_withdrawn, which keeps the history",
+)
+
+# Pausing.
+status, body = move(funnel["id"], phase="paused")
+h.check(
+    "a pause without a reason is refused",
+    status == 400,
+    f"status {status} — a Spot that went quiet without saying why is "
+    "indistinguishable from a forgotten one",
+)
+
+status, _ = move(
+    funnel["id"], phase="paused", pause_reason="Gerüst bis Ende Oktober",
+    paused_until="2026-10-31 00:00:00.000Z",
+)
+h.check("a pause with a reason is accepted", h.ok(status), f"status {status}")
+h.check("...and the Spot is paused", phase_of(funnel["id"]) == "paused")
+
+status, _ = move(funnel["id"], phase="active")
+h.check("resuming needs nothing extra", h.ok(status), f"status {status}")
+_, body = h.req(
+    "GET", f"/api/collections/spots/records/{funnel['id']}", coord_token
+)
+h.check(
+    "resuming CLEARS the pause reason and date",
+    not (body or {}).get("pause_reason") and not (body or {}).get("paused_until"),
+    f"pause_reason={(body or {}).get('pause_reason')!r} — these are current "
+    "state, not history: a resumed Spot still showing 'wegen Gerüst' reads as "
+    "still paused",
+)
+
+status, _ = move(funnel["id"], phase="prospect", prospect_stage="untouched")
+h.check("a paused-then-active Spot still cannot rewind", status == 400)
+
+# Closing.
+status, body = move(funnel["id"], phase="closed")
+h.check(
+    "closing without a reason is refused",
+    status == 400,
+    f"status {status} — 'closed' alone cannot answer the only question anybody "
+    "asks of a closed Spot: do we try again?",
+)
+
+status, _ = move(funnel["id"], phase="closed", closed_reason="netted")
+h.check("closing with a reason is accepted", h.ok(status), f"status {status}")
+_, body = h.req(
+    "GET", f"/api/collections/spots/records/{funnel['id']}", coord_token
+)
+h.check(
+    "the server stamps closed_at",
+    bool((body or {}).get("closed_at")),
+    "derived like next_due_at: a client that can write it can backdate a "
+    "decision nobody made",
+)
+
+status, _ = move(funnel["id"], phase="paused", pause_reason="egal")
+h.check(
+    "a closed Spot cannot be paused",
+    status == 400,
+    f"status {status} — reopening means somebody is going back, so it lands in "
+    "aktiv; 'closed, then paused' is a state nobody can act on",
+)
+
+status, _ = move(funnel["id"], phase="active")
+h.check("a closed Spot CAN be reopened", h.ok(status), f"status {status}")
+_, body = h.req(
+    "GET", f"/api/collections/spots/records/{funnel['id']}", coord_token
+)
+h.check(
+    "reopening clears the closing reason and date",
+    not (body or {}).get("closed_reason") and not (body or {}).get("closed_at"),
+    f"closed_reason={(body or {}).get('closed_reason')!r}",
+)
+
+# A refused Erkundung is the one close that needs no closed_reason: the refusal
+# is already recorded in the field built for it, and none of the closed_reason
+# values ("netted", "permission_withdrawn", "building_gone", "no_pigeons")
+# describes an owner who simply said no.
+refused = h.mk(
+    member_token,
+    "spots",
+    {"org": ORG, "name": "Absage", "phase": "prospect", "prospect_stage": "refused"},
+)
+status, _ = move(refused["id"], phase="closed")
+h.check(
+    "a REFUSED prospect closes without a closed_reason",
+    h.ok(status),
+    f"status {status} — the refusal is the reason, in the field that holds it",
+)
+
+status, _ = move(
+    h.mk(member_token, "spots",
+         {"org": ORG, "name": "Unberührte Absage", "phase": "prospect"})["id"],
+    phase="closed",
+)
+h.check(
+    "...but an untouched prospect still needs one",
+    status == 400,
+    f"status {status} — otherwise every abandoned Erkundung closes silently",
+)
+
+# Creating is not a transition: a group with a long-standing arrangement should
+# not have to invent a prospect phase it never went through.
+direct = h.mk(
+    member_token,
+    "spots",
+    {"org": ORG, "name": "Seit Jahren Zugang", "phase": "active"},
+)
+h.check(
+    "a Spot can be CREATED active, with no funnel behind it",
+    direct.get("phase") == "active",
+    "inventing an Erkundung that never happened would be a false history",
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/spots/records", member_token,
+    {"org": ORG, "name": "Direkt zu", "phase": "closed"},
+)
+h.check(
+    "but creating a closed Spot still needs a reason",
+    status == 400,
+    f"status {status}",
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/spots/records", member_token,
+    {"org": ORG, "name": "Quatschphase", "phase": "verschimmelt"},
+)
+h.check("an unknown phase is rejected", status == 400, f"status {status}")
+
+
 # ── Custom routes ──────────────────────────────────────────────────────────
 #
 # The rule suite covers collections; these routes are the part of the API that

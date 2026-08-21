@@ -82,5 +82,124 @@
   "authVersionServerTooOld": "Der Server ist zu alt für diese App. Bitte wende dich an die Person, die den Server betreibt.",
   "@authVersionServerTooOld": {
     "description": "Names the OPERATOR, not the user: telling this user to update their app would be a dead end, because their app is already the newer of the two."
+  },
+  "spotsTitle": "Spots",
+  "spotsEmptyTitle": "Noch keine Spots",
+  "spotsEmptyMessage": "Lege das erste Gebäude an – Adresse, Zugang, Ansprechpartner. Danach weiß jede*r, wie man reinkommt.",
+  "@spotsEmptyMessage": {
+    "description": "Empty state for the Spot list. Names what the first Spot is for, because an empty list must read as a starting point rather than a dead end."
+  },
+  "spotsEmptyAction": "Spot anlegen",
+  "spotsSearchHint": "Name, Straße, Ort oder PLZ",
+  "spotsNoMatches": "Kein Spot passt zu dieser Suche",
+  "spotsSearchClear": "Suche löschen",
+  "spotUrgencyOverdue": "Überfällig",
+  "@spotUrgencyOverdue": {
+    "description": "Urgency is also colour-coded, so every rank must have words: colour-only meaning fails WCAG 1.4.1 and is invisible to a colour-blind carer."
+  },
+  "spotUrgencyDueToday": "Heute fällig",
+  "spotUrgencyDueThisWeek": "Diese Woche fällig",
+  "spotUrgencyInRhythm": "Im Rhythmus",
+  "spotUrgencyProspect": "Erkundung läuft",
+  "spotUrgencyPaused": "Pausiert",
+  "spotUrgencyClosed": "Geschlossen",
+  "spotUrgencyUnknown": "Dringlichkeit unbekannt",
+  "@spotUrgencyUnknown": {
+    "description": "Shown for an urgency rank this build has no name for — the server gained one. Never silently rendered as 'in rhythm'."
+  },
+  "spotDueOn": "fällig am {date}",
+  "@spotDueOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "spotNoDueDate": "kein Termin",
+  "spotPhaseProspect": "Erkundung",
+  "spotPhaseActive": "Aktiv",
+  "spotPhasePaused": "Pausiert",
+  "spotPhaseClosed": "Geschlossen",
+  "spotPhaseUnknown": "Unbekannte Phase",
+  "spotPhaseLabel": "Phase",
+  "prospectStageUntouched": "Unberührt",
+  "prospectStageTenantSpoken": "Mieter gesprochen",
+  "prospectStageOwnerSpoken": "Eigentümer gesprochen",
+  "prospectStagePermitted": "Erlaubt",
+  "prospectStageRefused": "Abgelehnt",
+  "closedReasonNetted": "Vernetzt",
+  "closedReasonPermissionWithdrawn": "Erlaubnis entzogen",
+  "closedReasonBuildingGone": "Gebäude weg",
+  "closedReasonNoPigeons": "Keine Tauben",
+  "contactRoleOwner": "Eigentümer",
+  "contactRoleManagement": "Verwaltung",
+  "contactRoleCaretaker": "Hausmeister",
+  "contactRoleTenant": "Mieter",
+  "contactRoleOther": "Sonstige",
+  "contactRoleUnknown": "Unbekannte Rolle",
+  "spotContactsTitle": "Ansprechpartner",
+  "spotContactsEmpty": "Noch keine Ansprechpartner. Ohne eine Nummer steht der Nächste vor einer verschlossenen Tür.",
+  "@spotContactsEmpty": {
+    "description": "Zero contacts is a handover gap, not a neutral fact, so the empty state says what it costs."
+  },
+  "spotContactsAddAction": "Ansprechpartner hinzufügen",
+  "spotContactPrimary": "Zuerst anrufen",
+  "spotContactCallAction": "Anrufen",
+  "spotContactMailAction": "E-Mail schreiben",
+  "spotContactLaunchFailed": "Auf diesem Gerät lässt sich das nicht öffnen.",
+  "spotContactSheetTitleNew": "Ansprechpartner hinzufügen",
+  "spotContactSheetTitleEdit": "Ansprechpartner bearbeiten",
+  "spotContactFieldName": "Name",
+  "spotContactFieldRole": "Rolle",
+  "spotContactFieldPhone": "Telefon",
+  "spotContactFieldEmail": "E-Mail",
+  "spotContactFieldNote": "Notiz",
+  "spotContactFieldPrimary": "Zuerst anrufen",
+  "spotContactFieldPrimaryHint": "Die Nummer, die als Erste dran ist. Es können mehrere sein.",
+  "@spotContactFieldPrimaryHint": {
+    "description": "Explains why the flag is not unique: two people can both be worth calling."
+  },
+  "spotAccessTitle": "Zugang",
+  "spotAccessEmpty": "Kein Zugangshinweis hinterlegt. Das ist die eine Zeile, die eine Übergabe spart.",
+  "@spotAccessEmpty": {
+    "description": "The access note is the single most valuable field for a handover; a missing one is worth stating."
+  },
+  "spotNoteTitle": "Notiz",
+  "spotDetailEditAction": "Spot bearbeiten",
+  "spotPausedUntil": "Pausiert bis {date}",
+  "@spotPausedUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "spotClosedOn": "Geschlossen am {date}",
+  "@spotClosedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "spotPinUnconfirmed": "Pin nicht bestätigt",
+  "spotPinMissing": "Kein Pin gesetzt",
+  "spotSheetTitleNew": "Spot anlegen",
+  "spotSheetTitleEdit": "Spot bearbeiten",
+  "spotFieldName": "Bezeichnung",
+  "spotFieldNameHint": "z. B. Bahnhofstraße 12",
+  "spotFieldStreet": "Straße und Hausnummer",
+  "spotFieldPostalCode": "PLZ",
+  "spotFieldCity": "Ort",
+  "spotFieldAccessNote": "Zugang",
+  "spotFieldAccessNoteHint": "Welche Klingel, welcher Schlüssel, wer aufschließt",
+  "spotFieldNote": "Notiz",
+  "spotContactCount": "{count, plural, =0{Keine Kontakte} =1{1 Kontakt} other{{count} Kontakte}}",
+  "@spotContactCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

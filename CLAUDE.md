@@ -213,6 +213,13 @@ The hook runtime is not Node and not a browser. Each of these has cost real time
   `--` comment nor an expression spanning newlines: both come back as "invalid
   identifier parts". Every computed column is one line, however long, with the
   reasoning in a JS comment above it.
+- An **`ApiError`'s `data` cannot carry a value.** PocketBase coerces every leaf
+  of it into `{code, message}` at any depth, so `{stage: "untouched"}` arrives
+  as `{stage: {code: "validation_invalid_value", …}}`. It is structurally a
+  field-name → validation-error map. A hook that needs to tell the client
+  something specific must put it in the `message` — which means the message
+  carries no untranslated wire value, because it is German prose. The client
+  already holds the record it tried to write.
 - `cronAdd` jobs are invisible to the rule suite — nothing can trigger them.
   They get a separate harness with a rewritten schedule. A window measured in
   days cannot be reached by backdating, because `created` belongs to the
