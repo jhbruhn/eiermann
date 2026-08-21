@@ -10,7 +10,16 @@ enum UserRole implements WireEnum {
 
   /// Additionally decides the things that are hard to undo — deleting a Spot,
   /// overriding a rhythm, taking a nest out of `protected`, managing the team.
-  coordinator('coordinator');
+  coordinator('coordinator'),
+
+  /// Authenticated and not yet let in.
+  ///
+  /// Where somebody arriving through an identity provider lands when no group
+  /// mapped them (`oauth2_provisioning.pb.js`). It is a WALL, not a low tier:
+  /// every access rule in the database names the roles that may pass and this
+  /// is not one of them, so a guest reads nothing at all until a coordinator
+  /// changes their role.
+  guest('guest');
 
   const UserRole(this.wire);
 
@@ -18,6 +27,23 @@ enum UserRole implements WireEnum {
   final String wire;
 
   static UserRole? fromWire(Object? v) => wireEnum(values, v);
+}
+
+/// Whether a role reaches any data at all.
+///
+/// The Dart side of migration 014's allowlist, and it exists so the app agrees
+/// with the server about who is inside: the rules there name `member` and
+/// `coordinator`, and a client that sent a guest to the dashboard would show
+/// them a screen of empty lists and an invitation to create a Spot the server
+/// then refuses. A role this build has no name for reads as walled off too —
+/// the server would refuse it, and guessing otherwise puts the reader in front
+/// of errors instead of an explanation.
+extension UserRoleAccess on UserRole? {
+  bool get opensData => switch (this) {
+    UserRole.member || UserRole.coordinator => true,
+    UserRole.guest => false,
+    null => false,
+  };
 }
 
 /// Where a Spot is in its life (`spots.phase`).

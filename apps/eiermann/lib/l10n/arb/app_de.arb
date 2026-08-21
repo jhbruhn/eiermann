@@ -219,6 +219,20 @@
   "@spotAccessEmpty": {
     "description": "The access note is the single most valuable field for a handover; a missing one is worth stating."
   },
+  "pendingTitle": "Zugang steht aus",
+  "@pendingTitle": {
+    "description": "The screen a `guest` sees: signed in through an identity provider, mapped onto no role, refused by every access rule. Not an error screen — a decision somebody else has to make."
+  },
+  "pendingHeadline": "Dein Konto wartet auf die Freigabe",
+  "pendingMessage": "Die Anmeldung hat funktioniert. Was du sehen darfst, entscheidet die Koordination der Gruppe — melde dich bei ihr, dann schaltet sie dich frei. Danach lädt die App von selbst.",
+  "@pendingMessage": {
+    "description": "Says the sign-in worked (so nobody retries it for an afternoon), who decides, and that no second sign-in is needed — the gate listens to the role and moves the reader on."
+  },
+  "pendingSignedInAs": "Angemeldet als",
+  "pendingWrongAddressHint": "Ist das die falsche Adresse? Dann melde dich ab und nimm die, unter der du eingeladen wurdest.",
+  "@pendingWrongAddressHint": {
+    "description": "The most common cause by far: the identity provider knows a different address than the invitation used."
+  },
   "areasTitle": "Bereiche",
   "@areasTitle": {
     "description": "A Bereich is a named part of a building — 'Dachboden Nord', 'Lichtschacht'. It exists to carry the overview photo, and the photo carries the nest pins."

@@ -9,15 +9,20 @@
 #                  -f docker-compose.override.yml \
 #                  -f docker-compose.oidc.yml up --build
 #
-# Then open http://localhost:8091 and use "Mock SSO". At the mock's login page,
-# enter the address of an EXISTING account — the coordinator from
-# EIERMANN_COORDINATOR_EMAIL is the one a fresh instance has — and the sign-in
-# links the identity to it.
+# Then open http://localhost:8091 and use "Mock SSO". At the mock's login page
+# enter any address, and in the optional "claims" box:
 #
-# An address that belongs to NO account is refused with a 403, on purpose:
-# eiermann is invite-only, and `oauth2_provisioning.pb.js` says why in full.
-# Adapted from federfall's file, which provisions instead, because that app
-# allows self-registration and this one does not.
+#   {"groups":["tauben-koordination"]}  → provisioned as a coordinator
+#   {"groups":["tauben-team"]}          → provisioned as a member
+#   leave it empty                      → provisioned as a GUEST: signed in and
+#                                         refused by every access rule until a
+#                                         coordinator lets them in
+#
+# The address of an account that already exists links the identity to it instead
+# — that is the ordinary case for a team that switches to a provider.
+#
+# Adapted from federfall's file. The group names below are the ones the claims
+# examples above use; a real instance names its own.
 #
 # Why network_mode: the mock derives its issuer from the request Host header, so
 # the browser (on the host) and PocketBase (in its container) have to reach it at
@@ -39,6 +44,10 @@ services:
       EIERMANN_OAUTH2_OIDC_TOKEN_URL: "http://localhost:9080/eiermann/token"
       EIERMANN_OAUTH2_OIDC_USERINFO_URL: "http://localhost:9080/eiermann/userinfo"
       EIERMANN_OAUTH2_OIDC_PKCE: "true"
+      # Map the mock's groups onto roles, so the claims examples in the header
+      # actually land somewhere. An unmapped sign-in becomes a guest.
+      EIERMANN_OIDC_COORDINATOR_GROUP: "tauben-koordination"
+      EIERMANN_OIDC_MEMBER_GROUP: "tauben-team"
 
   oidc:
     image: ghcr.io/navikt/mock-oauth2-server:2.1.10

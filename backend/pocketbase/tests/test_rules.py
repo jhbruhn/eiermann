@@ -87,6 +87,24 @@ roleless = h.mk(
 h.req("PATCH", f"/api/collections/users/records/{roleless['id']}", T, {"role": None})
 _, roleless_token = h.login("roleless@eiermann.test")
 
+# The `guest` role (migration 014): where a self-registered OAuth2 account lands
+# when the identity provider asserted no group this app maps. Authenticated, and
+# behind the wall — which since 014 is a NAMED role rather than the absence of
+# one, because `zv_oauth2_provisioning.js` has to be able to write it.
+guest = h.mk(
+    coord_token,
+    "users",
+    {
+        "email": "guest@eiermann.test",
+        "password": h.user_pass,
+        "passwordConfirm": h.user_pass,
+        "org": ORG,
+        "role": "guest",
+        "is_active": True,
+    },
+)
+_, guest_token = h.login("guest@eiermann.test")
+
 
 # ── Property 1: nothing is anonymous ───────────────────────────────────────
 #
@@ -118,6 +136,28 @@ for collection in ("users", "organisations"):
         not (body or {}).get("items"),
         f"status {status}, {len((body or {}).get('items') or [])} items",
     )
+
+
+# ── Property 2b: a GUEST sees nothing either ────────────────────────────────
+#
+print("\n[the guest wall]")
+h.check(
+    "a guest can sign in",
+    guest_token is not None,
+    "it has to be able to reach the screen that says it is waiting for access — "
+    "an account that cannot authenticate cannot be told anything",
+)
+h.check(
+    "...and is stored as a guest",
+    guest.get("role") == "guest",
+    str(guest.get("role")),
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/spots/records", guest_token,
+    {"org": ORG, "name": "Vom Fremden", "phase": "prospect"},
+)
+h.check("a guest cannot create a Spot", status >= 400, f"status {status}")
 
 
 # ── Property 3: deactivation ends a LIVE session ────────────────────────────
@@ -2323,6 +2363,41 @@ shared_assertions.web_headers(
 
 # ── Sweeps: the properties that must hold for collections not written yet ───
 
+# ── The guest wall, over a database that HAS rows ───────────────────────────
+#
+# The read half of the guest wall runs HERE, at the end, and that placement is
+# the assertion. `h.reads_nothing` checks that no items came back — which an
+# EMPTY collection satisfies whatever its rules say. Run beside the sign-in
+# check near the top of this file, twelve of these passed over a database that
+# had no Spots, no areas and no nests in it yet; the canary that put the old
+# `role != null` clause back could only fail two of them. By this point the
+# suite has filled every collection above, so a leak has something to leak.
+# Every collection a member may read. `role != null` — the clause before
+# migration 014 — is satisfied by `guest`, so on the day the role became
+# storable each of these would have opened up. This is the list that proves it
+# did not.
+for collection in (
+    "users",
+    "organisations",
+    "spots",
+    "spot_contacts",
+    "spot_overview",
+    "areas",
+    "nests",
+    "visits",
+    "nest_checks",
+    "nest_eggs",
+    "findings",
+    "follow_ups",
+    "nest_state",
+):
+    h.check(
+        f"a guest reads nothing from {collection}",
+        h.reads_nothing(collection, guest_token),
+        "a 200 with rows in it is the leak — a list is filtered, not refused",
+    )
+
+
 print("\n[sweeps over the live schema]")
 cols = h.collections(T)
 h.check("the schema lists collections at all", bool(cols))
@@ -2332,6 +2407,14 @@ h.check("the schema lists collections at all", bool(cols))
 # satisfy the sweeps — including collections nobody has written yet, which is
 # the entire point of expressing these as sweeps.
 DOMAIN_EXEMPT = {"users", "organisations", "geocode_cache", "idempotency_keys"}
+
+
+# The two shapes a rule's role clause may take. Anything else is a rule that
+# lets `guest` — the wall a self-registered account lands behind — through.
+ROLE_ALLOWLIST = (
+    '(@request.auth.role = "member" || @request.auth.role = "coordinator")'
+)
+COORDINATOR_ONLY = '@request.auth.role = "coordinator"'
 
 
 def every_rule_is_gated(col):
@@ -2349,6 +2432,14 @@ def every_rule_is_gated(col):
             problems.append(f"{kind} has no auth check")
         if "@request.auth.is_active = true" not in rule:
             problems.append(f"{kind} has no is_active check")
+        # The role clause is an ALLOWLIST since migration 014, and that is the
+        # half a sweep has to carry forward: `role != null` is satisfied by
+        # `guest`, the role a self-registered OAuth2 account lands in. A
+        # collection written next month that copies the OLD clause would hand
+        # every stranger at the identity provider member-level read access, and
+        # no per-collection test covers a collection nobody has written yet.
+        if COORDINATOR_ONLY not in rule and ROLE_ALLOWLIST not in rule:
+            problems.append(f"{kind} does not name the roles that may pass")
     return "; ".join(problems)
 
 

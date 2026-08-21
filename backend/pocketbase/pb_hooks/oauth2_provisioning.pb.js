@@ -1,77 +1,73 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// eiermann-h7q.18 — what happens when somebody signs in through an identity
-// provider.
+// eiermann-h7q.18 — provisioning a `users` record for somebody arriving through
+// an identity provider.
 //
-// An OAuth2 sign-in arrives in one of two shapes. Either an account with that
-// address already exists, and PocketBase links the external identity to it —
-// that is the whole point of the feature, and it passes straight through. Or no
-// account matches, and PocketBase would create one. THAT is what this hook
-// refuses.
+// zv_oauth2_provisioning.js holds the mechanics and the reasoning: why the email
+// is resolved from the provider's raw claims rather than trusted from one field,
+// why the role is decided by the FIRST matching group so the most privileged
+// entry has to come first, and why the very first account on an instance is a
+// special case that two concurrent sign-ins could both believe they are.
 //
-// ── Why eiermann does not self-register, though federfall does ─────────────
+// What stays here is eiermann's vocabulary — its roles, its group variables, its
+// seeded org — plus the one thing this app had to build before any of it could
+// work.
 //
-// This file is deliberately NOT a copy of federfall's
-// `oauth2_provisioning.pb.js`, and the difference is not a preference. The
-// shared library (`zv_oauth2_provisioning.js`) provisions a new account into a
-// WALLED-OFF ROLE: a role value the collection can store that every access rule
-// then refuses. federfall has one — `guest`. eiermann has no such role and must
-// not gain one:
+// ── The wall this depends on ───────────────────────────────────────────────
 //
-//   * every access rule here opens with `role != null`, so the wall is the
-//     ABSENCE of a role, not a particular one;
-//   * adding a `guest` value to `users.role` would therefore satisfy that
-//     clause and hand a self-registered stranger member-level read access to
-//     every Spot in the org. The rules would have to be rewritten one by one to
-//     name allowed roles, and a sweep cannot catch the one that was missed.
+// A provisioned account lands in `guest`: authenticated, and behind every access
+// rule. That role exists only since migration 014, and it could not simply be
+// added — `guest` satisfies the `role != null` clause that every rule in this
+// database used to open with, so storing it would have handed a stranger at the
+// identity provider member-level read access to every Spot in the organisation.
+// 014 rewrote every rule to NAME the roles that may pass. The rule suite sweeps
+// for that shape and checks a real guest against a full database; if either ever
+// fails, this hook is the reason it matters.
 //
-// The library cannot express "no role" either, because it needs a value to
-// write, and `users.org` is a required relation — so a record with neither
-// cannot be created at all. Which leaves two honest options: teach the shared
-// library a role-less wall (a zugvogel change, tracked as eiermann-vx4), or
-// refuse the creation here. Until the first lands, this is the second.
+// ── Who becomes what ──────────────────────────────────────────────────────
 //
-// Refusing is not a placeholder, though. It matches how membership works in
-// this app: the first coordinator comes from the environment, everybody else is
-// invited, and `users.invited_by` records who by. An identity provider says WHO
-// somebody is; it does not say that a pigeon group wants them in its data.
+// The group variables are optional and unset by default, which means: on an
+// instance that configures OIDC and nothing else, everybody who signs in lands
+// as a guest and a coordinator lets them in. Set them to map the provider's
+// groups straight onto roles — the order below is the privilege order, and the
+// first match wins.
 //
-// ── The refusal is a 403 with no German in it ─────────────────────────────
-//
-// `ForbiddenError` rather than app_refuse.js's coded refusal, and the rule-suite
-// sweep exempts exactly these two error types for the reason that applies here:
-// the STATUS is the whole message. Every client already maps 401 and 403 to its
-// own copy, and there is no app invariant to name — "you have no account here"
-// needs no code. The string below is an English developer line for the log.
+// `EIERMANN_OIDC_ALLOWED_GROUPS` is the other half an operator may want: with it
+// set, an account outside those groups is refused registration outright instead
+// of landing as a guest. Worth it for an instance whose identity provider holds
+// far more people than the pigeon group.
 
-onRecordAuthWithOAuth2Request((e) => {
-  // An existing account: PocketBase has matched it and is linking the identity.
-  // Nothing to decide.
-  if (!e.isNewRecord) {
-    e.next();
-    return;
-  }
-
-  // No account for this address. Logged with the provider and the address,
-  // because the person on the other end sees only a 403 and will ask somebody —
-  // and that somebody needs to be able to tell "not invited yet" from "invited
-  // under a different address", which is the mistake this refusal produces most.
-  const provider = e.providerName ? String(e.providerName) : "unknown";
-  const address = e.oAuth2User && e.oAuth2User.email
-    ? String(e.oAuth2User.email)
-    : "";
-  e.app
-    .logger()
-    .warn(
-      "eiermann: refused an oauth2 sign-in with no account",
-      "provider",
-      provider,
-      "email",
-      address,
-    );
-
-  throw new ForbiddenError(
-    "no eiermann account for this identity; membership is by invitation",
-    null,
-  );
-});
+onRecordAuthWithOAuth2Request((e) =>
+  require(`${__hooks}/zv_oauth2_provisioning.js`).provision(e, {
+    envPrefix: "EIERMANN",
+    // Written by this app's own seed migration, which is why the id is the
+    // app's to state rather than the library's to know.
+    defaultOrgId: "org00000default",
+    roles: {
+      // Authenticated and not yet let in. Every access rule refuses it by name.
+      walledOff: "guest",
+      // The first account on a fresh instance, where nobody exists to invite
+      // anybody. Near-unreachable here in practice: this app bootstraps its
+      // first coordinator from EIERMANN_COORDINATOR_EMAIL at boot, so by the
+      // time an OAuth2 sign-in arrives a `users` record already exists — and
+      // the library keys "first user" on that, deliberately, rather than on
+      // "no active coordinator right now" (which a superuser could produce and
+      // anybody at the IdP could then claim).
+      bootstrap: "coordinator",
+      // Privilege order: the first matching group wins.
+      groupMap: [
+        { env: "OIDC_COORDINATOR_GROUP", role: "coordinator" },
+        { env: "OIDC_MEMBER_GROUP", role: "member" },
+      ],
+    },
+    // English, and for the log rather than the reader: a hook does not know
+    // which language the person in front of the screen speaks. The client turns
+    // the 403 into its own sentence.
+    forbiddenMessage: "This account is not permitted to register.",
+    // No audit entry, and that is a gap rather than a decision: an account
+    // appearing with a role chosen by configuration instead of by a person is
+    // exactly a membership decision worth recording. eiermann has no audit
+    // collection yet (Phase 08) — when it gains one, this call site is where
+    // the `audit`/`auditAction` pair belongs. Tracked as eiermann-0oi.
+  }),
+);

@@ -1,5 +1,7 @@
+import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/features/areas/area_editor_screen.dart';
 import 'package:eiermann/features/auth/login_screen.dart';
+import 'package:eiermann/features/auth/pending_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/home/nav_shell.dart';
 import 'package:eiermann/features/server_setup/setup_screen.dart';
@@ -22,6 +24,14 @@ abstract final class Routes {
   static const splash = '/splash';
   static const setup = '/setup';
   static const login = '/login';
+
+  /// Where an account that may not reach any data waits.
+  ///
+  /// A gate screen like the three above, and for the same reason: a guest can
+  /// sign in — that is the whole point, they have to be able to be TOLD
+  /// something — but every collection refuses them, so the app behind this
+  /// would be a wall of empty lists and buttons that 403.
+  static const pending = '/pending';
   static const dashboard = '/';
   static const map = '/map';
   static const spots = '/spots';
@@ -126,6 +136,10 @@ List<RouteBase> appRoutes() {
       path: Routes.login,
       builder: (_, _) => const LoginScreen(),
     ),
+    GoRoute(
+      path: Routes.pending,
+      builder: (_, _) => const PendingScreen(),
+    ),
     // The three destinations of the nav shell. One branch each: go_router
     // keeps a branch's navigator alive across a switch, which is what makes
     // the list keep its scroll offset and the map keep its camera.
@@ -202,6 +216,65 @@ List<RouteBase> appRoutes() {
   ];
 }
 
+/// Where the gate sends a reader, given everything it knows. Null means stay.
+///
+/// A pure function on purpose. The ORDER of these questions is the design — and
+/// three of the four answers are the kind that only show up in a state nobody
+/// reproduces by hand: a session still being read, a profile read that failed,
+/// a role that changed while the app was open. Inside [_Gate] this was
+/// reachable only by standing up a PocketBase client, a storage layer and a
+/// session, which is why it had no tests at all.
+@visibleForTesting
+String? gateRedirect({
+  required AsyncValue<bool> configured,
+  required AsyncValue<bool> signedIn,
+  required AsyncValue<AppUser?> me,
+  required String here,
+}) {
+  // 1. Still reading the persisted server URL or the persisted session: hold,
+  // do not guess. Guessing "not signed in" while the session is still being
+  // read bounces a returning user to a login form they did not need.
+  if (configured.isLoading || signedIn.isLoading) {
+    return here == Routes.splash ? null : Routes.splash;
+  }
+
+  // 2. No server yet — on native, first run. Nothing else can work before it:
+  // the client cannot even be built without a base URL.
+  if (configured.value != true) {
+    return here == Routes.setup ? null : Routes.setup;
+  }
+
+  // 3. Not signed in.
+  if (signedIn.value != true) {
+    return here == Routes.login ? null : Routes.login;
+  }
+
+  // 4. Signed in — but may this account reach anything? A guest is refused by
+  // every access rule (migration 014), so the app behind the gate would be
+  // empty lists and buttons that answer 403.
+  if (me.isLoading) {
+    return here == Routes.splash ? null : Routes.splash;
+  }
+  // An ERROR is not a wall. A member whose profile read failed — a dropped
+  // connection on resume — must not be told they are waiting for access: that
+  // reads as a decision somebody made about them, and it has no way out. Let
+  // them into the app, where a failed read shows itself as one.
+  final role = me.value?.role;
+  if (me.hasValue && !role.opensData) {
+    return here == Routes.pending ? null : Routes.pending;
+  }
+
+  // Signed in and let in: leave the gate screens — including the waiting one,
+  // which is how a promotion lands without a second sign-in.
+  if (here == Routes.splash ||
+      here == Routes.setup ||
+      here == Routes.login ||
+      here == Routes.pending) {
+    return Routes.dashboard;
+  }
+  return null;
+}
+
 /// Turns the two gating providers into one [Listenable] go_router can refresh
 /// on, and holds the redirect that reads them.
 class _Gate extends ChangeNotifier {
@@ -213,6 +286,10 @@ class _Gate extends ChangeNotifier {
     _subs = [
       _ref.listen(serverConfigControllerProvider, (_, _) => notifyListeners()),
       _ref.listen(authStatusProvider, (_, _) => notifyListeners()),
+      // The ROLE decides whether there is an app to show, so a change to it has
+      // to re-run the redirect: a coordinator promoting a guest must move that
+      // reader off the waiting screen without asking them to sign in again.
+      _ref.listen(currentUserProvider, (_, _) => notifyListeners()),
     ];
   }
 
@@ -229,28 +306,13 @@ class _Gate extends ChangeNotifier {
 
   String? redirect(BuildContext context, GoRouterState state) {
     final config = _ref.read(serverConfigControllerProvider);
-    final signedIn = _ref.read(authStatusProvider);
-    final here = state.matchedLocation;
-
-    // Still reading the persisted server URL or the persisted session: hold,
-    // do not guess. See the class doc.
-    if (config.isLoading || signedIn.isLoading) {
-      return here == Routes.splash ? null : Routes.splash;
-    }
-
-    final configured = config.value is ServerConfigured;
-    if (!configured) {
-      return here == Routes.setup ? null : Routes.setup;
-    }
-
-    if (signedIn.value != true) {
-      return here == Routes.login ? null : Routes.login;
-    }
-
-    // Signed in: nothing to do here any more, so leave the gate screens.
-    if (here == Routes.splash || here == Routes.setup || here == Routes.login) {
-      return Routes.dashboard;
-    }
-    return null;
+    return gateRedirect(
+      // Mapped to a bool here so the decision below needs none of zugvogel's
+      // types — which is what makes it testable without standing up a client.
+      configured: config.whenData((value) => value is ServerConfigured),
+      signedIn: _ref.read(authStatusProvider),
+      me: _ref.read(currentUserProvider),
+      here: state.matchedLocation,
+    );
   }
 }
