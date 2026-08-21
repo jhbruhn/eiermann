@@ -31,6 +31,14 @@ doc/api/
 *.mocks.dart
 *.config.dart
 
+# gen-l10n output. l10n.yaml sends it to lib/l10n/gen/ rather than the default
+# .dart_tool/ location, so it needs naming explicitly — federfall gets this for
+# free by using the default. Committed generated code goes stale against the ARB
+# that produced it, and a stale localisation file fails with an error that names
+# neither the ARB nor the generator. CI runs `flutter gen-l10n` before analyze;
+# locally, run it after every ARB change.
+apps/*/lib/l10n/gen/
+
 # Note: pubspec.lock IS committed (this repo ships an app — pin dependencies).
 
 # ─── Flutter: platform-generated artefacts ──────────────────────────────────
