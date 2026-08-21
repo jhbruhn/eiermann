@@ -50,6 +50,17 @@ Future<NestsRepository> nestsRepository(Ref ref) async =>
 Future<NestStateRepository> nestStateRepository(Ref ref) async =>
     NestStateRepository(await _client(ref));
 
+/// The vocabulary behind every Artbezeichnung field: what this org has actually
+/// called the birds it has seen.
+///
+/// Read-only by type, and that IS the feature — the list grows by being used,
+/// and "add a species" is a compile error rather than a curated list somebody
+/// has to maintain. `keepAlive` because it is read from three sheets and
+/// changes only when a visit is written.
+@Riverpod(keepAlive: true)
+Future<SpeciesLabelsRepository> speciesLabelsRepository(Ref ref) async =>
+    SpeciesLabelsRepository(await _client(ref));
+
 /// The read-only view behind the Spot list and the map.
 ///
 /// A separate provider from [spotsRepository] rather than a method on it,

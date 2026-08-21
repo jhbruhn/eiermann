@@ -3,6 +3,7 @@ import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/nests/nest_labels.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
+import 'package:eiermann/features/species/species_label_field.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/ui/form_sheet.dart';
 import 'package:eiermann/ui/photo_capture.dart';
@@ -266,14 +267,16 @@ class _NestSheetState extends ConsumerState<NestSheet>
           ],
           if (_species != NestSpecies.feralPigeon) ...[
             const SizedBox(height: ZugvogelSpacing.md),
-            AppTextField(
+            // Free text on purpose, with suggestions from what this org has
+            // already recorded — including the names typed on FINDINGS. A
+            // curated list goes stale in both directions: it holds entries
+            // nobody has seen in years and lacks the one the volunteer is
+            // looking at.
+            SpeciesLabelField(
               controller: _speciesLabel,
               label: l10n.nestFieldSpeciesLabel,
-              // Free text on purpose: a curated list goes stale, holding dead
-              // entries and missing the one the volunteer is looking at.
-              hintText: l10n.nestFieldSpeciesLabelHint,
-              prefixIcon: Icons.pets_outlined,
               enabled: !isBusy,
+              onPicked: markDirty,
             ),
           ],
         ],

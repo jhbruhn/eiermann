@@ -356,10 +356,6 @@
   "nestPhotoReplaceAction": "Foto ersetzen",
   "nestFieldSpecies": "Art",
   "nestFieldSpeciesLabel": "Welche Art?",
-  "nestFieldSpeciesLabelHint": "Dohle, Turmfalke, …",
-  "@nestFieldSpeciesLabelHint": {
-    "description": "Free text, not a picker: a curated list goes stale, holding dead entries and missing the one the volunteer is looking at."
-  },
   "nestSpeciesFeralPigeon": "Stadttaube",
   "nestSpeciesProtected": "Geschützt",
   "@nestSpeciesProtected": {
@@ -937,11 +933,11 @@
   "@findingCountMore": {
     "description": "Tooltips on the stepper. Flutter's MaterialLocalizations has no pair for this control, so the app names them — a stepper with unlabelled buttons is two identical targets to a screen reader."
   },
-  "findingSpeciesLabel": "Welche Art?",
-  "findingSpeciesHint": "In eigenen Worten. Zwei Schreibweisen sind zwei Einträge — nichts wird im Hintergrund zusammengefasst.",
-  "@findingSpeciesHint": {
-    "description": "States the price of a vocabulary that grows from use, where it is paid. A normaliser that folds 'Turmfalke' into 'Turmfalken' is one that will one day fold two species together, unnoticed."
+  "speciesLabelHint": "In eigenen Worten. Zwei Schreibweisen sind zwei Einträge — nichts wird im Hintergrund zusammengefasst.\nVorschläge sind, was diese Gruppe schon festgehalten hat.",
+  "@speciesLabelHint": {
+    "description": "One sentence for the price of a vocabulary that grows from use, one for where the suggestions come from. Both belong under the field: the list is a record of use, not a taxonomy, and a reader who expects it to be complete would trust it wrongly."
   },
+  "findingSpeciesLabel": "Welche Art?",
   "findingNoteLabel": "Notiz zum Fund",
   "findingNestLabel": "Gehört zu",
   "findingNestNone": "Zum Gebäude",

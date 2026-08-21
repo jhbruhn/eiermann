@@ -51,4 +51,6 @@ void invalidateAfterVisit(WidgetRef ref) {
     ..invalidate(nestEggsProvider)
     ..invalidate(openFollowUpsProvider)
     ..invalidate(openFollowUpsForSpotProvider);
+  // `species_labels` is covered by invalidateNestViews above, and it has to be:
+  // a species typed on a FUND is in the same vocabulary as one typed on a nest.
 }

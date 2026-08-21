@@ -1,4 +1,5 @@
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/species/species_providers.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -37,7 +38,13 @@ Future<List<NestState>> nestStatesForSpot(Ref ref, String spotId) async {
 void invalidateNestViews(WidgetRef ref) {
   ref
     ..invalidate(nestsForAreaProvider)
-    ..invalidate(nestStatesForSpotProvider);
+    ..invalidate(nestStatesForSpotProvider)
+    // A nest carries a species NAME, and `species_labels` is a view over the
+    // names actually recorded — so naming a jackdaw here makes "Dohle" a
+    // suggestion on the next Fund. A picker that only learns it after a restart
+    // teaches people to re-type instead of tapping, which is how two spellings
+    // happen.
+    ..invalidate(speciesLabelsProvider);
 }
 
 /// The label to suggest for the next nest, given the [labels] already taken.

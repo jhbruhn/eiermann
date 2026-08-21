@@ -1,4 +1,5 @@
 import 'package:eiermann/features/findings/finding_labels.dart';
+import 'package:eiermann/features/species/species_label_field.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
@@ -200,19 +201,11 @@ class _FindingSheetState extends ConsumerState<FindingSheet>
           ),
           if (_wantsSpecies) ...[
             const SizedBox(height: ZugvogelSpacing.md),
-            AppTextField(
+            SpeciesLabelField(
               controller: _species,
               label: l10n.findingSpeciesLabel,
-              prefixIcon: Icons.pets_outlined,
               enabled: !isBusy,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: ZugvogelSpacing.xs),
-            Text(
-              l10n.findingSpeciesHint,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              onPicked: markDirty,
             ),
           ],
           const SizedBox(height: ZugvogelSpacing.md),

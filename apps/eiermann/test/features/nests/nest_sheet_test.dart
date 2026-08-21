@@ -81,6 +81,17 @@ void main() {
     UserRole role = UserRole.member,
     ImagePicker? picker,
   }) async {
+    // A TALL surface. The sheet is one scroll view, and a `ListView` does not
+    // build what is below the fold — so on the default 800x600 the save button
+    // drops out of the tree as soon as something is inserted above it, and
+    // the test then reads as "the save did nothing" rather than "the button is
+    // offscreen". It cost exactly that when the species field grew a
+    // suggestion row.
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpApp(
       Scaffold(
         body: NestSheet(

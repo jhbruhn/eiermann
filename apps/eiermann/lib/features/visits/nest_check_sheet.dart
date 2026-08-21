@@ -1,4 +1,5 @@
 import 'package:eiermann/features/nests/nest_labels.dart';
+import 'package:eiermann/features/species/species_label_field.dart';
 import 'package:eiermann/features/visits/check_labels.dart';
 import 'package:eiermann/features/visits/egg_slots.dart';
 import 'package:eiermann/features/visits/visits_providers.dart';
@@ -219,12 +220,15 @@ class _NestCheckSheetState extends ConsumerState<NestCheckSheet>
           ),
           if (_special == CheckState.protected) ...[
             const SizedBox(height: ZugvogelSpacing.md),
-            AppTextField(
+            // Reporting a protected bird on a visit IS the determination, so
+            // this is where most species names get typed — and where the
+            // suggestions earn the most: the word is usually one somebody in
+            // this group has already written down.
+            SpeciesLabelField(
               controller: _speciesLabel,
               label: l10n.nestCheckSpeciesLabel,
-              hintText: l10n.nestFieldSpeciesLabelHint,
-              prefixIcon: Icons.pets_outlined,
               enabled: !isBusy,
+              onPicked: markDirty,
             ),
           ],
           const SizedBox(height: ZugvogelSpacing.md),
