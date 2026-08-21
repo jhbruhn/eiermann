@@ -86,3 +86,7 @@ backend/pocketbase/pb_data/
 Thumbs.db
 *.swp
 *~
+
+# The rule suite is Python; its bytecode cache is not a source file.
+__pycache__/
+*.pyc
