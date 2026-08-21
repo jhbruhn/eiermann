@@ -218,6 +218,11 @@ class _SpotPhaseSheetState extends ConsumerState<SpotPhaseSheet>
         markDirty();
       }),
     ),
+    // Says what the date DOES. It only started doing anything when the
+    // auto-resume cron landed (eiermann-gb1): before that `paused_until` was a
+    // note to a human, and "Voraussichtlich bis" was deliberately vague:
+    // promising a return the app could not deliver is worse than silence.
+    _Footnote(l10n.spotPauseUntilWhy),
   ];
 
   Future<void> _pickUntil() async {

@@ -194,5 +194,11 @@
   "spotPinFoundOne": "Pin placed on {address}.",
   "spotsMapTitle": "Map",
   "spotsMapOpenAction": "Open the dossier",
-  "spotsMapUnpinned": "{count, plural, =1{1 Spot has no pin and is missing from this map} other{{count} Spots have no pin and are missing from this map}}"
+  "spotsMapUnpinned": "{count, plural, =1{1 Spot has no pin and is missing from this map} other{{count} Spots have no pin and are missing from this map}}",
+  "spotAddressAsLabel": "Here the address is only a label for people — the pin says where the Spot is. A light well between two blocks has no address of its own; then these fields stay empty, or carry a description like “corner of Bahnhofstraße and Am Wall”.",
+  "spotFieldStreetHint": "Street and number, or a description",
+  "spotPinMoveAction": "Move the pin",
+  "spotPinAccordingToMap": "According to the map: {address}",
+  "spotPhaseStartHint": "Prospecting when there is no permission yet. Active only when access is already agreed. Pausing and closing come later, through the phase on the dossier.",
+  "spotPauseUntilWhy": "Once that date passes the Spot becomes active again by itself and reappears in the lists. With no date it stays paused until somebody resumes it."
 }
