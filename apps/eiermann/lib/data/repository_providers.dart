@@ -17,6 +17,15 @@ Future<AuthRepository> authRepository(Ref ref) async =>
 Future<SpotsRepository> spotsRepository(Ref ref) async =>
     SpotsRepository(await _client(ref));
 
+/// Address ⇄ coordinate lookups, through this app's own proxy route.
+///
+/// The interface type, not the implementation: a screen that took
+/// `PbGeocodingRepository` would be a screen a test can only fake by standing
+/// up a PocketBase client.
+@Riverpod(keepAlive: true)
+Future<GeocodingRepository> geocodingRepository(Ref ref) async =>
+    PbGeocodingRepository(await _client(ref));
+
 @Riverpod(keepAlive: true)
 Future<SpotContactsRepository> spotContactsRepository(Ref ref) async =>
     SpotContactsRepository(await _client(ref));

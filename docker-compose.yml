@@ -73,6 +73,49 @@ services:
       # rate limit is shared by all users, because the only client IP PocketBase
       # can see is the proxy's.
       EIERMANN_TRUSTED_PROXY_HEADERS: ${EIERMANN_TRUSTED_PROXY_HEADERS:-}
+      # ── THE GEOCODER ───────────────────────────────────────────────────
+      #
+      # Address → coordinates, for the Spot form and the map. It runs through
+      # /api/eiermann/geocode and never from the client: a browser cannot call
+      # Nominatim at all (no CORS headers), the upstream wants a real contact in
+      # the User-Agent, and a rate limit a client can bypass is not one.
+      #
+      # BOTH of these want setting before a real deployment. Left empty the
+      # proxy talks to the public OSM instance under the User-Agent
+      # "eiermann/1.0" — and that instance blocks application backends and
+      # placeholder agents, so geocoding works in development and stops the day
+      # it matters. Either self-host Nominatim (or point at a paid provider) or
+      # put a real contact address in the agent.
+      EIERMANN_NOMINATIM_URL: ${EIERMANN_NOMINATIM_URL:-}
+      EIERMANN_USER_AGENT: ${EIERMANN_USER_AGENT:-}
+      # For a provider that wants a key rather than a contact.
+      EIERMANN_GEOCODER_KEY: ${EIERMANN_GEOCODER_KEY:-}
+      # The cache in front of it: 30 days for a hit, 24 hours for a miss, purged
+      # nightly. Twenty volunteers looking up the same street is one upstream
+      # request. Override only to debug — GEOCODE_CACHE_DISABLED=1 turns it off.
+      EIERMANN_GEOCODE_CACHE_TTL_DAYS: ${EIERMANN_GEOCODE_CACHE_TTL_DAYS:-}
+      EIERMANN_GEOCODE_CACHE_NEG_TTL_HOURS: ${EIERMANN_GEOCODE_CACHE_NEG_TTL_HOURS:-}
+      EIERMANN_GEOCODE_CACHE_DISABLED: ${EIERMANN_GEOCODE_CACHE_DISABLED:-}
+      # ── THE MAP SOURCE ─────────────────────────────────────────────────
+      #
+      # ALL OR NOTHING, and prescribed at RUNTIME through /api/eiermann/info
+      # rather than baked into the app. A self-hosted server cannot be made to
+      # advertise somebody else's tiles, and a half-applied override that named
+      # the wrong provider would be a licensing problem, not a cosmetic one — so
+      # /info refuses a partial set and the app falls back to its build-time
+      # defines instead of mixing the two.
+      #
+      # Set MAP_MODE (raster|vector), the URL matching that mode, and the
+      # attribution the provider requires. The app derives its CSP from the same
+      # URLs, so a source named here cannot be blocked by the server that named
+      # it.
+      EIERMANN_MAP_MODE: ${EIERMANN_MAP_MODE:-}
+      EIERMANN_MAP_TILE_URL: ${EIERMANN_MAP_TILE_URL:-}
+      EIERMANN_MAP_STYLE_URL: ${EIERMANN_MAP_STYLE_URL:-}
+      EIERMANN_MAP_ATTRIBUTION: ${EIERMANN_MAP_ATTRIBUTION:-}
+      EIERMANN_MAP_ATTRIBUTION_URL: ${EIERMANN_MAP_ATTRIBUTION_URL:-}
+      # Kept out of the committed dart_defines for the obvious reason.
+      EIERMANN_MAP_API_KEY: ${EIERMANN_MAP_API_KEY:-}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/api/health"]
       interval: 30s
