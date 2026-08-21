@@ -158,5 +158,10 @@
   "spotCloseIntro": "Closed means no more visits and no date. The whole history is kept, and the spot stays visible on the map — coloured differently.",
   "spotCloseFieldReason": "Reason for closing",
   "spotCloseReasonWhy": "Six months on there is otherwise no way to tell whether it is worth asking again. Netted and refused are opposite answers.",
-  "spotCloseRefusedNote": "Prospecting says “Refused” — that is the reason. An additional closing reason is possible but not needed."
+  "spotCloseRefusedNote": "Prospecting says “Refused” — that is the reason. An additional closing reason is possible but not needed.",
+  "spotAccessSheetTitle": "Describe the way in",
+  "spotAccessSheetIntro": "The one line that saves the next person a phone call: which bell, which key, who unlocks — and when that person is actually there.",
+  "spotContactDeleteTitle": "Remove contact?",
+  "spotContactDeleteAction": "Remove",
+  "spotContactDeleteMessage": "{name} will be deleted, along with the number and the note. That number exists nowhere else in the app."
 }

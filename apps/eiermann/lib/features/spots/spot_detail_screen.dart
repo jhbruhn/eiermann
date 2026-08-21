@@ -1,3 +1,4 @@
+import 'package:eiermann/features/spots/spot_access_sheet.dart';
 import 'package:eiermann/features/spots/spot_contact_sheet.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_phase_chip.dart';
@@ -144,43 +145,59 @@ class _AccessCard extends StatelessWidget {
       color: note == null
           ? theme.colorScheme.surfaceContainerHighest
           : theme.colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(ZugvogelSpacing.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.key_outlined,
-              color: note == null
-                  ? theme.colorScheme.onSurfaceVariant
-                  : theme.colorScheme.onPrimaryContainer,
-            ),
-            const SizedBox(width: ZugvogelSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.spotAccessTitle,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: note == null
-                          ? theme.colorScheme.onSurfaceVariant
-                          : theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: ZugvogelSpacing.xs),
-                  Text(
-                    note ?? l10n.spotAccessEmpty,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: note == null
-                          ? theme.colorScheme.onSurfaceVariant
-                          : theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ],
+      // The card is the editor's front door, empty or not. Somebody who has
+      // just been told which bell to ring is standing at it on a phone: through
+      // the Spot form that is four taps and a scroll past the address, and the
+      // note does not get written. From here it is one tap on the thing that
+      // was showing them the gap.
+      child: InkWell(
+        onTap: () => showSpotAccessSheet(context, spot: spot),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(ZugvogelSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.key_outlined,
+                color: note == null
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.colorScheme.onPrimaryContainer,
               ),
-            ),
-          ],
+              const SizedBox(width: ZugvogelSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.spotAccessTitle,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: note == null
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: ZugvogelSpacing.xs),
+                    Text(
+                      note ?? l10n.spotAccessEmpty,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: note == null
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: note == null
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.colorScheme.onPrimaryContainer,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -252,15 +269,19 @@ class _ContactTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    final subtitle = [
+    // The note is on its OWN line, not joined onto the end of this one. A
+    // ListTile subtitle is a single line, so "nur vormittags erreichbar,
+    // klingelt nicht bei Regen" was being ellipsised away — and that sentence
+    // is the handover, not decoration around it.
+    final reach = [
       contactRoleLabel(l10n, contact.role),
       ?contact.phone,
       ?contact.email,
-      ?contact.note,
     ].join(' · ');
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      isThreeLine: contact.note != null,
       title: Row(
         children: [
           Flexible(child: Text(contact.name)),
@@ -272,7 +293,20 @@ class _ContactTile extends StatelessWidget {
           ],
         ],
       ),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(reach, style: theme.textTheme.bodySmall),
+          if (contact.note case final note?)
+            Text(
+              note,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+        ],
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

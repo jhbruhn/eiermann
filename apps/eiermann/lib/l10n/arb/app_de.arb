@@ -268,5 +268,21 @@
   "spotCloseRefusedNote": "Die Erkundung steht auf „Abgelehnt“ — das ist der Grund. Ein zusätzlicher Abschlussgrund ist möglich, aber nicht nötig.",
   "@spotCloseRefusedNote": {
     "description": "The one closing that needs no reason. None of the four values describes an owner who simply said no."
+  },
+  "spotAccessSheetTitle": "Zugang beschreiben",
+  "spotAccessSheetIntro": "Die eine Zeile, die dem Nächsten einen Anruf erspart: welche Klingel, welcher Schlüssel, wer aufschließt — und wann diese Person überhaupt da ist.",
+  "@spotAccessSheetIntro": {
+    "description": "The access note is the concept's answer to 'die Übergabe ist schmerzhaft'. The intro says what belongs in the field, because 'Zugang' alone gets answered with one word."
+  },
+  "spotContactDeleteTitle": "Ansprechpartner entfernen?",
+  "spotContactDeleteAction": "Entfernen",
+  "spotContactDeleteMessage": "{name} wird samt Nummer und Notiz gelöscht. Diese Nummer steht nirgendwo sonst in der App.",
+  "@spotContactDeleteMessage": {
+    "description": "Names what is actually lost. A contact's phone number exists in exactly one place, so the confirmation has to say so.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

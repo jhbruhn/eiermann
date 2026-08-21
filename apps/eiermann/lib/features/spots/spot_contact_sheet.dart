@@ -67,6 +67,41 @@ class _SpotContactSheetState extends ConsumerState<SpotContactSheet>
     super.dispose();
   }
 
+  /// Removes the contact, after asking.
+  ///
+  /// Not gated on `RolePermissions.canDelete`, which is about deleting a SPOT
+  /// — that destroys a whole dossier, and the coordinator owns it for that
+  /// reason. This is one row with one phone number on it, the server lets any
+  /// member
+  /// delete it, and the person who mistyped a number is the one holding the
+  /// phone. A team that cannot remove a caretaker who moved out keeps ringing
+  /// them.
+  Future<void> _delete() async {
+    final existing = widget.contact;
+    if (existing == null) return;
+    final l10n = context.l10n;
+    final navigator = Navigator.of(context);
+
+    await confirmAndDelete(
+      context,
+      title: l10n.spotContactDeleteTitle,
+      // Names the number as well as the person: it is the thing that is
+      // actually being lost, and it exists nowhere else in the app.
+      message: l10n.spotContactDeleteMessage(existing.name),
+      confirmLabel: l10n.spotContactDeleteAction,
+      action: () async {
+        final repo = await ref.read(spotContactsRepositoryProvider.future);
+        await repo.delete(existing.id);
+        ref
+          ..invalidate(spotContactsProvider(widget.spotId))
+          ..invalidate(spotFeedProvider);
+        // Inside the action, so a failed delete leaves the sheet standing with
+        // its snackbar instead of closing over the error.
+        navigator.pop();
+      },
+    );
+  }
+
   Future<void> _save() async {
     final role = _role;
     if (_roleMissing != (role == null)) {
@@ -119,6 +154,21 @@ class _SpotContactSheetState extends ConsumerState<SpotContactSheet>
         isBusy: isBusy,
         error: saveError,
         onSave: _save,
+        trailing: [
+          if (_isEdit) ...[
+            const SizedBox(height: ZugvogelSpacing.sm),
+            // Under the save button and outlined, not beside it: a delete that
+            // shares a row with Save is a delete somebody taps by aiming badly.
+            OutlinedButton.icon(
+              onPressed: isBusy ? null : _delete,
+              icon: const Icon(Icons.delete_outline),
+              label: Text(l10n.spotContactDeleteAction),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ],
+        ],
         children: [
           DropdownButtonFormField<ContactRole>(
             initialValue: _role,
