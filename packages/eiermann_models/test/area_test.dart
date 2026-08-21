@@ -75,9 +75,12 @@ void main() {
       expect(area.photoTakenAt, isNull);
     });
 
-    test('no sort_index yet is null, not zero', () {
-      // Zero is a real position — the first one — so a Bereich nobody has
-      // ordered must not claim it.
+    test('an ABSENT sort_index reads as null rather than as position 0', () {
+      // Zero is a real position — the first one. Measured against the running
+      // server, PocketBase defaults an omitted number field to 0 and sends it
+      // back that way, so this null never arrives over the wire today; the
+      // mapping stays honest anyway, and nothing in the app may read "0" as
+      // "unordered".
       final area = Area.fromRecord(areaRecord(const {'sort_index': null}));
 
       expect(area.sortIndex, isNull);

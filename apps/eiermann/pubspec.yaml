@@ -74,6 +74,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   freezed: ^3.2.6-dev.1
+  # Test-only: the crop step decodes what it is handed, so the photo flow needs
+  # a REAL encodable image — fake bytes never get past its loading placeholder.
+  image: ^4.9.1
   json_serializable: ^6.14.0
   mocktail: ^1.0.5
   riverpod_generator: ^4.0.4

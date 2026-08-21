@@ -182,6 +182,48 @@
   "@spotAccessEmpty": {
     "description": "The access note is the single most valuable field for a handover; a missing one is worth stating."
   },
+  "areasTitle": "Bereiche",
+  "@areasTitle": {
+    "description": "A Bereich is a named part of a building — 'Dachboden Nord', 'Lichtschacht'. It exists to carry the overview photo, and the photo carries the nest pins."
+  },
+  "areasAddAction": "Bereich",
+  "areasEmpty": "Noch kein Bereich. Ein Bereich trägt das Übersichtsfoto, und auf dem Foto werden später die Nester eingezeichnet.",
+  "@areasEmpty": {
+    "description": "Empty state. Names what a Bereich is FOR rather than what it is, because 'Bereich' alone tells a new volunteer nothing."
+  },
+  "areaSheetTitleNew": "Bereich anlegen",
+  "areaSheetTitleEdit": "Bereich bearbeiten",
+  "areaEditAction": "Bereich bearbeiten",
+  "areaFieldName": "Bezeichnung",
+  "areaFieldNameHint": "Dachboden Nord",
+  "areaFieldNote": "Notiz",
+  "areaFieldNoteHint": "Wie man hinkommt, worauf zu achten ist",
+  "@areaFieldNoteHint": {
+    "description": "What a photo cannot say and a pin cannot either: the way up there."
+  },
+  "areaPhotoMissing": "Kein Foto",
+  "areaPhotoMissingHint": "Ohne Foto lassen sich keine Nester einzeichnen.",
+  "@areaPhotoMissingHint": {
+    "description": "States the consequence, not the gap: the server refuses a pin on a Bereich without a photo, so this is a blocked next step and not a cosmetic omission."
+  },
+  "areaPhotoSetAction": "Foto aufnehmen",
+  "areaPhotoReplaceAction": "Foto ersetzen",
+  "areaPhotoCameraAction": "Mit der Kamera aufnehmen",
+  "areaPhotoGalleryAction": "Aus der Galerie wählen",
+  "areaPhotoOpenAction": "Foto ansehen",
+  "areaPhotoTakenOn": "Foto vom {date}",
+  "@areaPhotoTakenOn": {
+    "description": "How old the picture is decides whether it can be trusted at all. Formatted through formatLocalDate — PocketBase stores UTC.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "areaPinsNeedReview": "Das Foto wurde gewechselt — die Pins sind noch nicht geprüft.",
+  "@areaPinsNeedReview": {
+    "description": "The flag areas.pins_need_review raises. An area whose pins nobody has checked against the new photo is the one state where the picture actively misleads."
+  },
   "spotNoteTitle": "Notiz",
   "spotDetailEditAction": "Spot bearbeiten",
   "spotPausedUntil": "Pause voraussichtlich bis {date}",

@@ -30,6 +30,12 @@ Future<GeocodingRepository> geocodingRepository(Ref ref) async =>
 Future<SpotContactsRepository> spotContactsRepository(Ref ref) async =>
     SpotContactsRepository(await _client(ref));
 
+/// The Bereiche of a building — and with them the overview photos the nest
+/// pins sit on.
+@Riverpod(keepAlive: true)
+Future<AreasRepository> areasRepository(Ref ref) async =>
+    AreasRepository(await _client(ref));
+
 /// The read-only view behind the Spot list and the map.
 ///
 /// A separate provider from [spotsRepository] rather than a method on it,

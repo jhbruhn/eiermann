@@ -1,3 +1,4 @@
+import 'package:eiermann/features/areas/areas_section.dart';
 import 'package:eiermann/features/spots/spot_access_sheet.dart';
 import 'package:eiermann/features/spots/spot_contact_sheet.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
@@ -21,7 +22,7 @@ import 'package:zugvogel_ui/zugvogel_ui.dart';
 /// ist schmerzhaft" — not a participant list, but what the next person needs to
 /// get in at all.
 ///
-/// The areas, the nests and the visit history land under this in Phase 03/04.
+/// The nests and the visit history land under the Bereiche in Phase 03/04.
 class SpotDetailScreen extends ConsumerWidget {
   const SpotDetailScreen({required this.spotId, super.key});
 
@@ -54,6 +55,12 @@ class SpotDetailScreen extends ConsumerWidget {
               _Header(loaded),
               const SizedBox(height: ZugvogelSpacing.lg),
               _AccessCard(loaded),
+              const SizedBox(height: ZugvogelSpacing.lg),
+              // Above the contacts, because the concept puts it there: the
+              // overview photo is one of the two things that must stand on this
+              // screen without scrolling, so you orient yourself physically
+              // before reading anything.
+              AreasSection(spotId: spotId),
               const SizedBox(height: ZugvogelSpacing.lg),
               _Contacts(spotId: spotId),
               if (loaded.note case final note?) ...[

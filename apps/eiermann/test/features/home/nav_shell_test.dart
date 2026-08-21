@@ -22,6 +22,8 @@ class _MockSpots extends Mock implements SpotsRepository {}
 
 class _MockContacts extends Mock implements SpotContactsRepository {}
 
+class _MockAreas extends Mock implements AreasRepository {}
+
 SpotOverview row({
   required String id,
   required String name,
@@ -42,6 +44,7 @@ void main() {
   late _MockOverview overview;
   late _MockSpots spots;
   late _MockContacts contacts;
+  late _MockAreas areas;
 
   setUpAll(() async {
     de = await germanStrings();
@@ -52,7 +55,9 @@ void main() {
     overview = _MockOverview();
     spots = _MockSpots();
     contacts = _MockContacts();
+    areas = _MockAreas();
     when(() => contacts.forSpot(any())).thenAnswer((_) async => []);
+    when(() => areas.forSpot(any())).thenAnswer((_) async => []);
     when(() => overview.search(any())).thenAnswer((_) async => []);
     when(
       () => overview.dueFirst(
@@ -82,6 +87,7 @@ void main() {
           spotOverviewRepositoryProvider.overrideWith((ref) async => overview),
           spotsRepositoryProvider.overrideWith((ref) async => spots),
           spotContactsRepositoryProvider.overrideWith((ref) async => contacts),
+          areasRepositoryProvider.overrideWith((ref) async => areas),
           currentUserProvider.overrideWith(
             (ref) async => const AppUser(
               id: 'u1',
