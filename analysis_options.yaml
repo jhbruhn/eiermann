@@ -4,5 +4,14 @@
 # be declared at the pub-workspace root, so riverpod_lint is enabled here and
 # applies to every member. Per-package lint rules live in each package's own
 # analysis_options.yaml.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 plugins:
   riverpod_lint: ^3.1.4
