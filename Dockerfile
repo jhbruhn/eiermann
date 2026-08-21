@@ -111,6 +111,12 @@ RUN mkdir -p /pb/pb_data
 COPY backend/pocketbase/pb_migrations/ /pb/pb_migrations/
 COPY backend/pocketbase/pb_hooks/      /pb/pb_hooks/
 COPY backend/pocketbase/entrypoint.sh  /usr/local/bin/entrypoint.sh
+# A signpost at `/` for the lean image, which has no SPA to serve. Without it the
+# address answers 404, which is indistinguishable from a broken deployment — and
+# that cost real confusion once. The `full` stage copies the Flutter build over
+# this directory, and its own index.html wins, so the signpost only ever appears
+# on the image that needs it.
+COPY backend/pocketbase/pb_public_dev/ /pb/pb_public/
 EXPOSE 8090
 # automigrate OFF by default: the schema changes only through the committed
 # migration files above, and never drifts in from somebody clicking in the Admin
@@ -124,6 +130,7 @@ CMD ["serve", "--http=0.0.0.0:8090", \
      "--dir=/pb/pb_data", \
      "--migrationsDir=/pb/pb_migrations", \
      "--hooksDir=/pb/pb_hooks", \
+     "--publicDir=/pb/pb_public", \
      "--automigrate=0"]
 
 # ── Full app image (backend + the web SPA) ────────────────────────────────────

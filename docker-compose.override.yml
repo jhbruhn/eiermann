@@ -6,14 +6,18 @@
 #    migration rebuilds in seconds instead of minutes. The app runs from
 #    `flutter run` against it.
 #
-#    THIS IS WHY `docker compose up` SERVES NO UI. The lean image has an empty
-#    pb_public, so the browser gets PocketBase's 404 for `/`. That is the right
-#    default for backend work — a Flutter web build adds minutes to every hook
-#    edit — but it is surprising the first time.
+#    THIS IS WHY `docker compose up` SERVES NO UI — and the address now says so
+#    instead of answering 404 (backend/pocketbase/pb_public_dev/index.html).
 #
-#    For the whole app in one container, skip this file:
+#    It is not a limitation on developing the UI: the app runs from
+#        cd apps/eiermann && flutter run -d chrome \
+#            --dart-define-from-file=dart_defines/development.json
+#    which is the BETTER loop, because it hot-reloads. A web build baked into a
+#    container would mean a docker build per UI change.
+#
+#    For the whole app in one container — a demo, or checking the release
+#    artifact — skip this file:
 #        docker compose -f docker-compose.yml up -d --build
-#    which builds the `full` target and serves the UI at the published port.
 #  * the migrations and hooks are BIND-MOUNTED, so editing one and restarting
 #    picks it up. Baked copies would mean a rebuild per hook edit.
 #  * automigrate ON, so a new migration file applies on restart.

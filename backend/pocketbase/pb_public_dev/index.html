@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>eiermann — backend only</title>
+<style>
+  :root { color-scheme: light dark }
+  body { font: 16px/1.6 system-ui, sans-serif; max-width: 46rem;
+         margin: 4rem auto; padding: 0 1.5rem }
+  code, pre { font-family: ui-monospace, monospace; font-size: .9em }
+  pre { background: rgba(127,127,127,.14); padding: .8rem 1rem;
+        border-radius: 6px; overflow-x: auto }
+  h1 { font-size: 1.4rem } h2 { font-size: 1.05rem; margin-top: 2rem }
+  .n { border-left: 3px solid #b8860b; padding-left: 1rem }
+</style>
+
+<h1>eiermann — this is the backend, without the app</h1>
+
+<p class="n">You are running the <strong>lean backend image</strong>. It ships no
+Flutter web build, so there is no UI to serve here — on purpose, because it means
+a change to a hook or a migration rebuilds in seconds instead of minutes.</p>
+
+<p>This page exists because a bare 404 here looks exactly like a broken
+deployment, and it is not one.</p>
+
+<h2>Working on the UI</h2>
+<p>Run the app from Flutter, against this backend. You get hot reload, which a
+web build baked into a container cannot give you:</p>
+<pre>cd apps/eiermann
+flutter run -d chrome --dart-define-from-file=dart_defines/development.json</pre>
+<p>The <code>--dart-define-from-file</code> is required: on web the app takes its
+server from <code>Uri.base.origin</code> unless a build-time
+<code>POCKETBASE_URL</code> says otherwise, and under <code>flutter run</code>
+that origin is Flutter's own dev server rather than this one.</p>
+
+<h2>Wanting the whole app in one container</h2>
+<pre>docker compose -f docker-compose.yml up -d --build</pre>
+<p>The <code>-f</code> is what skips
+<code>docker-compose.override.yml</code> and builds the full image, which serves
+the app at this address instead of this page.</p>
+
+<h2>What is here</h2>
+<ul>
+  <li><a href="/api/health">/api/health</a> — liveness</li>
+  <li><a href="/api/eiermann/info">/api/eiermann/info</a> — what the client
+      checks before it trusts a server</li>
+  <li><a href="/_/">/_/</a> — PocketBase Admin UI. Look at data with it; never
+      change the schema there. Schema lives in migrations, and a hand edit is a
+      change no other machine will ever have.</li>
+</ul>
