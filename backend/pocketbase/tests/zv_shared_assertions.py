@@ -322,3 +322,110 @@ def geocode_cache(check, req, service, token, seed, read_row):
     status, _ = reverse("10&lon=10")
     check("an expired cache row is a miss, not a stale answer", status == 502,
           f"status {status}")
+
+
+def info(
+    check,
+    req,
+    service,
+    *,
+    providers,
+    self_signup,
+    password_auth=True,
+    oidc_groups_scope,
+    map_mode="raster",
+    map_tile_url="https://raster.invalid/{z}/{x}/{y}.png",
+    map_attribution="© Test Tiles",
+    map_api_key="test-map-key",
+):
+    """zv_info: server identity and capability discovery.
+
+    Everything an app configures is a parameter, so the call site reads as a
+    statement of what THIS instance was set up to be — and a wrong expectation
+    fails here rather than being quietly matched.
+
+    `oidc_groups_scope` is whether the harness configured an OIDC GROUP MAPPING.
+    PocketBase hardcodes its OAuth2 scopes with no server-side way to widen them,
+    so the server publishes the set the app should request instead, and it derives
+    that from the mapping being present. An app with no mapping must NOT advertise
+    the groups scope — asserted either way, because "no scope" and "scope absent
+    because the whole block is missing" look identical from a distance.
+    """
+    status, body = req("GET", f"/api/{service}/info", None)
+    check(f"GET /api/{service}/info is unauthenticated (200)", status == 200,
+          f"status {status}")
+    body = body or {}
+    check(
+        "carries the service identity marker, both spellings",
+        body.get(service) is True and body.get("service") == service,
+        body,
+    )
+    check(
+        "reports a version and minClient",
+        bool(body.get("version")) and bool(body.get("minClient")),
+        body,
+    )
+    # The MAJOR is the app↔server wire contract, so minClient is DERIVED as
+    # "<major>.0.0" — never a hand-set constant, which drifts above every client
+    # in existence (it sat at "1.0.0" for all of 0.x).
+    check(
+        "minClient floors at the running major",
+        body.get("minClient") == body.get("version", "").split(".")[0] + ".0.0",
+        body,
+    )
+
+    auth = body.get("auth") or {}
+    check("password auth matches the configuration",
+          auth.get("password") is password_auth, auth)
+    check("oauth2 is a list", isinstance(auth.get("oauth2"), list), auth)
+    check("self-signup matches the configuration",
+          auth.get("selfSignup") is self_signup, auth)
+    check("the configured providers are advertised",
+          set(auth.get("oauth2") or []) == set(providers), auth)
+
+    scopes = auth.get("oauth2Scopes") or {}
+    if oidc_groups_scope:
+        check(
+            "a group mapping makes OIDC request the groups scope",
+            scopes.get("oidc") == ["openid", "email", "profile", "groups"],
+            auth,
+        )
+    else:
+        check(
+            "with no group mapping, OIDC does NOT request the groups scope",
+            "groups" not in (scopes.get("oidc") or []),
+            auth,
+        )
+    # A social provider rejects the whole authorization request over an unknown
+    # scope, and cannot do OIDC group mapping anyway.
+    check("a social provider keeps PocketBase's own scopes",
+          "google" not in scopes, auth)
+
+    # The tile source is a build-time define in the app, so the server prescribes
+    # one here for self-hosters running the published image.
+    prescribed = body.get("map") or {}
+    check(
+        "the configured map source is prescribed",
+        prescribed.get("mode") == map_mode
+        and prescribed.get("tileUrl") == map_tile_url,
+        prescribed,
+    )
+    # Only the URL for the ACTIVE mode: a leftover variable for the other
+    # rendering path must not travel along and be read as the wrong thing.
+    check("the other mode's URL is not prescribed",
+          "styleUrl" not in prescribed, prescribed)
+    # The credit travels with the URL or neither applies — tiles from one
+    # provider under another's attribution is a licensing problem.
+    check("the prescription carries its attribution",
+          prescribed.get("attribution") == map_attribution, prescribed)
+    check(
+        "an unset attribution link stays absent, not a wrong copyright page",
+        "attributionUrl" not in prescribed,
+        prescribed,
+    )
+    # Commercial providers key their tiles, and a vector style needs the key
+    # substituted into the style's own source and sprite URLs — only the client
+    # can do that, so the key travels as its own field. This endpoint is public,
+    # so a key set here IS public.
+    check("the provider API key is handed to the client",
+          prescribed.get("apiKey") == map_api_key, prescribed)

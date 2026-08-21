@@ -1227,12 +1227,21 @@ h.check(
     f"{len(used)} uses found — a sweep over nothing passes over anything",
 )
 
-status, body = h.req("GET", "/api/eiermann/info")
-h.check("/info is readable anonymously", status == 200, f"status {status}")
-h.check(
-    "...and names the service, so a client can refuse the wrong server",
-    (body or {}).get("service") == "eiermann",
-    f"service={(body or {}).get('service')!r}",
+# Server identity and capability discovery. The assertions are zugvogel's; the
+# values are what run.sh configured, stated here so the call reads as what this
+# instance is meant to be.
+#
+# `oidc_groups_scope=False` is a real assertion, not an omission: this harness
+# configures OIDC providers but NO group mapping, and the server must therefore
+# not advertise the groups scope. PocketBase rejects an authorization request
+# over an unknown scope, so advertising one nobody mapped would break sign-in.
+shared_assertions.info(
+    h.check,
+    h.req,
+    "eiermann",
+    providers={"oidc", "google"},
+    self_signup=False,
+    oidc_groups_scope=False,
 )
 
 # The geocode route's own contract is zugvogel's to assert — what it refuses,
