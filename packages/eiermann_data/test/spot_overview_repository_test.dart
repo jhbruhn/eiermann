@@ -14,14 +14,17 @@ class _MockService extends Mock implements RecordService {}
 /// thing that matters — whether the rank is bound as a number or as a quoted
 /// string.
 String bindFilter(Invocation i) {
-  var expr = i.positionalArguments[0] as String;
-  final params = i.positionalArguments[1] as Map<String, dynamic>;
-  params.forEach((key, value) {
+  final args = i.positionalArguments;
+  var expr = args[0] as String;
+  for (final param in (args[1] as Map<String, dynamic>).entries) {
+    final value = param.value;
+    // Mirrors pocketbase 0.24: numbers bare, everything else single-quoted
+    // with its own quotes escaped. The escaping is the part under test.
     final bound = value is num || value is bool || value == null
         ? '$value'
-        : "'$value'";
-    expr = expr.replaceAll('{:$key}', bound);
-  });
+        : "'${value.toString().replaceAll("'", r"\'")}'";
+    expr = expr.replaceAll('{:${param.key}}', bound);
+  }
   return expr;
 }
 
@@ -90,14 +93,14 @@ void main() {
           as String?;
 
   group('dueFirst', () {
-    test('orders by urgency, then name, then id', () {
+    test('orders by urgency, then name, then id', () async {
       // The sort has to be exactly what the resume predicate compares, or a
       // page skips and repeats rows. Sorting by rank alone and tie-breaking on
       // id would page correctly and hand the reader forty overdue Spots in
       // record order, which is no order at all.
       stubList((_) => ResultList(items: [row('s1', urgency: 0, name: 'A')]));
 
-      repo.dueFirst();
+      await repo.dueFirst();
 
       expect(capturedSort(), 'urgency,name,id');
     });
@@ -118,7 +121,9 @@ void main() {
       // ends after one page.
       stubList(
         (_) => ResultList(
-          items: [for (var n = 0; n < 2; n++) row('s$n', urgency: 2, name: 'A')],
+          items: [
+            for (var n = 0; n < 2; n++) row('s$n', urgency: 2, name: 'A'),
+          ],
         ),
       );
       final first = await repo.dueFirst(perPage: 2);
@@ -153,7 +158,7 @@ void main() {
     test('a SHORT page ends the list, so nothing spins forever', () async {
       stubList((_) => ResultList(items: [row('s1', urgency: 0, name: 'A')]));
 
-      final page = await repo.dueFirst(perPage: 50);
+      final page = await repo.dueFirst();
 
       expect(page.hasMore, isFalse);
       expect(page.cursor, isNull);
@@ -240,13 +245,16 @@ void main() {
     });
 
     test('binds the term instead of interpolating it', () async {
-      // A filter expression is a query language, and the term is whatever
-      // somebody typed into a search field.
+      // A filter expression is a query language and the term is whatever
+      // somebody typed, so a quote in it has to come back ESCAPED rather than
+      // closing the literal and appending a clause of its own.
       stubList((_) => ResultList(items: []));
 
       await repo.search("' || 1=1 || name ~ '");
 
-      expect(capturedFilter(), isNot(contains('1=1 ||')));
+      final filter = capturedFilter()!;
+      expect(filter, contains(r"'\' || 1=1 || name ~ \''"));
+      expect(filter, isNot(contains("'' || 1=1 ||")));
       verify(() => pb.filter(any(), any())).called(1);
     });
 

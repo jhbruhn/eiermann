@@ -49,7 +49,7 @@ class SpotContactsRepository extends PbRepository<SpotContact> {
     'email': email ?? '',
     'note': note ?? '',
     'is_primary': isPrimary,
-    if (spot != null) 'spot': spot,
-    if (org != null) 'org': org,
+    'spot': ?spot,
+    'org': ?org,
   };
 }

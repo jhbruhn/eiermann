@@ -49,9 +49,11 @@ void main() {
       );
 
       expect(spot.id, 's2');
-      final body = verify(
-        () => spots.create(body: captureAny(named: 'body')),
-      ).captured.single as Map<String, dynamic>;
+      final body =
+          verify(
+                () => spots.create(body: captureAny(named: 'body')),
+              ).captured.single
+              as Map<String, dynamic>;
       expect(body['name'], 'Alter Speicher');
       expect(body['phase'], 'prospect');
       expect(body['org'], 'org1');
@@ -133,7 +135,11 @@ void main() {
       ).thenAnswer(
         (_) async => ResultList(
           items: [
-            RecordModel({'id': 'c1', 'name': 'Herr Kröger', 'is_primary': true}),
+            RecordModel({
+              'id': 'c1',
+              'name': 'Herr Kröger',
+              'is_primary': true,
+            }),
             RecordModel({'id': 'c2', 'name': 'Immobilien Nord'}),
           ],
         ),

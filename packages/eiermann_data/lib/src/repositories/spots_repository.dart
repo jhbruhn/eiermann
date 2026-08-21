@@ -48,6 +48,6 @@ class SpotsRepository extends PbRepository<Spot> {
     // Not cleared when null: the Erkundung history stays set after the Spot
     // goes active, so a form that does not offer the field must not wipe it.
     if (prospectStage != null) 'prospect_stage': prospectStage.wire,
-    if (org != null) 'org': org,
+    'org': ?org,
   };
 }

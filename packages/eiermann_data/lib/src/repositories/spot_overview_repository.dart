@@ -136,8 +136,10 @@ class SpotOverviewRepository extends PbReadOnlyRepository<SpotOverview> {
   /// draws all of them as pins, and a search that returned only the first page
   /// would hide pins the reader is looking straight at. An empty [query]
   /// returns every Spot in the org.
-  Future<List<SpotOverview>> search(String query) =>
-      list(filter: _filter(query: query), sort: 'name');
+  Future<List<SpotOverview>> search(String query) => list(
+    filter: _filter(query: query),
+    sort: 'name',
+  );
 
   /// The bound filter for a query and an optional resume point, or null when
   /// neither applies.
