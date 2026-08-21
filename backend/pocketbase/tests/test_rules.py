@@ -2201,6 +2201,136 @@ h.check(
 )
 
 
+# ── species_labels: the vocabulary that grows from use ──────────────────────
+#
+# eiermann-3is.1. The app does not identify species — it takes the word of the
+# person standing in front of the nest — so the picker behind that field is a
+# view over what has actually been typed, per org. Three properties are worth a
+# test, and the first two are the reason the view is a UNION at all.
+
+print("\n[species_labels]")
+
+# One word, used once in EACH table under the view: a jackdaw nest in the attic
+# and a dead jackdaw on the floor below it. Same vocabulary, two writers.
+sl_nest = h.mk(
+    coord_token,
+    "nests",
+    {"org": ORG, "area": varea["id"], "label": "SL1", "species": "protected",
+     "species_label": "Mauersegler", "status": "active"},
+)
+status, _ = post_visit(
+    member_token,
+    {
+        "spot": vhost["id"],
+        "outcome": "checked",
+        "checks": [],
+        "findings": [
+            {"kind": "dead_bird", "count": 1, "species_label": "Mauersegler"},
+            # A second word from the findings side alone, and one with NO label
+            # at all: the empty one must not become a row, or the picker offers
+            # a blank entry that looks like a bug in the app.
+            {"kind": "other_species", "count": 2,
+             "species_label": "Gartenrotschwanz"},
+            {"kind": "site_change", "note": "Netz an der Nordseite"},
+        ],
+    },
+    key="suite-species-labels",
+)
+h.check("a visit may carry species labels", status == 200, f"status {status}")
+
+status, body = h.req(
+    "GET",
+    "/api/collections/species_labels/records?perPage=200",
+    member_token,
+)
+h.check("a member reads the species labels", status == 200, f"status {status}")
+rows = {r["label"]: r for r in (body or {}).get("items") or []}
+h.check(
+    "a label recorded on a NEST is in the vocabulary",
+    "Mauersegler" in rows,
+    f"{sorted(rows)} — nest {sl_nest['id']} named it; a view over findings "
+    "alone would make the volunteer who named the nest re-type the word, and "
+    "re-type it differently",
+)
+h.check(
+    "a label recorded on a FINDING is in the vocabulary",
+    "Gartenrotschwanz" in rows,
+    f"{sorted(rows)} — this half is the one the finding form reads back",
+)
+h.check(
+    "one word used in both tables is ONE row, counted twice",
+    rows.get("Mauersegler", {}).get("used_count") == 2,
+    f"{rows.get('Mauersegler')} — UNION ALL then GROUP BY: deduplicating "
+    "before the count would rank a word typed in both places below one typed "
+    "once, and "
+    "the count is what orders the picker",
+)
+h.check(
+    "...and the count is a NUMBER, not a quoted one",
+    isinstance(rows.get("Mauersegler", {}).get("used_count"), int),
+    f"{rows.get('Mauersegler', {}).get('used_count')!r} — a computed view column "
+    "falls back to type json, so anything but a bare integer expression "
+    "arrives as a string and every client comparison silently compares text",
+)
+h.check(
+    "an empty species label is not a row",
+    all(r["label"] for r in (body or {}).get("items") or []),
+    f"{sorted(rows)} — the site_change finding carries no species, and a blank "
+    "suggestion in the picker reads as a bug in the app",
+)
+h.check(
+    "every row carries the org the label was typed in",
+    all(r.get("org") == ORG for r in (body or {}).get("items") or []),
+    "the id is org-prefixed for the same reason: two organisations that both "
+    "wrote 'Mauersegler' are two rows, and a colliding id is one org's row "
+    "read for the other's",
+)
+
+h.check(
+    "the view is NOT readable anonymously",
+    h.reads_nothing("species_labels"),
+    "a view does not inherit the rules of the tables under it",
+)
+h.check(
+    "a role-less account reads no species labels",
+    h.reads_nothing("species_labels", roleless_token),
+)
+
+status, _ = h.req(
+    "POST", "/api/collections/species_labels/records", coord_token,
+    {"org": ORG, "label": "Wanderfalke"},
+)
+h.check(
+    "the vocabulary is not writable, by anybody",
+    status >= 400,
+    f"status {status} — it grows by being USED; a writable list is a curated "
+    "list, which is the thing this view exists instead of",
+)
+
+# The other org's word, typed by a member of that org: the scope has to come
+# from the view's own rule, not from `findings` and `nests` underneath it.
+h.mk(
+    foreign_token,
+    "nests",
+    {"org": "org00000foreign", "area": foreign_area["id"], "label": "F2",
+     "species": "protected", "species_label": "Fremdvogel", "status": "active"},
+)
+_, mine = h.req(
+    "GET",
+    "/api/collections/species_labels/records?perPage=200",
+    member_token,
+)
+h.check(
+    "another org's vocabulary is not in mine",
+    all(
+        r["label"] != "Fremdvogel" for r in (mine or {}).get("items") or []
+    ),
+    f"{sorted(r['label'] for r in (mine or {}).get('items') or [])} — a "
+    "vocabulary is a record of what this group has seen, and leaking it "
+    "leaks where another group works",
+)
+
+
 # ── Touren: the template, the route, the round ──────────────────────────────
 #
 # eiermann-avq.6. Three collections and one field on `visits`, and the property
@@ -2919,6 +3049,7 @@ for collection in (
     "findings",
     "follow_ups",
     "nest_state",
+    "species_labels",
     "tours",
     "tour_spots",
     "tour_runs",

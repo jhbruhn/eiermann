@@ -196,10 +196,33 @@ class H:
             time.sleep(1.5 * (attempt + 1))
         return (429, None)
 
-    def mk(self, token, coll, body):
+    def mk(self, token, coll, body, attempts=6):
         """Creates a fixture record, or gives up. A failed fixture is not an
-        assertion failure — everything after it would report nonsense."""
-        s, d = self.req("POST", f"/api/collections/{coll}/records", token, body)
+        assertion failure — everything after it would report nonsense.
+
+        Backs off on 429 for the same reason [login] does, one limit further in.
+        PocketBase's FACTORY rate limit on `*:create` is a burst budget, and a
+        rule suite creates fixtures in exactly the shape it exists to stop: a
+        dozen records back to back, in the same second. Turning the limit off is
+        not the answer — it is a real brake, and an instance that ships without
+        one has no protection against a client in a retry loop.
+
+        Without the backoff the failure lands on whichever fixture happened to
+        be the twenty-first, which is a function of how many tests came BEFORE
+        it. So adding an unrelated assertion breaks a section it does not touch,
+        the traceback names a collection whose rules are fine, and the suite
+        gets a limit that shifts with its own length. That is the worst kind of
+        flake: it looks like the new test found something.
+        """
+        for attempt in range(attempts):
+            s, d = self.req(
+                "POST", f"/api/collections/{coll}/records", token, body
+            )
+            if s != 429:
+                break
+            # Same shape as [login]'s wait: just past the window, growing in
+            # case several suites share the instance.
+            time.sleep(1.5 * (attempt + 1))
         if s != 200:
             self.fatal(f"failed to create {coll}: {s} {d}")
         return d
