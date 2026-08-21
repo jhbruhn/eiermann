@@ -1,10 +1,17 @@
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/areas/pin_canvas.dart';
+import 'package:eiermann/features/nests/nest_labels.dart';
+import 'package:eiermann/features/visits/check_labels.dart';
+import 'package:eiermann/features/visits/visit_area_group.dart';
 import 'package:eiermann/features/visits/visit_flow_screen.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/routing/router.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../../support/harness.dart';
@@ -17,13 +24,45 @@ class _MockEggs extends Mock implements NestEggsRepository {}
 
 class _MockSpots extends Mock implements SpotsRepository {}
 
-NestState nestRow({String id = 'n1', String label = 'N1'}) => NestState(
+class _MockAreas extends Mock implements AreasRepository {}
+
+NestState nestRow({
+  String id = 'n1',
+  String label = 'N1',
+  String area = 'a1',
+  double? pinX,
+  double? pinY,
+}) => NestState(
   id: id,
   label: label,
-  area: 'a1',
+  area: area,
   urgency: 3,
   spot: 's1',
+  species: NestSpecies.feralPigeon,
+  pinX: pinX,
+  pinY: pinY,
 );
+
+/// The Bereich the nests sit in. Without a photo by default, and that is not
+/// laziness: an image never resolves in a widget test, so a photo on every pump
+/// would leave `pumpAndSettle` waiting on a placeholder forever. The tests that
+/// need the picture ask for it and settle in bounded pumps.
+const bereich = Area(id: 'a1', name: 'Dachboden Nord', spot: 's1');
+
+const bereichWithPhoto = Area(
+  id: 'a1',
+  name: 'Dachboden Nord',
+  spot: 's1',
+  photo: 'dachboden.jpg',
+);
+
+/// Bounded pumps: an image that never loads keeps a placeholder animating, and
+/// `pumpAndSettle` would wait for it forever.
+Future<void> settle(WidgetTester tester) async {
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
 
 void main() {
   late AppLocalizations de;
@@ -31,6 +70,7 @@ void main() {
   late _MockNestState nestStates;
   late _MockEggs eggs;
   late _MockSpots spots;
+  late _MockAreas areas;
 
   /// The building, as the closing offer re-reads it after the write.
   const spot = Spot(
@@ -52,6 +92,21 @@ void main() {
     nestStates = _MockNestState();
     eggs = _MockEggs();
     spots = _MockSpots();
+    areas = _MockAreas();
+    when(() => areas.forSpot(any())).thenAnswer((_) async => [bereich]);
+    when(
+      () => areas.fileUrl(
+        any(),
+        any(),
+        thumb: any(named: 'thumb'),
+        token: any(named: 'token'),
+      ),
+    ).thenAnswer(
+      (i) => Uri.parse(
+        'http://pb.test/api/files/areas/${i.positionalArguments[0]}'
+        '/${i.positionalArguments[1]}',
+      ),
+    );
     when(() => spots.getOne(any())).thenAnswer((_) async => spot);
     when(() => spots.update(any(), any())).thenAnswer((_) async => spot);
     when(() => nestStates.forSpot(any())).thenAnswer((_) async => [nestRow()]);
@@ -72,13 +127,17 @@ void main() {
     );
   });
 
-  Future<void> pump(WidgetTester tester, {bool skipped = false}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool skipped = false,
+    Size surface = const Size(1200, 3000),
+  }) async {
     // A TALL test surface, deliberately. The flow is one scroll view, and a
     // `ListView` does not build what is below the fold — so on the default
     // 800x600 surface the finish button drops out of the tree the moment the
     // failure card above it appears, and the test reads as "the retry button is
     // missing" when the screen is simply scrolled.
-    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -102,6 +161,7 @@ void main() {
         nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
         nestEggsRepositoryProvider.overrideWith((ref) async => eggs),
         spotsRepositoryProvider.overrideWith((ref) async => spots),
+        areasRepositoryProvider.overrideWith((ref) async => areas),
       ],
     );
     await tester.tap(find.text('go'));
@@ -601,5 +661,261 @@ void main() {
 
     expect(find.text(de.visitFlowSendFailedTitle), findsNothing);
     expect(find.byType(VisitFlowScreen), findsNothing);
+  });
+
+  group('the Bereich photo', () {
+    /// Opens the nest through its LINE, not through the pin.
+    ///
+    /// With a photo on the screen the label exists twice — once as a pin, once
+    /// as a line — so `find.text('N1')` is ambiguous and a test that used it
+    /// would fail for a reason that has nothing to do with what it asserts.
+    Future<void> openLine(WidgetTester tester, String label) async {
+      await tester.tap(
+        find.descendant(
+          of: find.byType(VisitNestRow),
+          matching: find.text(label),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the nests stand under their Bereich', (tester) async {
+      // Grouped, and in the Bereiche's own order: that is the order somebody
+      // physically walks the building in. A flat list of "N1, N2, L1" is a set
+      // of labels that mean nothing to a person standing in a stairwell.
+      when(() => areas.forSpot('s1')).thenAnswer(
+        (_) async => [
+          bereich,
+          const Area(id: 'a2', name: 'Lichtschacht', spot: 's1'),
+          // Nothing to check in it, so it is not drawn at all.
+          const Area(id: 'a3', name: 'Keller', spot: 's1'),
+        ],
+      );
+      when(() => nestStates.forSpot('s1')).thenAnswer(
+        (_) async => [nestRow(), nestRow(id: 'n2', label: 'L1', area: 'a2')],
+      );
+
+      await pump(tester);
+
+      final attic = find.ancestor(
+        of: find.text('Dachboden Nord'),
+        matching: find.byType(VisitAreaGroup),
+      );
+      expect(
+        find.descendant(of: attic, matching: find.text('N1')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: attic, matching: find.text('L1')),
+        findsNothing,
+      );
+      expect(find.text('Keller'), findsNothing);
+    });
+
+    testWidgets('the photo is the working surface: a pin opens THAT nest', (
+      tester,
+    ) async {
+      // The point of having the picture here at all: you see the nest where it
+      // sits and open it there, instead of matching "N1" to a rafter by hand.
+      //
+      // The pin is opened through the canvas' callback rather than by tapping
+      // it, and not for convenience: the photo is a network image that never
+      // resolves in a test, so the canvas has no height and the pin is laid out
+      // outside its clip — a `tap` there silently lands on the nest LINE
+      // underneath and the test passes without the pin taking part. (Measured:
+      // it did.) The tap itself is covered on a canvas of a known size in
+      // `pin_canvas_test.dart`; what can only be checked here is that a pin
+      // maps back to the right nest.
+      when(() => areas.forSpot('s1')).thenAnswer(
+        (_) async => [bereichWithPhoto],
+      );
+      when(() => nestStates.forSpot('s1')).thenAnswer(
+        (_) async => [
+          nestRow(pinX: 0.5, pinY: 0.5),
+          nestRow(id: 'n2', label: 'N2', pinX: 0.2, pinY: 0.2),
+        ],
+      );
+
+      await pump(tester);
+      await settle(tester);
+
+      final canvas = tester.widget<PinCanvas>(find.byType(PinCanvas));
+      // Interactive, unlike the dossier's read-only preview: here the pins are
+      // the way into a nest, so they must not be wrapped away from the gesture.
+      expect(canvas.onOpen, isNotNull);
+      canvas.onOpen!(canvas.nests.firstWhere((pin) => pin.label == 'N2'));
+      await settle(tester);
+
+      expect(find.text(de.nestCheckTitle('N2')), findsOneWidget);
+    });
+
+    testWidgets('a recorded nest carries its state on the photo', (
+      tester,
+    ) async {
+      // One nest must not say two things on one screen: a pin still saying
+      // the species beside a line reading "getauscht" is the picture
+      // disagreeing with the list under it.
+      when(() => areas.forSpot('s1')).thenAnswer(
+        (_) async => [bereichWithPhoto],
+      );
+      when(
+        () => nestStates.forSpot('s1'),
+      ).thenAnswer((_) async => [nestRow(pinX: 0.5, pinY: 0.5)]);
+
+      await pump(tester);
+      await settle(tester);
+      final canvas = find.byType(PinCanvas);
+      expect(
+        find.descendant(
+          of: canvas,
+          matching: find.byIcon(nestSpeciesIcon(NestSpecies.feralPigeon)),
+        ),
+        findsOneWidget,
+      );
+
+      await openLine(tester, 'N1');
+      await tester.tap(find.text(de.nestCheckSwapAllAction));
+      await tester.pumpAndSettle();
+      final apply = find.text(de.nestCheckApplyAction);
+      await tester.ensureVisible(apply);
+      await tester.pumpAndSettle();
+      await tester.tap(apply);
+      await settle(tester);
+
+      expect(
+        find.descendant(
+          of: canvas,
+          matching: find.byIcon(checkStateIcon(CheckState.swapped)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: canvas,
+          matching: find.byIcon(nestSpeciesIcon(NestSpecies.feralPigeon)),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a missing photo can be taken WITHOUT leaving the visit', (
+      tester,
+    ) async {
+      // The moment somebody notices the picture is missing is the moment they
+      // are standing in the room. Sending them to the dossier for it means the
+      // photo gets taken never.
+      await pump(tester);
+
+      await tester.tap(find.text(de.areaPhotoSetAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(de.photoCameraAction), findsOneWidget);
+      expect(find.byType(VisitFlowScreen), findsOneWidget);
+    });
+
+    testWidgets('an existing photo is offered for REPLACEMENT', (tester) async {
+      // Not removal: the pins sit on this picture, and dropping it would
+      // strand them.
+      when(() => areas.forSpot('s1')).thenAnswer(
+        (_) async => [bereichWithPhoto],
+      );
+
+      await pump(tester);
+      await settle(tester);
+
+      expect(find.byTooltip(de.areaPhotoReplaceAction), findsOneWidget);
+      expect(find.text(de.areaPhotoSetAction), findsNothing);
+    });
+
+    testWidgets('the raised review flag is STATED, and leads to the review', (
+      tester,
+    ) async {
+      // A replacement taken during the visit puts the pins at the OLD photo's
+      // positions. Standing in the room is the best moment to move them, so
+      // the warning is the way in rather than a note to act on later.
+      when(() => areas.forSpot('s1')).thenAnswer(
+        (_) async => [bereichWithPhoto.copyWith(pinsNeedReview: true)],
+      );
+      when(() => nestStates.forSpot('s1')).thenAnswer((_) async => [nestRow()]);
+
+      tester.view.physicalSize = const Size(1200, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            visitsRepositoryProvider.overrideWith((ref) async => visits),
+            nestStateRepositoryProvider.overrideWith((ref) async => nestStates),
+            nestEggsRepositoryProvider.overrideWith((ref) async => eggs),
+            spotsRepositoryProvider.overrideWith((ref) async => spots),
+            areasRepositoryProvider.overrideWith((ref) async => areas),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('de'),
+            // Two routes, not the app's: what is asserted is the DESTINATION,
+            // and the pin editor's own dependencies are its own tests' problem.
+            routerConfig: GoRouter(
+              initialLocation: '/visit',
+              routes: [
+                GoRoute(
+                  path: '/visit',
+                  builder: (_, _) => const VisitFlowScreen(spotId: 's1'),
+                ),
+                GoRoute(
+                  path: Routes.areaEditorPattern,
+                  builder: (_, _) => const Text('pin review'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await settle(tester);
+
+      expect(find.text(de.areaPinsNeedReview), findsOneWidget);
+      await tester.tap(find.text(de.areaPinsNeedReview));
+      await settle(tester);
+
+      expect(find.text('pin review'), findsOneWidget);
+    });
+
+    testWidgets('an unreadable Bereich list costs the photo, not the nests', (
+      tester,
+    ) async {
+      // The nests are the work. A visit that could not be recorded because a
+      // photo listing failed would be the worse outcome by a wide margin.
+      when(
+        () => areas.forSpot('s1'),
+      ).thenAnswer((_) async => throw const RepositoryException('nope'));
+      when(() => nestStates.forSpot('s1')).thenAnswer((_) async => [nestRow()]);
+
+      await pump(tester);
+
+      expect(find.text('N1'), findsOneWidget);
+      expect(find.text(de.visitFlowProgress(0, 1)), findsOneWidget);
+    });
+
+    testWidgets('a phone-width Bereich header does not overflow', (
+      tester,
+    ) async {
+      // The header carries a name of unknown length beside a control, on the
+      // narrowest screen this app is used on — which is where this app is used.
+      // An overflow here fails the test by itself.
+      when(() => areas.forSpot('s1')).thenAnswer(
+        (_) async => [
+          bereich.copyWith(
+            name: 'Dachboden Nord über dem Treppenhaus, hinterer Teil',
+          ),
+        ],
+      );
+
+      await pump(tester, surface: const Size(390, 844));
+
+      expect(find.byType(VisitNestRow), findsOneWidget);
+      expect(find.text(de.areaPhotoSetAction), findsOneWidget);
+    });
   });
 }

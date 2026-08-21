@@ -4,6 +4,34 @@ import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
+/// How a pin is drawn when the caller has something to say about the nest
+/// beyond which species sits in it.
+///
+/// The default pin is the species — that is what the dossier and the editor
+/// mean by a pin. A screen that is RECORDING something about the nest means
+/// something else by it: on the visit flow a nest already dealt with must not
+/// keep announcing "Stadttaube" on the photo while the line under it says
+/// "getauscht", because that is one nest saying two things on one screen.
+///
+/// All three parts travel together on purpose. Colour alone fails WCAG 1.4.1,
+/// so a mark that changed the colour without the glyph would be invisible to a
+/// colour-blind volunteer — and [label] is what a screen reader gets instead of
+/// the species name it would otherwise read out.
+@immutable
+class PinMark {
+  const PinMark({
+    required this.icon,
+    required this.colour,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color colour;
+
+  /// What the mark means, in words, for the semantics label.
+  final String label;
+}
+
 /// One pin, as the canvas needs it: a position, a caption and a species.
 ///
 /// Its own small type rather than either model, because both feed it — the
@@ -17,6 +45,7 @@ class PinnedNest {
     required this.label,
     required this.at,
     this.species,
+    this.mark,
   });
 
   /// The pinned nests among [nests], mapped through the shared pin rule.
@@ -36,7 +65,16 @@ class PinnedNest {
   ];
 
   /// The same, from the view the dossier reads.
-  static List<PinnedNest> fromStates(List<NestState> nests) => [
+  ///
+  /// [mark] overrides the species pin per nest, and it is a callback rather
+  /// than a prepared map so that the "(0, 0) is not a pin" rule above stays in
+  /// ONE place: a caller that needed its own marks would otherwise filter the
+  /// unpinned nests a second time, and the second copy is the one that gets it
+  /// wrong.
+  static List<PinnedNest> fromStates(
+    List<NestState> nests, {
+    PinMark? Function(NestState nest)? mark,
+  }) => [
     for (final nest in nests)
       if (nest.pin case final at?)
         PinnedNest(
@@ -44,6 +82,7 @@ class PinnedNest {
           label: nest.label,
           at: at,
           species: nest.species,
+          mark: mark?.call(nest),
         ),
   ];
 
@@ -51,6 +90,9 @@ class PinnedNest {
   final String label;
   final ({double x, double y}) at;
   final NestSpecies? species;
+
+  /// What to draw instead of the species. Null keeps the species pin.
+  final PinMark? mark;
 }
 
 /// The photo with its pins — read-only on the dossier, interactive in the
@@ -212,7 +254,8 @@ class _PinCanvasState extends State<PinCanvas> {
   }
 }
 
-/// One pin: the nest's label, in its species' colour, with the species' icon.
+/// One pin: the nest's label, in its species' colour, with the species' icon —
+/// or in whatever a [PinMark] says instead.
 ///
 /// The label is on the pin rather than in a legend, because the whole point of
 /// the photo is standing in an attic and matching what you see to what the app
@@ -250,7 +293,8 @@ class _Pin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final colour = nestSpeciesColor(context, nest.species);
+    final mark = nest.mark;
+    final colour = mark?.colour ?? nestSpeciesColor(context, nest.species);
     // The contrast colour follows the theme, exactly as the map's pins do — a
     // literal white would be a hole in the palette in dark mode, and a sweep
     // test catches those.
@@ -274,7 +318,9 @@ class _Pin extends StatelessWidget {
       onPanEnd: (_) => onDrop(),
       child: Semantics(
         button: true,
-        label: '${nest.label} · ${nestSpeciesLabel(l10n, nest.species)}',
+        label:
+            '${nest.label} · '
+            '${mark?.label ?? nestSpeciesLabel(l10n, nest.species)}',
         child: Container(
           padding: EdgeInsets.symmetric(
             horizontal: dense ? ZugvogelSpacing.xs : ZugvogelSpacing.sm,
@@ -292,7 +338,7 @@ class _Pin extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                nestSpeciesIcon(nest.species),
+                mark?.icon ?? nestSpeciesIcon(nest.species),
                 size: dense ? 11 : 14,
                 color: onColour,
               ),

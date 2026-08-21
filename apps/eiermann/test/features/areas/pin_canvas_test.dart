@@ -1,4 +1,5 @@
 import 'package:eiermann/features/areas/pin_canvas.dart';
+import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,9 +34,14 @@ Nest nest({
 );
 
 void main() {
+  late AppLocalizations de;
   late List<({double x, double y})> taps;
   late List<(PinnedNest, ({double x, double y}))> moves;
   late List<PinnedNest> opened;
+
+  setUpAll(() async {
+    de = await germanStrings();
+  });
 
   setUp(() {
     taps = [];
@@ -213,5 +219,60 @@ void main() {
 
     expect(moves.single.$2.x, closeTo(1, 0.001));
     expect(moves.single.$2.y, closeTo(kPinMin, 0.001));
+  });
+
+  testWidgets('a marked pin draws the MARK, not the species', (tester) async {
+    // The visit flow marks a nest it has already recorded. All three parts
+    // move together on purpose: colour alone fails WCAG 1.4.1, and a screen
+    // reader would otherwise still be read the species the pin no longer shows.
+    const mark = PinMark(
+      icon: Icons.swap_horiz,
+      colour: Color(0xFF00FF00),
+      label: 'getauscht',
+    );
+    await tester.pumpApp(
+      Scaffold(
+        body: SizedBox(
+          width: _canvasSize.width,
+          child: PinCanvas(
+            photo: SizedBox(
+              width: _canvasSize.width,
+              height: _canvasSize.height,
+            ),
+            nests: const [
+              PinnedNest(
+                id: 'n1',
+                label: 'N1',
+                at: (x: 0.5, y: 0.5),
+                species: NestSpecies.feralPigeon,
+                mark: mark,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(mark.icon), findsOneWidget);
+    expect(find.byIcon(Icons.egg_outlined), findsNothing);
+    final pin = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.byIcon(mark.icon),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect((pin.decoration! as BoxDecoration).color, mark.colour);
+    // What a screen reader is handed: the mark's words, not the species'.
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel(RegExp(mark.label)), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp(de.nestSpeciesFeralPigeon)),
+      findsNothing,
+    );
+    // Inline rather than in a tearDown: the handle has to be gone before the
+    // test ENDS, and a tearDown runs after the check that it is.
+    semantics.dispose();
   });
 }

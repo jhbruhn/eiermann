@@ -1,15 +1,14 @@
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/areas/areas_providers.dart';
 import 'package:eiermann/features/findings/finding_labels.dart';
 import 'package:eiermann/features/findings/finding_sheet.dart';
-import 'package:eiermann/features/nests/nest_labels.dart';
-import 'package:eiermann/features/nests/nest_list.dart';
 import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/features/spots/spot_phase_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
 import 'package:eiermann/features/tours/tours_providers.dart';
-import 'package:eiermann/features/visits/check_labels.dart';
 import 'package:eiermann/features/visits/nest_check_sheet.dart';
 import 'package:eiermann/features/visits/packing_card.dart';
+import 'package:eiermann/features/visits/visit_area_group.dart';
 import 'package:eiermann/features/visits/visit_skip_sheet.dart';
 import 'package:eiermann/features/visits/visits_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -348,6 +347,42 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
     ].join(' · ');
   }
 
+  /// The nests grouped by Bereich, in the order somebody walks the building.
+  ///
+  /// Two orders, and they answer different questions. ACROSS the groups it is
+  /// the Bereiche's own order — ground floor, then the attic — because that is
+  /// the order the person holding this screen physically moves in, and a visit
+  /// works through everything anyway. WITHIN a group it stays the server's
+  /// urgency rank, untouched: that is what says which nest to look at first,
+  /// and re-sorting it here would disagree with the list the coordination sees.
+  ///
+  /// A failed read of the Bereiche is not an error state on this screen. The
+  /// nests are the work; they fall into one unlabelled group and the flow is
+  /// what it was before there was a photo on it. Losing a visit because a photo
+  /// listing failed would be the worse outcome by a wide margin.
+  List<({Area? area, List<NestState> nests})> _grouped(List<NestState> rows) {
+    final areas = ref.watch(areasForSpotProvider(widget.spotId)).value;
+    final groups = <({Area? area, List<NestState> nests})>[];
+    final placed = <String>{};
+
+    for (final area in areas ?? const <Area>[]) {
+      final nests = rows.where((nest) => nest.area == area.id).toList();
+      // An empty Bereich is left out. There is nothing to check in it, and its
+      // photo would be a picture with no work under it — on the one screen
+      // where every line has to be worth its height.
+      if (nests.isEmpty) continue;
+      placed.addAll(nests.map((nest) => nest.id));
+      groups.add((area: area, nests: nests));
+    }
+
+    // Whatever the Bereiche did not account for: an unreadable list, or a nest
+    // in a Bereich this read did not return. It is still a nest somebody is
+    // standing in front of.
+    final rest = rows.where((nest) => !placed.contains(nest.id)).toList();
+    if (rest.isNotEmpty) groups.add((area: null, nests: rest));
+    return groups;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -390,11 +425,18 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   )
                 else
-                  for (final nest in rows)
-                    _NestRow(
-                      nest: nest,
-                      draft: _checks[nest.id],
-                      onTap: _busy ? null : () => _openNest(nest),
+                  for (final group in _grouped(rows))
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: ZugvogelSpacing.md,
+                      ),
+                      child: VisitAreaGroup(
+                        area: group.area,
+                        nests: group.nests,
+                        drafts: _checks,
+                        onOpenNest: _openNest,
+                        enabled: !_busy,
+                      ),
                     ),
                 const SizedBox(height: ZugvogelSpacing.lg),
                 _FindingsSection(
@@ -478,68 +520,6 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       ),
     );
     return leave ?? false;
-  }
-}
-
-/// One nest, and what this visit has recorded about it so far.
-class _NestRow extends StatelessWidget {
-  const _NestRow({
-    required this.nest,
-    required this.draft,
-    required this.onTap,
-  });
-
-  final NestState nest;
-  final NestCheckDraft? draft;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final theme = Theme.of(context);
-    final recorded = draft;
-    final state = recorded?.effectiveState;
-
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        recorded == null
-            ? nestSpeciesIcon(nest.species)
-            : checkStateIcon(state),
-        color: recorded == null
-            ? nestSpeciesColor(context, nest.species)
-            : checkStateColor(context, state),
-      ),
-      title: Text(nest.label),
-      subtitle: Text(
-        // Before it is checked the line says what is IN the nest — which is
-        // what tells somebody whether to bother climbing. Afterwards it says
-        // what they did, because that is the thing they might want to correct.
-        recorded == null
-            ? [
-                ?nest.positionHint,
-                if (nest.isProtected)
-                  l10n.nestProtectedDoNotTouch
-                else
-                  nestContent(l10n, nest),
-              ].join(' · ')
-            : checkStateLabel(l10n, state),
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: recorded != null && state == CheckState.partial
-              ? context.zvColors.warning
-              : theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-      trailing: recorded == null
-          ? Text(
-              l10n.visitFlowNestOpen,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            )
-          : const Icon(Icons.check),
-      onTap: onTap,
-    );
   }
 }
 
