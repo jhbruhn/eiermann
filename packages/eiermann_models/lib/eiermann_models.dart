@@ -7,6 +7,7 @@ library;
 
 export 'src/enums.dart';
 export 'src/models/app_user.dart';
+export 'src/models/area.dart';
 export 'src/models/organisation.dart';
 export 'src/models/spot.dart';
 export 'src/models/spot_contact.dart';
