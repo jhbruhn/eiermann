@@ -289,7 +289,8 @@ void main() {
       const unnameable = GeoResult(
         lat: 53.1435,
         lon: 8.2146,
-        displayName: '3, Nachbarhaus, Innenstadt, Oldenburg, 26122, '
+        displayName:
+            '3, Nachbarhaus, Innenstadt, Oldenburg, 26122, '
             'Deutschland',
         city: 'Oldenburg',
       );
