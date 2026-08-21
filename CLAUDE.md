@@ -161,7 +161,11 @@ it was searching for.
 ### Migrations are historical facts
 
 A migration is immutable once applied. **Never edit an applied migration file**
-— add a new one. This is also why migrations are *copied templates* from
+— add a new one. What is immutable is its *behaviour*: comments are not
+behaviour, and the reasoning about a schema belongs where the next person is
+tempted to change it (see the projection note in `1700000006_spot_overview.js`).
+Anything the JSVM executes, including a value inside a comment somebody later
+uncomments, is a new migration. This is also why migrations are *copied templates* from
 zugvogel rather than shared code: federfall created `organisations` under
 `1700000001`, and the same number here means something else.
 

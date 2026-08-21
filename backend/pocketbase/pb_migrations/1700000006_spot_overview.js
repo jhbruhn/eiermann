@@ -25,8 +25,40 @@
 //    "invalid identifier parts". So every computed column below sits on one
 //    line, however long, and every explanation sits out here.
 //
-// Phase 03 will recreate this view with the area and nest counts added, which is
-// a NEW migration: a view definition is schema, and schema changes forward.
+// ── What is NOT in the view, and why (eiermann-upa.16) ─────────────────────
+//
+// The projection below leaves out exactly three of `spots`' fields:
+// `pause_reason`, `closed_at` and `note`. That is a decision, not an omission,
+// and it is written here because this is where the next person is tempted: a
+// screen wants one more number, and the cheapest-looking move is another
+// column.
+//
+// The rule the projection follows is **a column earns its place by being
+// something a row or a PIN DRAWS.** Which is why the neighbours of those three
+// are here and they are not:
+//
+//   * `closed_reason` IS carried — six months on it answers the only question
+//     anybody asks of a closed Spot, and netted and refused are opposite
+//     answers. `closed_at` is not: the date changes nothing a reader does.
+//   * `paused_until` IS carried — the list says how long the pause is expected
+//     to last. `pause_reason` is free text; a row can only truncate it.
+//   * `access_note` IS carried, and it is the strongest case for the rule
+//     rather than against it: it is the single most valuable field in a
+//     handover, so it earns its width. `note` earns nothing — it is whatever
+//     somebody needed to write down.
+//
+// Adding the three back makes every list row wider without making it say more,
+// and the reader who needs them is already in the dossier: it reads the whole
+// record through `SpotsRepository.getOne`, not through this view. The Dart side
+// states the same thing from the consumer's end, on the `spot` provider.
+//
+// A widened version of this view would be a NEW migration: a view definition is
+// schema, and schema changes forward. Phase 03 was expected to write one and did
+// not — it gave the nests their own view (`nest_state`) instead, which left this
+// projection untouched. So the paragraph above is addressed to whoever writes
+// that migration after all: the dashboard (eiermann-jbk.11) and the statistics
+// (Phase 07). The per-Spot counts they need ARE numbers a row draws, which is
+// exactly why they belong here and the three fields above do not.
 
 const MEMBER = '@request.auth.id != "" && @request.auth.is_active = true' +
   ' && @request.auth.role != null';
