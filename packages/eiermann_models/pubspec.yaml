@@ -17,7 +17,7 @@ dependencies:
   zugvogel_core:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: fb3fb758fa142c27b8dc46b83e6d42201ca397bf
+      ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
       path: packages/zugvogel_core
 
 dev_dependencies:

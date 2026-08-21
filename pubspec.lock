@@ -1646,8 +1646,8 @@ packages:
     dependency: transitive
     description:
       path: "packages/zugvogel_core"
-      ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
-      resolved-ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
+      ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
+      resolved-ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
       url: "https://github.com/jhbruhn/zugvogel.git"
     source: git
     version: "0.1.0"
@@ -1655,8 +1655,8 @@ packages:
     dependency: transitive
     description:
       path: "packages/zugvogel_data"
-      ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
-      resolved-ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
+      ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
+      resolved-ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
       url: "https://github.com/jhbruhn/zugvogel.git"
     source: git
     version: "0.1.0"
@@ -1664,8 +1664,8 @@ packages:
     dependency: transitive
     description:
       path: "packages/zugvogel_pb_client"
-      ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
-      resolved-ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
+      ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
+      resolved-ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
       url: "https://github.com/jhbruhn/zugvogel.git"
     source: git
     version: "0.1.0"
@@ -1673,8 +1673,8 @@ packages:
     dependency: transitive
     description:
       path: "packages/zugvogel_ui"
-      ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
-      resolved-ref: fe7302b4a15f79a67f8df03ae02486ed20c4b560
+      ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
+      resolved-ref: b3434b7eac4e418c191f274ecb8d82d5d10df51a
       url: "https://github.com/jhbruhn/zugvogel.git"
     source: git
     version: "0.1.0"
