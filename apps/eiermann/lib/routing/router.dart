@@ -1,3 +1,4 @@
+import 'package:eiermann/features/areas/area_editor_screen.dart';
 import 'package:eiermann/features/auth/login_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/home/nav_shell.dart';
@@ -24,6 +25,7 @@ abstract final class Routes {
   static const map = '/map';
   static const spots = '/spots';
   static const spotDetailPattern = '/spots/:id';
+  static const areaEditorPattern = '/areas/:id';
 
   /// The query parameter that narrows the Spot list to one urgency rank.
   static const urgencyParam = 'urgency';
@@ -32,6 +34,13 @@ abstract final class Routes {
   /// above stays the single spelling of it — a hand-built '/spots/$id' at a
   /// call site is how a rename leaves a dead link behind.
   static String spotDetail(String id) => '/spots/$id';
+
+  /// The pin editor for one Bereich.
+  ///
+  /// Keyed by the Bereich alone, not nested under its Spot: a Bereich knows
+  /// which building it belongs to, and a URL that repeated it could be made to
+  /// disagree with the record.
+  static String areaEditor(String areaId) => '/areas/$areaId';
 
   /// The Spot list, narrowed to one urgency rank — where a dashboard tile
   /// leads.
@@ -148,6 +157,17 @@ List<RouteBase> appRoutes() {
           ],
         ),
       ],
+    ),
+    // The pin editor: over the shell, for the same reason as the dossier under
+    // it — and full-screen because the photo is the working surface.
+    GoRoute(
+      path: Routes.areaEditorPattern,
+      builder: (_, state) {
+        final id = state.pathParameters['id'];
+        return id == null || id.isEmpty
+            ? const DashboardScreen()
+            : AreaEditorScreen(areaId: id);
+      },
     ),
     // The dossier sits OVER the shell rather than inside a branch: a branch
     // that can be parked on a detail is the trap federfall's NavShell has a

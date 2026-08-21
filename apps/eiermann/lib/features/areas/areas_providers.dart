@@ -16,6 +16,17 @@ Future<List<Area>> areasForSpot(Ref ref, String spotId) async {
   return repo.forSpot(spotId);
 }
 
+/// One Bereich on its own, for the pin editor.
+///
+/// A separate read from [areasForSpot] rather than a lookup in that list: the
+/// editor is reachable by URL, so it has to be able to load the Bereich without
+/// the dossier having been open first.
+@riverpod
+Future<Area> area(Ref ref, String areaId) async {
+  final repo = await ref.watch(areasRepositoryProvider.future);
+  return repo.getOne(areaId);
+}
+
 /// Injectable image source, so a widget test can supply a fake picker.
 ///
 /// A test cannot open a camera, and the photo flow is exactly the part worth

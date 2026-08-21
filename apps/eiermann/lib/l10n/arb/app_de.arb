@@ -220,6 +220,69 @@
       }
     }
   },
+  "areaEditorHint": "Tippe auf das Foto, um dort ein Nest anzulegen. Einen Pin verschiebst du, indem du ihn ziehst.",
+  "@areaEditorHint": {
+    "description": "The pin editor's only instruction. Both gestures are named because neither is discoverable on a photo."
+  },
+  "areaEditorPlacingHint": "Tippe auf die Stelle, an der {label} sitzt.",
+  "@areaEditorPlacingHint": {
+    "description": "Shown while an existing nest is selected for placement, so the next tap does not read as 'new nest'.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "areaEditorUnpinned": "{count, plural, =1{1 Nest ist noch nicht auf dem Foto} other{{count} Nester sind noch nicht auf dem Foto}}",
+  "@areaEditorUnpinned": {
+    "description": "Named rather than hidden: a photo that quietly omits nests reads as the complete picture of a Bereich.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nestSheetTitleNew": "Nest anlegen",
+  "nestSheetTitleEdit": "Nest bearbeiten",
+  "nestFieldLabel": "Bezeichnung",
+  "nestFieldLabelHint": "N3",
+  "@nestFieldLabelHint": {
+    "description": "Short labels on purpose: it is the caption on the pin and what somebody says out loud in an attic."
+  },
+  "nestFieldPositionHint": "Positionshinweis",
+  "nestFieldPositionHintHint": "Balken links, hinter dem Rohr",
+  "@nestFieldPositionHintHint": {
+    "description": "What a pin cannot say. The photo shows where to look; this says what to look at."
+  },
+  "nestFieldSpecies": "Art",
+  "nestFieldSpeciesLabel": "Welche Art?",
+  "nestFieldSpeciesLabelHint": "Dohle, Turmfalke, …",
+  "@nestFieldSpeciesLabelHint": {
+    "description": "Free text, not a picker: a curated list goes stale, holding dead entries and missing the one the volunteer is looking at."
+  },
+  "nestSpeciesFeralPigeon": "Stadttaube",
+  "nestSpeciesProtected": "Geschützt",
+  "@nestSpeciesProtected": {
+    "description": "A safety state, not a label. Interfering with the clutch of a protected species is prohibited under §44 BNatSchG."
+  },
+  "nestSpeciesUnknown": "Unbestimmt",
+  "@nestSpeciesUnknown": {
+    "description": "A real state and never a silent assumption of 'city pigeon' — the app does not identify species."
+  },
+  "nestSpeciesUnreadable": "Art unbekannt",
+  "@nestSpeciesUnreadable": {
+    "description": "Shown for a species value this build has no name for — the server gained one. Never rendered as a pigeon."
+  },
+  "nestProtectedLockedHint": "Ein geschütztes Nest kann nur die Koordination wieder freigeben.",
+  "@nestProtectedLockedHint": {
+    "description": "Names who can, not just that this reader cannot: a dead end without an addressee is how a volunteer stops reporting things."
+  },
+  "nestStatusActive": "Vorhanden",
+  "nestStatusGone": "Nicht mehr da",
+  "@nestStatusGone": {
+    "description": "A nest that disappeared is information about the building, which is why it is a status and not a deletion."
+  },
+  "nestStatusUnreadable": "Status unbekannt",
   "areaPinsNeedReview": "Das Foto wurde gewechselt — die Pins sind noch nicht geprüft.",
   "@areaPinsNeedReview": {
     "description": "The flag areas.pins_need_review raises. An area whose pins nobody has checked against the new photo is the one state where the picture actively misleads."

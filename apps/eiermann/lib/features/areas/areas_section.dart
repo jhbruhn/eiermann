@@ -4,9 +4,11 @@ import 'package:eiermann/features/areas/area_photo.dart';
 import 'package:eiermann/features/areas/area_sheet.dart';
 import 'package:eiermann/features/areas/areas_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/routing/router.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The Bereiche of one Spot, each with its overview photo.
@@ -110,7 +112,13 @@ class AreaCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AreaPhoto(area: area),
+          // Tapping the photo goes to the pin editor, not to a viewer: the
+          // pins ARE what this picture is for, and the viewer is one tap
+          // further in from there.
+          AreaPhoto(
+            area: area,
+            onTap: () => context.push(Routes.areaEditor(area.id)),
+          ),
           Padding(
             padding: const EdgeInsets.all(ZugvogelSpacing.md),
             child: Column(

@@ -36,6 +36,11 @@ Future<SpotContactsRepository> spotContactsRepository(Ref ref) async =>
 Future<AreasRepository> areasRepository(Ref ref) async =>
     AreasRepository(await _client(ref));
 
+/// The nests: the pins on those photos, and the rows the rhythm runs on.
+@Riverpod(keepAlive: true)
+Future<NestsRepository> nestsRepository(Ref ref) async =>
+    NestsRepository(await _client(ref));
+
 /// The read-only view behind the Spot list and the map.
 ///
 /// A separate provider from [spotsRepository] rather than a method on it,

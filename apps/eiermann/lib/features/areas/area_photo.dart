@@ -32,9 +32,27 @@ const _photoThumb = '1200x1200';
 /// photo the whole box is the button that starts the capture flow, because that
 /// is the only useful thing to do with an empty Bereich.
 class AreaPhoto extends ConsumerWidget {
-  const AreaPhoto({required this.area, super.key});
+  const AreaPhoto({
+    required this.area,
+    this.onTap,
+    this.showAsCanvas = false,
+    super.key,
+  });
 
   final Area area;
+
+  /// What tapping the photo does. Null keeps the default: the full-screen
+  /// viewer, where the picture can be zoomed.
+  final VoidCallback? onTap;
+
+  /// Draw the photo at its OWN aspect ratio, with no tap of its own.
+  ///
+  /// This is the pin editor's mode, and the shape is the whole point: the
+  /// image takes its width from the parent and its height from the picture, so
+  /// the box IS the image rect and a normalised coordinate maps onto it
+  /// exactly. Inside a box of some other shape, `BoxFit.contain` letterboxes
+  /// and every pin sits slightly off.
+  final bool showAsCanvas;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,6 +68,19 @@ class AreaPhoto extends ConsumerWidget {
       return _Empty(area: area, unavailable: photo != null);
     }
 
+    if (showAsCanvas) {
+      // The width comes from the constraints and the height from the picture.
+      // `double.infinity` is NOT an option here: the width is also what sizes
+      // the decode, and `Infinity.round()` throws — measured, as a red test.
+      return LayoutBuilder(
+        builder: (context, constraints) => CachedFileImage(
+          url: repo.fileUrl(area.id, photo, thumb: _photoThumb),
+          width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
+          fit: BoxFit.fitWidth,
+        ),
+      );
+    }
+
     return Semantics(
       image: true,
       button: true,
@@ -61,7 +92,7 @@ class AreaPhoto extends ConsumerWidget {
           child: Material(
             color: colors.surfaceContainerHighest,
             child: InkWell(
-              onTap: () => unawaited(_open(context, repo, photo)),
+              onTap: onTap ?? () => unawaited(_open(context, repo, photo)),
               child: CachedFileImage(
                 url: repo.fileUrl(area.id, photo, thumb: _photoThumb),
                 fit: BoxFit.contain,
