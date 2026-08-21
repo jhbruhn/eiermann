@@ -38,6 +38,18 @@ PbClientConfig eiermannPbClientConfig() => PbClientConfig(
 /// has to know either seam exists.
 void bindZugvogel() {
   defaultPbClientConfig = eiermannPbClientConfig();
+  // This app's hooks write German prose aimed at the person doing the work —
+  // "Ein Spot wird erst aktiv, wenn die Erkundung bei Zusage steht", "Eine
+  // Pause braucht einen Grund". They enforce invariants no access rule can
+  // express, so when one refuses a write it is the only party that knows why,
+  // and replacing that sentence with "Die Daten konnten nicht gespeichert
+  // werden" leaves the user stuck.
+  //
+  // Off by default in zugvogel, because federfall's hook messages are English
+  // and some are addressed to a developer. Opting in is a promise about THIS
+  // app's messages: a new hook message is user-visible copy, and gets written
+  // as such.
+  serverMessagesAreUserFacing = true;
   // Takes the context, not a ready-made instance, so the strings follow a
   // locale change: the lookup registers the dependency on Localizations.
   defaultZugvogelStrings = (context) => EiermannStrings(context.l10n);
