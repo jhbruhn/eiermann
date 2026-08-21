@@ -110,7 +110,16 @@ function apply(record, previous) {
     // answers.
     const reason = String(record.get("closed_reason") || "");
     const refused = String(record.get("prospect_stage") || "") === "refused";
-    if (!reason && !(previous === "prospect" && refused)) {
+    // Only on the way IN. `previous !== next` is what makes this a rule about
+    // the transition rather than about every later write, and leaving it out
+    // was a trap: a Spot closed from a REFUSED Erkundung legitimately carries
+    // no closed_reason, so re-checking on each update meant every subsequent
+    // write to it was refused — a note, a corrected name, anything. Measured
+    // against a live instance: 400 on a PATCH that only touched `note`.
+    //
+    // A create still needs one, because `previous` is null there and null is
+    // never equal to "closed".
+    if (!reason && previous !== next && !(previous === "prospect" && refused)) {
       refuse(
         CODES.spotCloseNeedsReason,
         "closing requires closed_reason unless a refused prospect",

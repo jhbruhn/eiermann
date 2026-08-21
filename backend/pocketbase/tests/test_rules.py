@@ -749,6 +749,25 @@ h.check(
     f"status {status} — the refusal is the reason, in the field that holds it",
 )
 
+# ...and once closed, it can still be WORKED ON. The reason check belongs to the
+# transition, not to every later write: a Spot closed from a refused Erkundung
+# carries no closed_reason by design, so re-checking it on each update refused
+# every subsequent write — a note, a corrected name, anything. Measured as a 400
+# on a PATCH that only touched `note`.
+status, _ = move(refused["id"], note="Nachbar sagt, neuer Eigentümer ab Frühjahr")
+h.check(
+    "a Spot closed after a refusal can still be edited",
+    h.ok(status),
+    f"status {status} — otherwise the one closing that needs no reason is also "
+    "the one nobody can ever touch again",
+)
+status, _ = move(refused["id"], closed_reason="")
+h.check(
+    "...and an explicit empty reason is still fine on it",
+    h.ok(status),
+    f"status {status} — the refusal in prospect_stage IS the reason",
+)
+
 status, _ = move(
     h.mk(member_token, "spots",
          {"org": ORG, "name": "Unberührte Absage", "phase": "prospect"})["id"],

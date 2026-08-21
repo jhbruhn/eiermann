@@ -29,7 +29,7 @@ class SpotsRepository extends PbRepository<Spot> {
   /// docs below.
   static Map<String, dynamic> body({
     required String name,
-    required SpotPhase phase,
+    required SpotPhase? phase,
     String? street,
     String? postalCode,
     String? city,
@@ -41,7 +41,14 @@ class SpotsRepository extends PbRepository<Spot> {
     bool geoConfirmed = false,
   }) => {
     'name': name,
-    'phase': phase.wire,
+    // Omitted when null, which is the EDIT path for a Spot whose stored phase
+    // this build has no name for. PocketBase reads an absent key as "leave it
+    // as it was", so omitting preserves a phase the client cannot spell —
+    // whereas
+    // sending a default would quietly rewrite a fifth phase the server gained
+    // into `prospect`. Required-but-nullable so a caller has to decide rather
+    // than forget: a CREATE without one is a 400, since the column is required.
+    if (phase != null) 'phase': phase.wire,
     // The optional text fields are written as '' rather than omitted: an
     // emptied field has to actually clear, and PocketBase reads an absent key
     // as "leave it as it was".

@@ -22,21 +22,36 @@ Future<String?> showSpotSheet(BuildContext context, {Spot? spot}) {
   );
 }
 
-/// Create or edit a Spot: what it is called, where it is, how you get in.
+/// Create or edit a Spot: what it is called, WHERE IT IS, how you get in.
 ///
-/// The pin is offered but never REQUIRED. The address is the identity and the
-/// coordinates are for the map, so a Spot somebody walked past is worth
-/// recording before anybody has pinned it — and the form says out loud what a
-/// missing pin costs instead of refusing the save.
+/// **The pin is the location; the address is a label.** That order is the
+/// design, and it is the opposite of what a form usually does. A pigeon Spot is
+/// frequently not at an address: a light well between two blocks, a bridge
+/// underside, the back of a courtyard reached through a different building's
+/// gate. Making the address the source of the location means those Spots either
+/// get a neighbouring building's address — precise, official-looking and wrong
+/// — or get no location at all and disappear off the map.
 ///
-/// Two ways to a pin, and the difference between them is stored. Looking it up
-/// from the address leaves `geo_confirmed` false, because a geocoder can land
-/// on the wrong side of a courtyard; placing it on the map by hand sets the
-/// flag. The dossier and the map both show which one it was.
+/// So the pin comes first, it is offered on its own terms, and the address
+/// fields below it are what a person writes for another person ("Ecke
+/// Bahnhofstraße / Am Wall"). The geocoder's answer for the pin is shown as
+/// CONTEXT next to it and never written into those fields: auto-filling them
+/// is exactly how a Spot between buildings acquires a wrong address.
 ///
-/// The phase transitions that need a reason (pausing, closing) are their own
-/// flow: this sheet may set the phase, but a closing without its mandatory
-/// reason is a state nobody can act on later, so it does not offer one.
+/// The pin is still not required. A building somebody walked past is worth
+/// recording before anybody has stood in front of it, and the form says what a
+/// missing pin costs rather than refusing the save.
+///
+/// `geo_confirmed` records which kind of pin it is. Searching an address inside
+/// the picker leaves it false — a geocoder lands on the postal address, which
+/// may be the wrong side of the courtyard; moving the map by hand sets it. The
+/// dossier and the map both show the difference.
+///
+/// **The phase is offered on CREATE only, and only the two phases a Spot can
+/// start in.** Pausing and closing need a reason the server insists on, so they
+/// live on the dossier's phase chip where the reason gets collected. A dropdown
+/// here that offered them was a dropdown whose only function was to produce a
+/// refusal.
 class SpotSheet extends ConsumerStatefulWidget {
   const SpotSheet({this.spot, super.key});
 
@@ -61,14 +76,24 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
   late final _note = TextEditingController(text: widget.spot?.note ?? '');
 
   /// A new Spot starts as an Erkundung: somebody walked past a building and
-  /// there is no permission yet, which is the honest default. An existing Spot
-  /// whose stored phase this build cannot read stays null, and the form then
-  /// insists on a choice rather than silently rewriting it.
-  late SpotPhase? _phase = widget.spot == null
-      ? SpotPhase.prospect
-      : widget.spot!.phase;
+  /// there is no permission yet, which is the honest default.
+  ///
+  /// Only ever read on the create path — an edit does not touch the phase at
+  /// all, so an existing Spot whose stored phase this build cannot read is
+  /// left exactly as it is rather than being rewritten by a form that had to
+  /// put something in the field.
+  SpotPhase _phase = SpotPhase.prospect;
 
-  bool _phaseMissing = false;
+  /// The only two phases a Spot can START in.
+  ///
+  /// `paused` and `closed` are states the lifecycle produces, not states
+  /// anybody begins in — and both need a reason the server refuses to do
+  /// without, which this form has nowhere to ask for. Offering them here meant
+  /// offering two guaranteed refusals out of four.
+  static const List<SpotPhase> _startPhases = [
+    SpotPhase.prospect,
+    SpotPhase.active,
+  ];
 
   late GeoPoint? _geo = widget.spot?.geo;
 
@@ -77,7 +102,9 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
   /// looked at is the one lie this field must not tell.
   late bool _geoConfirmed = widget.spot?.geoConfirmed ?? false;
 
-  bool _locating = false;
+  /// What the geocoder made of the current pin, for the line under the control.
+  /// Only ever set by the picker — this form never asks a geocoder itself.
+  GeoResult? _resolved;
 
   bool get _isEdit => widget.spot != null;
 
@@ -100,11 +127,7 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
   }
 
   Future<void> _save() async {
-    final phase = _phase;
-    if (_phaseMissing != (phase == null)) {
-      setState(() => _phaseMissing = phase == null);
-    }
-    if (!(formKey.currentState?.validate() ?? false) || phase == null) return;
+    if (!(formKey.currentState?.validate() ?? false)) return;
     final navigator = Navigator.of(context);
     final existing = widget.spot;
 
@@ -113,7 +136,11 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
       final repo = await ref.read(spotsRepositoryProvider.future);
       final body = SpotsRepository.body(
         name: _name.text.trim(),
-        phase: phase,
+        // On an edit, the phase the Spot already has — this form has no control
+        // for it, and the dossier's chip owns every change to it. Null for a
+        // stored phase this build cannot name, which `body` then omits rather
+        // than rewriting.
+        phase: existing == null ? _phase : existing.phase,
         street: trimToNull(_street),
         postalCode: trimToNull(_postalCode),
         city: trimToNull(_city),
@@ -136,76 +163,31 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
     if (ok && mounted) navigator.pop(writtenId);
   }
 
-  /// Looks the typed address up and takes the pin from it.
+  /// Opens the map so somebody can put the pin where the Spot actually is.
   ///
-  /// Leaves [_geoConfirmed] false — a geocoder puts the pin on the address, and
-  /// the address is the front of the building. Which door a volunteer actually
-  /// goes to is a different question, and only a person can answer it.
+  /// The ONLY route to a pin from this form, and that is deliberate. There used
+  /// to be a second one — "look it up from the address" — which quietly made
+  /// the address the source of the location. For a Spot in a light well between
+  /// two blocks that is the wrong answer dressed as a precise one. The picker
+  /// still has address search inside it, seeded from whatever is typed here, so
+  /// nothing got slower; it just is not this form's answer to "where is this".
   ///
-  /// With several candidates it hands over to the map rather than guessing:
-  /// "Bahnhofstraße 12" exists in a hundred towns, and picking the first one
-  /// silently is how somebody drives to the wrong one.
-  Future<void> _lookUpPin() async {
-    final l10n = context.l10n;
-    final query = _addressQuery;
-    if (query.isEmpty) {
-      await _placePin();
-      return;
-    }
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() => _locating = true);
-    List<GeoResult> results;
-    try {
-      final repo = await ref.read(geocodingRepositoryProvider.future);
-      results = await repo.forward(query);
-    } on Object catch (error, stackTrace) {
-      reportCaughtError(error, stackTrace, context: 'forward geocode');
-      if (!mounted) return;
-      setState(() => _locating = false);
-      // Not a dead end: the map still works with the geocoder down.
-      messenger.showSnackBar(
-        SnackBar(content: Text(l10n.spotPinLookupFailed)),
-      );
-      return;
-    }
-    if (!mounted) return;
-    setState(() => _locating = false);
-
-    if (results.length == 1) {
-      final only = results.single;
-      setState(() {
-        _geo = only.point;
-        _geoConfirmed = false;
-        markDirty();
-      });
-      // Names what it took. A plausible street in the wrong town is the failure
-      // mode, and it is invisible unless the app says which one it chose.
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.spotPinFoundOne(
-              only.displayName.isEmpty ? query : only.displayName,
-            ),
-          ),
-        ),
-      );
-      return;
-    }
-    await _placePin(seed: query);
-  }
-
-  /// Opens the map. A pin that comes back from here IS confirmed — somebody
-  /// looked at the building and put it there.
-  Future<void> _placePin({String? seed}) async {
+  /// A pin that comes back from here IS confirmed: somebody looked at the map
+  /// and put it there.
+  Future<void> _placePin() async {
     final picked = await showSpotPinPicker(
       context,
       initial: _geo,
-      searchSeed: seed ?? _addressQuery,
+      searchSeed: _addressQuery,
     );
     if (picked == null || !mounted) return;
     setState(() {
       _geo = picked.point;
       _geoConfirmed = true;
+      // Kept for the line under the control, NOT written into the address
+      // fields. Filling those from a geocoder is exactly how a Spot between
+      // buildings acquires a neighbour's address.
+      _resolved = picked.resolved;
       markDirty();
     });
   }
@@ -235,9 +217,31 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
             validator: Validators.required(strings),
           ),
           const SizedBox(height: ZugvogelSpacing.md),
+          // FIRST after the name, because it IS the location — see the class
+          // doc.
+          _PinField(
+            geo: _geo,
+            confirmed: _geoConfirmed,
+            resolved: _resolved,
+            busy: isBusy,
+            onPlace: _placePin,
+          ),
+          const SizedBox(height: ZugvogelSpacing.md),
+          // Under the pin and introduced as a hint, because that is what it is
+          // here: something a person writes for another person. A Spot in a
+          // courtyard may have no address of its own, and these fields stay
+          // empty rather than borrowing a neighbour's.
+          Text(
+            l10n.spotAddressAsLabel,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: ZugvogelSpacing.sm),
           AppTextField(
             controller: _street,
             label: l10n.spotFieldStreet,
+            hintText: l10n.spotFieldStreetHint,
             prefixIcon: Icons.signpost_outlined,
             enabled: !isBusy,
             textInputAction: TextInputAction.next,
@@ -270,37 +274,36 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
               ),
             ],
           ),
-          const SizedBox(height: ZugvogelSpacing.md),
-          _PinField(
-            geo: _geo,
-            confirmed: _geoConfirmed,
-            busy: _locating || isBusy,
-            onLookUp: _lookUpPin,
-            onPlace: _placePin,
-          ),
-          const SizedBox(height: ZugvogelSpacing.md),
-          DropdownButtonFormField<SpotPhase>(
-            initialValue: _phase,
-            decoration: InputDecoration(
-              labelText: l10n.spotPhaseLabel,
-              prefixIcon: const Icon(Icons.flag_outlined),
-              errorText: _phaseMissing ? l10n.fieldRequired : null,
+          // CREATE only, and only the two phases a Spot can start in. Pausing
+          // and closing need a reason the server insists on, and the dossier's
+          // phase chip is where that gets collected.
+          if (!_isEdit) ...[
+            const SizedBox(height: ZugvogelSpacing.md),
+            DropdownButtonFormField<SpotPhase>(
+              initialValue: _phase,
+              decoration: InputDecoration(
+                labelText: l10n.spotPhaseLabel,
+                prefixIcon: const Icon(Icons.flag_outlined),
+                helperText: l10n.spotPhaseStartHint,
+                helperMaxLines: 3,
+              ),
+              items: [
+                for (final phase in _startPhases)
+                  DropdownMenuItem(
+                    value: phase,
+                    child: Text(spotPhaseLabel(l10n, phase)),
+                  ),
+              ],
+              onChanged: isBusy
+                  ? null
+                  : (phase) => setState(() {
+                      // Non-null in practice: the list has no null entry, so a
+                      // selection is always one of the two.
+                      _phase = phase ?? SpotPhase.prospect;
+                      markDirty();
+                    }),
             ),
-            items: [
-              for (final phase in SpotPhase.values)
-                DropdownMenuItem(
-                  value: phase,
-                  child: Text(spotPhaseLabel(l10n, phase)),
-                ),
-            ],
-            onChanged: isBusy
-                ? null
-                : (phase) => setState(() {
-                    _phase = phase;
-                    _phaseMissing = false;
-                    markDirty();
-                  }),
-          ),
+          ],
           const SizedBox(height: ZugvogelSpacing.md),
           // Above the free-form note on purpose: this is the field a handover
           // actually turns on, and a form puts what matters first.
@@ -326,25 +329,30 @@ class _SpotSheetState extends ConsumerState<SpotSheet>
   }
 }
 
-/// The pin's state, and the two ways to change it.
+/// The location: the pin, what the map says is there, and the way to change it.
 ///
-/// Shown even with no pin, and saying what that costs: a Spot with no
-/// coordinates is findable by name but appears on no map, and the map is the
-/// entry point for every round. A silent empty field would let that pass as
-/// normal.
+/// A card rather than a row of buttons, because it is not one field among six —
+/// it is the answer to "where is this Spot", which for a pigeon Spot is a place
+/// on a map and often not an address. Prominent when empty for the same reason
+/// the access card is: a Spot with no pin is findable by name and appears on no
+/// map, and the map is the entry point for every round.
 class _PinField extends StatelessWidget {
   const _PinField({
     required this.geo,
     required this.confirmed,
+    required this.resolved,
     required this.busy,
-    required this.onLookUp,
     required this.onPlace,
   });
 
   final GeoPoint? geo;
   final bool confirmed;
+
+  /// What the geocoder made of this pin, when the picker got an answer. Shown
+  /// as context, never written into the address fields.
+  final GeoResult? resolved;
+
   final bool busy;
-  final Future<void> Function() onLookUp;
   final Future<void> Function() onPlace;
 
   @override
@@ -354,62 +362,105 @@ class _PinField extends StatelessWidget {
     final point = geo;
 
     // Three states, three sentences. "Derived" and "confirmed" are NOT degrees
-    // of the same thing: one is a guess at an address, the other is a person
-    // who stood there.
+    // of the same thing: one is a geocoder's guess at a postal address, the
+    // other is a person who looked at the map.
     final (icon, label) = switch ((point, confirmed)) {
       (null, _) => (Icons.location_off_outlined, l10n.spotPinNone),
       (_, false) => (Icons.location_searching, l10n.spotPinFromAddress),
       (_, true) => (Icons.location_on, l10n.spotPinConfirmed),
     };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return Card(
+      color: point == null
+          ? theme.colorScheme.surfaceContainerHighest
+          : theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(ZugvogelSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: point == null
-                  ? theme.colorScheme.onSurfaceVariant
-                  : theme.colorScheme.primary,
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color: point == null
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.onSecondaryContainer,
+                ),
+                const SizedBox(width: ZugvogelSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.spotFieldPin,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: point == null
+                              ? theme.colorScheme.onSurfaceVariant
+                              : theme.colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: ZugvogelSpacing.xs),
+                      Text(
+                        label,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: point == null
+                              ? theme.colorScheme.onSurfaceVariant
+                              : theme.colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                      // The coordinates, so a pin is verifiable without opening
+                      // the map again — and readable out loud to somebody on
+                      // the phone, which is what happens when two people are
+                      // trying to find the same courtyard.
+                      if (point != null) ...[
+                        const SizedBox(height: ZugvogelSpacing.xs),
+                        Text(
+                          l10n.spotPinCoordinates(
+                            point.lat.toStringAsFixed(5),
+                            point.lon.toStringAsFixed(5),
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSecondaryContainer,
+                          ),
+                        ),
+                      ],
+                      // What the map thinks is there. Context, not data: the
+                      // address fields below are the person's to write, and a
+                      // Spot between two blocks must not inherit a neighbour's
+                      // address just because the geocoder had one to offer.
+                      if (resolved?.displayName case final address?
+                          when address.isNotEmpty) ...[
+                        const SizedBox(height: ZugvogelSpacing.xs),
+                        Text(
+                          l10n.spotPinAccordingToMap(address),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSecondaryContainer,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: ZugvogelSpacing.sm),
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+            const SizedBox(height: ZugvogelSpacing.sm),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: FilledButton.tonalIcon(
+                onPressed: busy ? null : () => unawaited(onPlace()),
+                icon: const Icon(Icons.map_outlined),
+                label: Text(
+                  point == null
+                      ? l10n.spotPinSetAction
+                      : l10n.spotPinMoveAction,
                 ),
               ),
             ),
-            if (busy)
-              const Padding(
-                padding: EdgeInsets.only(left: ZugvogelSpacing.sm),
-                child: SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
           ],
         ),
-        const SizedBox(height: ZugvogelSpacing.xs),
-        Wrap(
-          spacing: ZugvogelSpacing.sm,
-          children: [
-            TextButton.icon(
-              onPressed: busy ? null : () => unawaited(onLookUp()),
-              icon: const Icon(Icons.travel_explore, size: 18),
-              label: Text(l10n.spotPinFindAction),
-            ),
-            TextButton.icon(
-              onPressed: busy ? null : () => unawaited(onPlace()),
-              icon: const Icon(Icons.map_outlined, size: 18),
-              label: Text(l10n.spotPinSetAction),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 }

@@ -36,8 +36,7 @@ Future<PickedPin?> showSpotPinPicker(
 }) {
   return Navigator.of(context).push<PickedPin>(
     MaterialPageRoute(
-      builder: (_) =>
-          SpotPinPicker(initial: initial, searchSeed: searchSeed),
+      builder: (_) => SpotPinPicker(initial: initial, searchSeed: searchSeed),
       fullscreenDialog: true,
     ),
   );
