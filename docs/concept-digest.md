@@ -359,7 +359,8 @@ on an omission.
 | `spot_phase.pb.js` | phase transitions: closing reason mandatory, `closed_at` server-side, `paused_until` plausibility, resume via `cronAdd` |
 | `report.pb.js` | `GET /api/eiermann/reports/period` → Typst PDF; `?format=summary`, `?format=csv`. One route, because isolated handlers could not share the collection code |
 | `stats.pb.js` | `GET /api/eiermann/stats` — the whole statistics screen in one response |
-| `lib_stats.js` | owns the period (`?year=`, `?month=`, `?tzOffsetMinutes=`), the `visit_rows` read and every aggregation |
+| `app_stats.js` | owns the period (`?year=`, `?month=`, `?tzOffsetMinutes=`), the `visit_rows` read and every aggregation. **Built as `app_stats.js`**, not `lib_stats.js`: `app_*` is this repo's namespace for its own required modules (`app_rhythm.js`, `app_visit.js`), while `lib_*` is federfall's — the concept was written before that convention settled |
+| `app_auth.js` | the role clause every custom route opens with, in one place. Not in the original concept: a `routerAdd` handler inherits no access rule, and three of the four wrote out the pre-014 `role != null` — which `guest` satisfies |
 | shared (from zugvogel base image, `zv_*` namespace) | `lib_org.js`, `lib_org_scope.js`, `org_scope.pb.js`, `lib_audit.js`, `audit_*.pb.js`, `lib_authorship.js`, `authorship.pb.js`, `lib_time.js`, `lib_geocode.js`, `geocode.pb.js`, `info.pb.js`, `web_headers.pb.js`, `rate_limits.pb.js`, `settings.pb.js`, `bootstrap_coordinator.pb.js`, `oauth2_provisioning.pb.js` |
 
 ---
@@ -411,7 +412,7 @@ phase ends usable. Tracked in beads, not in markdown lists.
 | **04** | `eiermann-jbk` (P0, 0/15) | `nest_eggs`, `nest_checks`, `visits`, the transactional visit endpoint with idempotency, Nest-Sheet with egg slots, skipped-with-reason, `lib_rhythm.js`, `follow_ups`, the dashboard | ⭐ **THE CUT** |
 | **05** | `eiermann-avq` (P1, 0/6) | Templates, ordered spot lists, runs with progress, deviation, resumption after app restart, plus the improvised "overdue near me" mode | "Tour 1 starten" works literally |
 | **06** | `eiermann-3is` (P1, 0/5) | Dead pigeons, chicks, protected species, structural changes. `species_labels` view. The path from a structural change to closing a Spot | |
-| **07** | `eiermann-fi2` (P1, 0/8) | `visit_rows` view, `lib_stats.js`, `/stats`, statistics screen, Typst reports in both framings plus CSV, period selection with previous-year comparison | The proof that keeps a permission or a funding alive |
+| **07** | `eiermann-fi2` (P1, done) | `visit_rows` view, `app_stats.js`, `/stats`, statistics screen, Typst reports in both framings plus CSV, period selection with previous-year comparison | The proof that keeps a permission or a funding alive |
 | **08** | `eiermann-uwd` (P2, 0/9) | Team invites, org-settings UI for the Rhythmus numbers, audit log, pause-resume cron, OIDC switchable, web build and CSP, Android signing, iOS signing and store submission | iOS is deliberately here: it is distribution, not product |
 
 Plus a cross-cutting epic that is not a phase: **`eiermann-934` "Querschnitt —
