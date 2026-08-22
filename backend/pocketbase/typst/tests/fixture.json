@@ -1,0 +1,182 @@
+{
+  "_comment": "eiermann-fi2.5 — one payload exercising every branch of both templates: a checked visit and a skipped one, an address with no street, a finding kind the build knows and one it does not, a null rate, an empty bucket, and an umlaut in every kind of cell.",
+  "lang": "de",
+  "generatedAt": { "y": 2026, "mo": 8, "d": 21, "h": 23, "mi": 45 },
+  "org": {
+    "name": "Stadttauben Oldenburg e. V.",
+    "contactEmail": "kontakt@example.org",
+    "contactPhone": "0441 123456"
+  },
+  "period": {
+    "year": 2026,
+    "month": null,
+    "from": { "y": 2026, "mo": 1, "d": 1 },
+    "to": { "y": 2026, "mo": 12, "d": 31 }
+  },
+  "totals": {
+    "visits": 3,
+    "visitsChecked": 2,
+    "visitsSkipped": 1,
+    "spotsVisited": 2,
+    "checks": 7,
+    "removedReal": 6,
+    "addedDummy": 6,
+    "findings": 3,
+    "accessRate": 0.6666666666666666,
+    "fullSwapRate": 0.75,
+    "eggsPerCheckedVisit": 3
+  },
+  "checkStates": [
+    { "label": "swapped", "count": 3 },
+    { "label": "partial", "count": 1 },
+    { "label": "empty", "count": 2 },
+    { "label": "untouched", "count": 0 },
+    { "label": "not_reachable", "count": 0 },
+    { "label": "gone", "count": 0 },
+    { "label": "protected", "count": 1 }
+  ],
+  "findingKinds": [
+    { "label": "dead_bird", "count": 2 },
+    { "label": "brandneu", "count": 1 }
+  ],
+  "findingSpecies": [{ "label": "Dohle", "count": 1 }],
+  "skipReasons": [{ "label": "no_key", "count": 1 }],
+  "addresses": [
+    { "label": "Mühlenstraße 5, 26121 Oldenburg", "count": 2 },
+    { "label": "Hinterhof Nord", "count": 1 }
+  ],
+  "bucketKind": "month",
+  "points": [
+    { "key": 1, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 2, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 3, "visits": 2, "removed": 5, "dummies": 5 },
+    { "key": 4, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 5, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 6, "visits": 1, "removed": 1, "dummies": 1 },
+    { "key": 7, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 8, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 9, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 10, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 11, "visits": 0, "removed": 0, "dummies": 0 },
+    { "key": 12, "visits": 0, "removed": 0, "dummies": 0 }
+  ],
+  "spots": {
+    "total": 4,
+    "phases": [
+      { "label": "active", "count": 2 },
+      { "label": "prospect", "count": 1 },
+      { "label": "closed", "count": 1 }
+    ],
+    "prospectStages": [{ "label": "owner_spoken", "count": 1 }]
+  },
+  "addressGroups": [
+    {
+      "address": "Hinterhof Nord",
+      "street": "",
+      "postalCode": "",
+      "city": "",
+      "spotName": "Hinterhof Nord",
+      "totals": {
+        "visits": 1,
+        "visitsChecked": 0,
+        "visitsSkipped": 1,
+        "spotsVisited": 1,
+        "checks": 0,
+        "removedReal": 0,
+        "addedDummy": 0,
+        "findings": 0,
+        "accessRate": 0,
+        "fullSwapRate": null,
+        "eggsPerCheckedVisit": null
+      },
+      "checkStates": [],
+      "findingKinds": [],
+      "visits": [
+        {
+          "date": { "y": 2026, "mo": 6, "d": 2 },
+          "outcome": "skipped",
+          "skipReason": "no_key",
+          "checks": 0,
+          "swapped": 0,
+          "partial": 0,
+          "empty": 0,
+          "untouched": 0,
+          "notReachable": 0,
+          "gone": 0,
+          "protectedCount": 0,
+          "removed": 0,
+          "dummies": 0,
+          "findings": 0,
+          "findingKinds": [],
+          "note": "",
+          "author": "Änne"
+        }
+      ]
+    },
+    {
+      "address": "Mühlenstraße 5, 26121 Oldenburg",
+      "street": "Mühlenstraße 5",
+      "postalCode": "26121",
+      "city": "Oldenburg",
+      "spotName": "Mühlenstraße 5",
+      "totals": {
+        "visits": 2,
+        "visitsChecked": 2,
+        "visitsSkipped": 0,
+        "spotsVisited": 1,
+        "checks": 7,
+        "removedReal": 6,
+        "addedDummy": 6,
+        "findings": 3,
+        "accessRate": 1,
+        "fullSwapRate": 0.75,
+        "eggsPerCheckedVisit": 3
+      },
+      "checkStates": [
+        { "label": "swapped", "count": 3 },
+        { "label": "partial", "count": 1 }
+      ],
+      "findingKinds": [{ "label": "dead_bird", "count": 2 }],
+      "visits": [
+        {
+          "date": { "y": 2026, "mo": 3, "d": 14 },
+          "outcome": "checked",
+          "skipReason": "",
+          "checks": 4,
+          "swapped": 2,
+          "partial": 1,
+          "empty": 1,
+          "untouched": 0,
+          "notReachable": 0,
+          "gone": 0,
+          "protectedCount": 0,
+          "removed": 5,
+          "dummies": 5,
+          "findings": 2,
+          "findingKinds": ["dead_bird", "brandneu"],
+          "note": "Dachluke stand offen",
+          "author": "Änne"
+        },
+        {
+          "date": { "y": 2026, "mo": 6, "d": 2 },
+          "outcome": "checked",
+          "skipReason": "",
+          "checks": 3,
+          "swapped": 1,
+          "partial": 0,
+          "empty": 1,
+          "untouched": 0,
+          "notReachable": 0,
+          "gone": 0,
+          "protectedCount": 1,
+          "removed": 1,
+          "dummies": 1,
+          "findings": 1,
+          "findingKinds": ["dead_bird"],
+          "note": "",
+          "author": "Björn"
+        }
+      ]
+    }
+  ]
+}

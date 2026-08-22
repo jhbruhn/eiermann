@@ -97,6 +97,15 @@ const CODES = {
   visitTourRunNotFound: "visit_tour_run_not_found",
   visitTourRunFinished: "visit_tour_run_finished",
   visitIdempotencyKeyReused: "visit_idempotency_key_reused",
+
+  // ── Zahlen: die Statistik und die Berichte ──
+  // A garbled period is refused rather than reported on, because a confidently
+  // empty report looks like an answer. The client knows which parameter it sent,
+  // so these say which one it got wrong.
+  reportPeriodYearInvalid: "report_period_year_invalid",
+  reportPeriodMonthInvalid: "report_period_month_invalid",
+  reportPeriodMonthNeedsYear: "report_period_month_needs_year",
+  reportFormatInvalid: "report_format_invalid",
 };
 
 module.exports = { refuse, CODES };

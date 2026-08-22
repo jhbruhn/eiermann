@@ -1,0 +1,158 @@
+{
+  "_comment": [
+    "eiermann-fi2.5 — the ONE place the report table's column titles and the",
+    "enum label maps live, because they have TWO consumers and only one of them",
+    "is a template:",
+    "",
+    "  • report.typ and summary.typ merge this into their own STRINGS dict via",
+    "    zv_report_common.typ's resolveStrings, so `S.checkState` reads exactly",
+    "    as if it had been declared inline;",
+    "  • report.pb.js reads the same file to write the CSV, which has no",
+    "    template layer to translate in. It is the only place in pb_hooks that",
+    "    localizes anything, and it does so from here rather than from a second",
+    "    copy of these strings.",
+    "",
+    "Keeping two copies is how a renamed state ends up spelled one way in the",
+    "PDF and another in the CSV OF THE SAME EXPORT — a discrepancy nobody",
+    "notices until somebody compares them.",
+    "",
+    "Only plain strings live here. Anything that is a Typst CLOSURE (a",
+    "pluralising count, a period phrase) necessarily stays in the template:",
+    "JSON cannot hold a function.",
+    "",
+    "An unmapped wire value is printed AS ITSELF by both consumers (Typst's",
+    "`lbl`, the hook's own lookup). An enum this build does not know is not",
+    "something either may guess at — and a report that prints `not_reachable`",
+    "is ugly, while one that prints a guess is wrong."
+  ],
+  "de": {
+    "visitOutcome": {
+      "checked": "Geprüft",
+      "skipped": "Nicht geprüft"
+    },
+    "skipReason": {
+      "nobody_there": "Niemand angetroffen",
+      "no_key": "Kein Schlüssel",
+      "access_blocked": "Zugang versperrt",
+      "no_time": "Keine Zeit",
+      "construction": "Baustelle",
+      "other": "Anderer Grund"
+    },
+    "checkState": {
+      "swapped": "Getauscht",
+      "partial": "Halbgelege",
+      "empty": "Leer",
+      "untouched": "Nicht angetastet",
+      "not_reachable": "Nicht erreichbar",
+      "gone": "Nest verschwunden",
+      "protected": "Geschützte Art"
+    },
+    "findingKind": {
+      "dead_bird": "Totfund",
+      "chick": "Jungvogel",
+      "other_species": "Andere Art",
+      "site_change": "Bauliche Veränderung"
+    },
+    "spotPhase": {
+      "prospect": "Erkundung",
+      "active": "In Betreuung",
+      "paused": "Ruht",
+      "closed": "Abgeschlossen"
+    },
+    "prospectStage": {
+      "untouched": "Unberührt",
+      "tenant_spoken": "Mieter gesprochen",
+      "owner_spoken": "Eigentümer gesprochen",
+      "permitted": "Erlaubt",
+      "refused": "Abgelehnt"
+    },
+    "reportColumns": {
+      "street": "Straße",
+      "postalCode": "PLZ",
+      "city": "Ort",
+      "spotName": "Bezeichnung",
+      "date": "Datum",
+      "outcome": "Ergebnis",
+      "skipReason": "Grund",
+      "checks": "Nester geprüft",
+      "swapped": "Getauscht",
+      "partial": "Halbgelege",
+      "empty": "Leer",
+      "untouched": "Nicht angetastet",
+      "notReachable": "Nicht erreichbar",
+      "gone": "Verschwunden",
+      "protectedState": "Geschützte Art",
+      "removed": "Eier entnommen",
+      "dummies": "Attrappen gelegt",
+      "findings": "Funde",
+      "findingKinds": "Fundarten",
+      "note": "Notiz",
+      "author": "Erfasst von"
+    }
+  },
+  "en": {
+    "visitOutcome": {
+      "checked": "Checked",
+      "skipped": "Not checked"
+    },
+    "skipReason": {
+      "nobody_there": "Nobody there",
+      "no_key": "No key",
+      "access_blocked": "Access blocked",
+      "no_time": "No time",
+      "construction": "Building site",
+      "other": "Other reason"
+    },
+    "checkState": {
+      "swapped": "Swapped",
+      "partial": "Half clutch",
+      "empty": "Empty",
+      "untouched": "Left untouched",
+      "not_reachable": "Not reachable",
+      "gone": "Nest gone",
+      "protected": "Protected species"
+    },
+    "findingKind": {
+      "dead_bird": "Dead bird",
+      "chick": "Chick",
+      "other_species": "Other species",
+      "site_change": "Structural change"
+    },
+    "spotPhase": {
+      "prospect": "Prospect",
+      "active": "Active",
+      "paused": "Paused",
+      "closed": "Closed"
+    },
+    "prospectStage": {
+      "untouched": "Untouched",
+      "tenant_spoken": "Tenant spoken to",
+      "owner_spoken": "Owner spoken to",
+      "permitted": "Permitted",
+      "refused": "Refused"
+    },
+    "reportColumns": {
+      "street": "Street",
+      "postalCode": "Postcode",
+      "city": "City",
+      "spotName": "Name",
+      "date": "Date",
+      "outcome": "Outcome",
+      "skipReason": "Reason",
+      "checks": "Nests checked",
+      "swapped": "Swapped",
+      "partial": "Half clutch",
+      "empty": "Empty",
+      "untouched": "Left untouched",
+      "notReachable": "Not reachable",
+      "gone": "Gone",
+      "protectedState": "Protected species",
+      "removed": "Eggs removed",
+      "dummies": "Dummies placed",
+      "findings": "Findings",
+      "findingKinds": "Finding kinds",
+      "note": "Note",
+      "author": "Recorded by"
+    }
+  }
+}

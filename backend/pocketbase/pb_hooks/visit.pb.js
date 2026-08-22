@@ -13,14 +13,12 @@ routerAdd(
     const lib = require(`${__hooks}/app_visit.js`);
     const ROUTE = "POST /api/eiermann/visit";
 
-    const auth = e.auth;
-    if (!auth) throw new UnauthorizedError("authentication required");
-    if (!auth.getBool("is_active") || !auth.getString("role")) {
-      // The same clause every access rule opens with. A custom route does not
-      // get one for free, and forgetting it is how an endpoint becomes the one
-      // door a deactivated account can still walk through.
-      throw new ForbiddenError("account is not active or has no role");
-    }
+    // The gate, from the one place that states it (app_auth.js). This used to be
+    // written out here as `is_active && role != null`, which is the PRE-014
+    // clause: `guest` is a non-null role, so a self-registered OAuth2 account
+    // behind the wall could WRITE A BESUCH through this endpoint. Measured while
+    // eiermann-fi2.8 was gating the report routes, and fixed in all four at once.
+    const { auth } = require(`${__hooks}/app_auth.js`).requireMember(e);
 
     const body = e.requestInfo().body || {};
     const key = String(e.request.header.get("Idempotency-Key") || "").trim();

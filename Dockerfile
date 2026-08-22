@@ -83,6 +83,44 @@ RUN cd apps/eiermann && flutter build web --release --wasm \
         --target lib/main_production.dart \
         --dart-define-from-file=dart_defines/production.json
 
+# ── Typst fetch ───────────────────────────────────────────────────────────────
+# The report renderer (eiermann-fi2.6). A single static Rust binary, fetched and
+# verified with the same rigour as the PocketBase binary in the base image —
+# EXCEPT that Typst publishes no checksums.txt, so these SHA256s were computed
+# by hand from the v0.15.0 release assets. Bumping TYPST_VERSION therefore means
+# re-downloading and re-hashing both architectures yourself; there is no upstream
+# file to diff against.
+#
+# Bundled rather than fetched at runtime, for the same reason as everything else
+# in this file: a self-hosted instance that cannot render a report without
+# reaching GitHub is not self-hosted, and a permission renewal is not the moment
+# to discover that.
+#
+# ── Why this lives here and not in zugvogel-pb-base ─────────────────────────
+# It arguably belongs there: the base already ships the Typst report BASE
+# (`/pb/typst/zv_report_common.typ`), and federfall carries an identical fetch
+# stage — two copies of one decision. Measured against the pinned base image
+# (sha-d7ea6d19): /pb/typst exists, `typst` is not on PATH. Moving the binary
+# into the base is filed as eiermann-uxn; until that image is published and the
+# pin bumped, following federfall's precedent is what keeps the two apps' report
+# pipelines identical.
+FROM alpine:3.20 AS typstfetch
+ARG TYPST_VERSION=0.15.0
+ARG TARGETARCH
+RUN apk add --no-cache wget xz ca-certificates
+WORKDIR /typst
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+        amd64) TT_TARGET=x86_64-unknown-linux-musl; TT_SHA256=59b207df01be2dab9f13e80f73d04d7ff8273ffd46b3dd1b9eef5c60f3eeabea ;; \
+        arm64) TT_TARGET=aarch64-unknown-linux-musl; TT_SHA256=cdf50ffc7b8ba759ed02200632eda3d78eb8b99aacb6611f4f75684990647620 ;; \
+        *)     echo "unsupported arch: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    wget -q "https://github.com/typst/typst/releases/download/v${TYPST_VERSION}/typst-${TT_TARGET}.tar.xz" -O /tmp/typst.tar.xz; \
+    echo "${TT_SHA256}  /tmp/typst.tar.xz" | sha256sum -c -; \
+    tar -xJf /tmp/typst.tar.xz -C /typst --strip-components=1; \
+    rm /tmp/typst.tar.xz; \
+    chmod +x /typst/typst
+
 # ── Backend runtime (lean: PB + migrations + hooks, no web) ────────────────────
 # This stage IS the rule-test image (built via `--target backend`), which is the
 # point: the suite exercises the image that ships, not a directory of host files
@@ -105,8 +143,16 @@ ENV EIERMANN_VERSION=${EIERMANN_VERSION}
 # `pb_hooks/` holds ONLY eiermann's own hooks now. The zv_* libraries come from
 # the base image and land in the same directory, so a `require` finds them
 # exactly as before — and there is no vendored copy left to drift.
+# report.pb.js shells out to this.
+COPY --from=typstfetch /typst/typst /usr/local/bin/typst
 COPY backend/pocketbase/pb_migrations/ /pb/pb_migrations/
 COPY backend/pocketbase/pb_hooks/      /pb/pb_hooks/
+# eiermann's report templates and the shared_strings.json both they and the CSV
+# branch read. They land in the SAME directory as the base image's
+# zv_report_common.typ, which is what lets `#import "zv_report_common.typ"`
+# resolve as a plain sibling import — and why this is a merge into /pb/typst/
+# rather than a directory of its own.
+COPY backend/pocketbase/typst/         /pb/typst/
 # A signpost at `/` for the lean image, which has no SPA to serve. Without it the
 # address answers 404, which is indistinguishable from a broken deployment — and
 # that cost real confusion once. The `full` stage copies the Flutter build over
@@ -128,6 +174,29 @@ CMD ["serve", "--http=0.0.0.0:8090", \
      "--hooksDir=/pb/pb_hooks", \
      "--publicDir=/pb/pb_public", \
      "--automigrate=0"]
+
+# ── Template test stage ───────────────────────────────────────────────────────
+# `backend/pocketbase/typst/tests/run.sh` builds this and asserts on the TEXT of
+# a rendered report. It exists as its own stage for two reasons:
+#
+#   * `pdftotext` is needed to read the output, and a PDF text extractor has no
+#     business shipping in the production image;
+#   * a template edit must be exercised by the test. The templates are BAKED into
+#     the image (not mounted), so the test's build is what picks the edit up —
+#     the same stance the rule suite takes, and for the same reason: mounting
+#     host files over an image means the image itself is never tested.
+#
+# Assertions are on the text and not on typst's exit code, because a `set` rule
+# inside a function that does not take its body compiles perfectly and styles
+# NOTHING — a footer that silently fails to render looks exactly like one that
+# was never asked for.
+FROM backend AS typsttest
+RUN apk add --no-cache poppler-utils
+# Deliberately NOT the last stage in this file: a `docker build` with no
+# `--target` takes whatever stage comes last, and CI's "build the full image"
+# step passes none. Ending the file here would have quietly turned that job into
+# a build of this stage — which skips the Flutter web build entirely and would
+# have reported success for an image nobody had compiled.
 
 # ── Full app image (backend + the web SPA) ────────────────────────────────────
 FROM backend AS full

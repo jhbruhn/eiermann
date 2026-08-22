@@ -26,9 +26,27 @@ onBootstrap((e) => {
         maxDefault: 30,
         windowDefault: 60,
       },
-      // Add a group per route that shells out to a subprocess — a Typst
-      // compile, say. One process per request is what makes a loop expensive
-      // for the server rather than for the caller.
+      // eiermann-fi2.6 — the report route spawns a `typst compile` per request
+      // and reads every visit of the period to feed it. One process per request
+      // is what makes a loop expensive for the SERVER rather than for the
+      // caller, which is the whole reason this group exists.
+      //
+      // Both PDF formats and the CSV share one budget because they share one
+      // route; a trailing-slash twin is listed for the same reason the geocode
+      // group has one. Ten a minute is far above any human use — a coordinator
+      // pulling a year, a month and last year's comparison is three — and far
+      // below what a loop needs to hurt.
+      {
+        name: "reports",
+        labels: [
+          "GET /api/eiermann/reports/period",
+          "GET /api/eiermann/reports/period/",
+        ],
+        maxEnv: "REPORT_RATE_MAX",
+        windowEnv: "REPORT_RATE_WINDOW",
+        maxDefault: 10,
+        windowDefault: 60,
+      },
     ],
   });
 });

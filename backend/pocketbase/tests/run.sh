@@ -109,6 +109,14 @@ docker run -d --name "$NAME" -p "$PORT:8090" \
   -e EIERMANN_MAP_ATTRIBUTION='© Test Tiles' \
   -e EIERMANN_MAP_API_KEY=test-map-key \
   -e EIERMANN_NOMINATIM_URL=http://127.0.0.1:1 \
+  `# The report route's budget is 10 a minute in production, which is far above` \
+  `# any human use and far below what this suite makes of it: the year-boundary` \
+  `# assertions alone pull four exports, and the format matrix pulls six more.` \
+  `# A throttled suite reports a 429 as a broken renderer, so the CAP is raised` \
+  `# here — harness housekeeping, exactly as zugvogel's rate_limits assertion` \
+  `# says it should be. That the budget is APPLIED at all is asserted through` \
+  `# the settings, which is the property; the number is configuration.` \
+  -e EIERMANN_REPORT_RATE_MAX=500 \
   "${MOUNTS[@]}" \
   "$IMAGE" >/dev/null
 

@@ -1424,6 +1424,51 @@ h.check(
     "know which language the reader speaks.",
 )
 
+# Every app route states the gate, and states it from ONE place.
+#
+# A custom route does not inherit an access rule: a `routerAdd` handler sees a
+# raw authenticated caller, and whatever the collections say, it has to check for
+# itself. Each route here restated the clause by hand — and three of the four
+# restated the PRE-014 version, `is_active && role != null`, which `guest`
+# satisfies. Measured: a guest account got a 200 and a complete PDF of every
+# address the organisation holds, and could write a Besuch.
+#
+# So the clause lives in app_auth.js and this sweep is what stops the next route
+# writing its own. It greps rather than probes because the property has to hold
+# for a route nobody has written yet — a per-route probe can only cover the ones
+# that exist, which is exactly how the hole above survived a whole phase.
+route_files = {}
+for path in sorted(glob.glob(os.path.join(HOOKS, "*.pb.js"))):
+    name = os.path.basename(path)
+    with open(path, encoding="utf-8") as handle:
+        route_files[name] = handle.read()
+
+ungated = []
+for name, code in route_files.items():
+    if "routerAdd(" not in code:
+        continue
+    # info.pb.js is deliberately unauthenticated — it is what a client reads
+    # BEFORE it can sign in, to learn the server's version and capabilities.
+    # geocode.pb.js delegates to the shared library and passes it the walled-off
+    # role explicitly, which the geocode assertions above cover.
+    if name in ("info.pb.js", "geocode.pb.js"):
+        continue
+    if "requireMember(e)" not in code:
+        ungated.append(name)
+
+h.check(
+    "every app route takes its gate from app_auth.js",
+    not ungated,
+    f"{ungated} — a hand-written `role != null` is the pre-014 clause, and "
+    "`guest` satisfies it: the wall a self-registered OAuth2 account lands "
+    "behind would not apply to a custom route at all",
+)
+h.check(
+    "...and the sweep found routes to check at all",
+    sum(1 for code in route_files.values() if "requireMember(e)" in code) >= 3,
+    "a sweep over nothing passes over anything",
+)
+
 # `CODES.foo` for a code that is not declared evaluates to `undefined`, and
 # `{[undefined]: 1}` becomes the key "undefined" — a refusal the client cannot
 # translate, arriving as a generic failure with no error anywhere. A typo would
@@ -1579,6 +1624,16 @@ h.check(
     f"status {status} — a custom route does not inherit the clause every access "
     "rule opens with; forgetting it makes the endpoint the one door a "
     "deactivated account can still walk through",
+)
+
+status, _ = post_visit(guest_token, {"spot": vhost["id"], "outcome": "checked"})
+h.check(
+    "...and a GUEST",
+    status >= 400,
+    f"status {status} — this endpoint checked `role != null`, the clause "
+    "migration 014 replaced everywhere else, and `guest` satisfies it: a "
+    "self-registered OAuth2 account behind the wall could write a Besuch. Found "
+    "while gating the report routes (eiermann-fi2.8)",
 )
 
 # THE ROLLBACK. One good nest and one that does not belong to this Spot: nothing
@@ -2883,6 +2938,439 @@ h.check(
 )
 
 
+# ── Zahlen: die Statistik und die drei Berichte ─────────────────────────────
+#
+# eiermann-fi2. What is asserted here is not mainly access control — the sweeps
+# and the guest wall already cover who may read `visit_rows`. It is that the
+# three documents and the screen AGREE, because that is the property the whole
+# phase exists for: a Behörde and a Förderer reading two exports of the same
+# period must not find two different numbers, and neither may disagree with the
+# app.
+#
+# The pure period arithmetic is unit-tested next door
+# (tests/unit/app_stats_test.js), in milliseconds and rung by rung. What can
+# only be tested here is the part that needs a real PocketBase: the view's
+# json-typed columns being decoded rather than read as `"4"`, and the year
+# boundary holding through the actual filter and the actual bucketing.
+
+print("\n[Statistik und Berichte]")
+
+STATS = "/api/eiermann/stats"
+REPORTS = "/api/eiermann/reports/period"
+
+# A building with a full year's worth of work at a known address, so the figures
+# below are checked against arithmetic done by hand rather than against whatever
+# the endpoint returns.
+rhost = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Berichtshaus", "phase": "active",
+     "street": "Mühlenstraße 5", "postal_code": "26121", "city": "Oldenburg"},
+)
+rarea = h.mk(
+    coord_token, "areas", {"org": ORG, "spot": rhost["id"], "name": "Dachboden"}
+)
+
+
+def rnest(label):
+    return h.mk(
+        coord_token,
+        "nests",
+        {"org": ORG, "area": rarea["id"], "label": label,
+         "species": "feral_pigeon", "status": "active"},
+    )
+
+
+rn1 = rnest("R1")
+rn2 = rnest("R2")
+
+# Two eggs swapped in one nest, the other found empty, plus a dead pigeon on the
+# floor. One visit, hand-countable: 1 swapped, 1 empty, 2 removed, 2 placed,
+# 1 finding.
+status, _ = post_visit(
+    member_token,
+    {
+        "spot": rhost["id"],
+        "visited_at": h.stamp(days=-2),
+        "outcome": "checked",
+        "checks": [
+            {"nest": rn1["id"], "state": "swapped", "real_before": 2,
+             "dummy_before": 0, "removed_real": 2, "added_dummy": 2,
+             "real_after": 0, "dummy_after": 2},
+            {"nest": rn2["id"], "state": "empty", "real_before": 0,
+             "dummy_before": 0, "real_after": 0, "dummy_after": 0},
+        ],
+        "findings": [
+            {"kind": "dead_bird", "count": 1, "species_label": "Dohle"},
+        ],
+    },
+    key="report-visit-1",
+)
+h.check("a visit to report on was written", status == 200, f"status {status}")
+
+# And a trip where nobody was home. A document, not an observation — and the
+# figure a request for a key is argued with, so it has to survive into the
+# report rather than being filtered out as "nothing happened".
+status, _ = post_visit(
+    member_token,
+    {
+        "spot": rhost["id"],
+        "visited_at": h.stamp(days=-1),
+        "outcome": "skipped",
+        "skip_reason": "no_key",
+    },
+    key="report-visit-2",
+)
+h.check("...and a trip where nobody was home", status == 200, f"status {status}")
+
+# ── The view ───────────────────────────────────────────────────────────────
+_, vr = h.req(
+    "GET",
+    "/api/collections/visit_rows/records?filter="
+    + urllib.parse.quote(f"spot='{rhost['id']}'")
+    + "&sort=visited_at",
+    member_token,
+)
+vr_items = (vr or {}).get("items") or []
+h.check(
+    "visit_rows carries the address and the per-visit numbers in one row",
+    len(vr_items) == 2,
+    f"{vr} — the report table is defined once, and all three exports read it",
+)
+if len(vr_items) == 2:
+    first, second = vr_items
+    h.check(
+        "...the address comes from the Spot, so the report needs no join",
+        first.get("street") == "Mühlenstraße 5"
+        and first.get("postal_code") == "26121"
+        and first.get("city") == "Oldenburg",
+        str(first),
+    )
+    h.check(
+        "...the check census reconciles with checks_total",
+        first.get("checks_total") == 2
+        and first.get("swapped_count") == 1
+        and first.get("empty_count") == 1
+        and sum(
+            first.get(k, 0)
+            for k in ("swapped_count", "partial_count", "empty_count",
+                      "untouched_count", "not_reachable_count", "gone_count",
+                      "protected_count")
+        )
+        == first.get("checks_total"),
+        f"{first} — a census that does not add up is a line a Behörde asks "
+        "about, because the missing checks look like the interesting ones",
+    )
+    h.check(
+        "...the egg sums are NUMBERS, not quoted JSON",
+        first.get("removed_real") == 2 and first.get("added_dummy") == 2,
+        f"{first} — a computed view column falls back to type json, and a "
+        'server-side reader gets `"2"` with the quotes; if that were left '
+        "undecoded every count in every report would be NaN",
+    )
+    h.check(
+        "...the findings of the trip arrive joined, by wire kind",
+        first.get("findings_total") == 1
+        and first.get("findings_text") == "dead_bird",
+        f"{first} — German would be untranslatable by construction: the server "
+        "does not know which language the reader speaks",
+    )
+    h.check(
+        "...and the skipped trip keeps its row, with its reason and zeros",
+        second.get("outcome") == "skipped"
+        and second.get("skip_reason") == "no_key"
+        and second.get("checks_total") == 0
+        and second.get("removed_real") == 0,
+        f"{second} — filtering it out would claim the building was never "
+        "visited, which is the opposite of what the volunteer recorded",
+    )
+
+# ── Access ─────────────────────────────────────────────────────────────────
+# `req_bytes` and not `req` throughout: a route that WRONGLY lets one of these
+# callers through answers with a PDF, and `req` decodes the body as UTF-8 — so
+# the suite would die on a traceback instead of reporting the leak. A guard that
+# crashes on the failure it exists to catch reports nothing.
+for path in (STATS, REPORTS):
+    status, _, _ = h.req_bytes("GET", path, None)
+    h.check(f"{path} refuses an anonymous caller", status == 401, f"status {status}")
+    status, _, _ = h.req_bytes("GET", path, roleless_token)
+    h.check(
+        f"...and a role-less account on {path}",
+        status >= 400,
+        f"status {status} — a custom route does not inherit the clause every "
+        "access rule opens with",
+    )
+    status, _, _ = h.req_bytes("GET", path, guest_token)
+    h.check(
+        f"...and a guest on {path}",
+        status >= 400,
+        f"status {status} — `guest` is a non-null role, so a route that checks "
+        "only for one is the guest wall not applying to the export that carries "
+        "every address the org holds",
+    )
+
+# ── The statistics screen, in one response ─────────────────────────────────
+_, stats = h.req("GET", f"{STATS}?tzOffsetMinutes=60", member_token)
+h.check(
+    "the whole statistics screen arrives in one call",
+    isinstance(stats, dict)
+    and {"period", "totals", "series", "checkStates", "findingKinds",
+         "findingSpecies", "skipReasons", "addresses", "visitYears",
+         "spots"} <= set(stats),
+    f"{stats} — the client aggregates NOTHING; the alternative is pulling "
+    "visits, checks and findings unpaginated to the device and putting a second "
+    "definition of every figure in the app",
+)
+if isinstance(stats, dict) and "totals" in stats:
+    totals = stats["totals"]
+    h.check(
+        "...the numbers are numbers",
+        isinstance(totals.get("removedReal"), int)
+        and isinstance(totals.get("visits"), int),
+        f"{totals}",
+    )
+    h.check(
+        "...and every value stays a WIRE value",
+        all(s["state"] in {"swapped", "partial", "empty", "untouched",
+                           "not_reachable", "gone", "protected"}
+            for s in stats["checkStates"]),
+        f"{stats['checkStates']} — a hook never sends user-facing text",
+    )
+    h.check(
+        "...the check-state census is complete and in the enum's order",
+        [s["state"] for s in stats["checkStates"]]
+        == ["swapped", "partial", "empty", "untouched", "not_reachable",
+            "gone", "protected"],
+        f"{stats['checkStates']} — a reader compares this against the same "
+        "order in every export",
+    )
+    h.check(
+        "...the standing Spot figures are there, and are not period-scoped",
+        stats["spots"]["total"] > 0
+        and all("phase" in p for p in stats["spots"]["phases"]),
+        f"{stats['spots']} — 'how many buildings do we have access to' has "
+        "nothing to do with ?year=, and narrowing it would change a number "
+        "that did not change",
+    )
+
+# A garbled period is refused rather than reported on: a confidently empty
+# report looks like an answer.
+for query in ("year=letztes", "year=26", "month=3", "year=2026&month=13"):
+    status, _ = h.req("GET", f"{STATS}?{query}", member_token)
+    h.check(
+        f"the period ?{query} is refused, not silently reported on",
+        status == 400,
+        f"status {status}",
+    )
+status, _ = h.req("GET", f"{REPORTS}?format=xlsx", member_token)
+h.check("an unknown format is refused", status == 400, f"status {status}")
+
+# ── THE YEAR BOUNDARY, in both documents at once ───────────────────────────
+#
+# eiermann-fi2.8. The report SELECTS rows with `visited_at >= from && < to`; the
+# statistics route reads everything and buckets on the caller's local year. If
+# those two resolve the boundary differently, a New Year's Eve visit is in the
+# report and missing from the chart — or counted in both years, and then two
+# consecutive documents cannot be added up.
+#
+# A visit stamped 23:30 UTC on 31 December is 00:30 on 1 January for a caller at
+# +60, so BOTH have to call it the new year. Written through the real endpoint,
+# read back through the real filter: the unit test proves the arithmetic, this
+# proves the two consumers actually share it.
+BOUNDARY_YEAR = 2031  # comfortably in the future, so nothing else counts here
+nyhost = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Silvesterhaus", "phase": "active",
+     "street": "Am Jahreswechsel 1", "city": "Oldenburg"},
+)
+status, _ = post_visit(
+    member_token,
+    {
+        "spot": nyhost["id"],
+        "visited_at": f"{BOUNDARY_YEAR - 1}-12-31 23:30:00.000Z",
+        "outcome": "checked",
+        "checks": [],
+    },
+    key="new-years-eve",
+)
+h.check("a visit at 23:30 UTC on New Year's Eve was written", status == 200,
+        f"status {status}")
+
+_, ny_stats = h.req(
+    "GET", f"{STATS}?year={BOUNDARY_YEAR}&tzOffsetMinutes=60", member_token
+)
+_, ny_prev = h.req(
+    "GET", f"{STATS}?year={BOUNDARY_YEAR - 1}&tzOffsetMinutes=60", member_token
+)
+h.check(
+    "the statistics screen puts it in the caller's year, not UTC's",
+    (ny_stats or {}).get("totals", {}).get("visits") == 1
+    and (ny_prev or {}).get("totals", {}).get("visits") == 0,
+    f"{BOUNDARY_YEAR}: {(ny_stats or {}).get('totals')} / "
+    f"{BOUNDARY_YEAR - 1}: {(ny_prev or {}).get('totals')} — in CET everything "
+    "after 23:00 UTC belongs to the next day, and that is invisible on a UTC "
+    "CI machine",
+)
+h.check(
+    "...and offers the year in its picker",
+    BOUNDARY_YEAR in ((ny_stats or {}).get("visitYears") or []),
+    str((ny_stats or {}).get("visitYears")),
+)
+
+status, csv_bytes, headers = h.req_bytes(
+    "GET",
+    f"{REPORTS}?format=csv&year={BOUNDARY_YEAR}&tzOffsetMinutes=60",
+    member_token,
+)
+csv_text = csv_bytes.decode("utf-8-sig")
+h.check(
+    "the CSV of the same year contains exactly the same visit",
+    h.ok(status) and csv_text.count("Am Jahreswechsel 1") == 1,
+    f"status {status}: {csv_text[:400]} — the report filters on an instant "
+    "range while the screen buckets on a local year; if those disagree the two "
+    "documents cannot be added up",
+)
+status, empty_csv, _ = h.req_bytes(
+    "GET",
+    f"{REPORTS}?format=csv&year={BOUNDARY_YEAR - 1}&tzOffsetMinutes=60",
+    member_token,
+)
+h.check(
+    "...and the previous year's does not",
+    h.ok(status) and "Am Jahreswechsel 1" not in empty_csv.decode("utf-8-sig"),
+    empty_csv.decode("utf-8-sig")[:200],
+)
+
+# ── The CSV ────────────────────────────────────────────────────────────────
+status, csv_bytes, headers = h.req_bytes(
+    f"GET", f"{REPORTS}?format=csv&tzOffsetMinutes=60", member_token
+)
+csv_text = csv_bytes.decode("utf-8-sig")
+h.check(
+    "the CSV is served as an attachment with a sortable ASCII name",
+    h.ok(status)
+    and "eiermann-bericht-gesamt.csv" in (headers.get("Content-Disposition") or ""),
+    f"status {status}, {headers.get('Content-Disposition')} — a filename with an "
+    "umlaut in it arrives mangled or dropped depending on the client",
+)
+h.check(
+    "...and begins with the UTF-8 BOM a spreadsheet needs",
+    csv_bytes[:3] == b"\xef\xbb\xbf",
+    str(csv_bytes[:8]) + " — without it Excel reads Mühlenstraße as mojibake, "
+    "and it is only visible in the finished spreadsheet",
+)
+h.check(
+    "...with CRLF line endings, per RFC 4180",
+    b"\r\n" in csv_bytes,
+    str(csv_bytes[:120]),
+)
+h.check(
+    "...its column titles come from shared_strings.json, in German",
+    "Nester geprüft" in csv_text and "Eier entnommen" in csv_text,
+    csv_text.splitlines()[0] if csv_text else "empty"
+    + " — the CSV has no template layer to translate in, so it reads the same "
+    "file the Typst templates merge",
+)
+h.check(
+    "...and its cells are labels, not wire values",
+    "Kein Schlüssel" in csv_text and "Totfund" in csv_text,
+    csv_text[:600],
+)
+h.check(
+    "...the English half resolves too",
+    "Nests checked"
+    in h.req_bytes(f"GET", f"{REPORTS}?format=csv&lang=en", member_token)[1].decode(
+        "utf-8-sig"
+    ),
+    "?lang=en is a supported parameter, and a document that falls back to "
+    "German for half its strings is what the two-file mechanism exists to "
+    "prevent",
+)
+
+# THE FORMULA GUARD. Every one of these cells is user-authored, and
+# Excel/LibreOffice EXECUTE a cell that begins with =, +, -, @, tab or CR. RFC
+# 4180 quoting does not prevent it: the quotes are stripped before the formula
+# parser sees the cell.
+evil = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "=HYPERLINK(\"http://evil.example\",\"klick\")",
+     "phase": "active", "street": "=1+1", "city": "@SUM(A1:A9)"},
+)
+status, _ = post_visit(
+    member_token,
+    {
+        "spot": evil["id"],
+        "visited_at": h.stamp(days=-1),
+        "outcome": "skipped",
+        "skip_reason": "other",
+        "skip_note": "-2+3",
+        "note": "+49 441 123456",
+    },
+    key="formula-guard",
+)
+h.check("a visit at a formula-shaped address was written", status == 200,
+        f"status {status}")
+status, evil_bytes, _ = h.req_bytes(f"GET", f"{REPORTS}?format=csv", member_token)
+evil_csv = evil_bytes.decode("utf-8-sig")
+h.check(
+    "a formula-shaped cell is neutralised with a leading apostrophe",
+    "'=1+1" in evil_csv
+    and "'@SUM(A1:A9)" in evil_csv
+    and "'+49 441 123456" in evil_csv,
+    evil_csv[-700:] + " — OWASP CSV Injection: the street, the city, the Spot "
+    "name and the note are all typed by volunteers, and one of them opening a "
+    "spreadsheet is all this needs",
+)
+h.check(
+    "...and no cell in the whole export starts a formula",
+    not any(
+        cell.lstrip('"').startswith(("=", "+", "@"))
+        for line in evil_csv.splitlines()
+        for cell in line.split(",")
+    ),
+    evil_csv[-700:],
+)
+
+# ── The PDFs ───────────────────────────────────────────────────────────────
+for fmt, name in (
+    ("pdf", "eiermann-bericht-gesamt.pdf"),
+    ("summary", "eiermann-uebersicht-gesamt.pdf"),
+):
+    status, body, headers = h.req_bytes(
+        f"GET", f"{REPORTS}?format={fmt}&tzOffsetMinutes=60", member_token
+    )
+    h.check(
+        f"?format={fmt} renders a PDF",
+        h.ok(status) and body[:5] == b"%PDF-",
+        f"status {status}, {body[:60]!r} — a Typst compile that fails answers "
+        "500 with a log line, never a truncated file",
+    )
+    h.check(
+        f"...named {name}",
+        name in (headers.get("Content-Disposition") or ""),
+        str(headers.get("Content-Disposition")),
+    )
+    h.check(
+        f"...and typed as one",
+        (headers.get("Content-Type") or "").startswith("application/pdf"),
+        str(headers.get("Content-Type")),
+    )
+
+# A period with nothing in it still renders: the template says so on the page
+# rather than printing a document full of noughts, and an empty export must not
+# be a 500 the caller cannot distinguish from a broken renderer.
+status, body, _ = h.req_bytes(
+    f"GET", f"{REPORTS}?year=1999&tzOffsetMinutes=60", member_token
+)
+h.check(
+    "a period with no visits renders a document, not an error",
+    h.ok(status) and body[:5] == b"%PDF-",
+    f"status {status}, {body[:60]!r}",
+)
+
+
 # ── The delete-effect registry ─────────────────────────────────────────────
 #
 # A cascading delete does not LEAVE a forgotten collection behind. It DESTROYS
@@ -3133,7 +3621,16 @@ shared_assertions.rate_limits(
     h.req,
     T,
     "eiermann",
-    ["GET /api/eiermann/geocode", "GET /api/eiermann/geocode/"],
+    [
+        "GET /api/eiermann/geocode",
+        "GET /api/eiermann/geocode/",
+        # eiermann-fi2.6 — the report route spawns a `typst compile` per request.
+        # One process per request is what makes a flood expensive for the SERVER
+        # rather than for the caller, so a missing budget here is not a policy
+        # nicety.
+        "GET /api/eiermann/reports/period",
+        "GET /api/eiermann/reports/period/",
+    ],
 )
 
 
@@ -3176,6 +3673,7 @@ for collection in (
     "follow_ups",
     "nest_state",
     "species_labels",
+    "visit_rows",
     "tours",
     "tour_spots",
     "tour_runs",
@@ -3237,6 +3735,31 @@ sweep_collections(
     cols,
     "every domain rule requires an authenticated, active caller",
     every_rule_is_gated,
+)
+
+# The sweep above cannot see a VIEW: the shared harness selects `type == "base"`,
+# because every other sweep it drives asks about writes. So views — the one place
+# where the gate is most likely to be missing, since a view does NOT inherit the
+# rules of the tables under it — were swept by nothing at all.
+#
+# This is not hypothetical. `visit_rows` (1700000017) was first written with the
+# pre-014 clause `role != null`, which `guest` satisfies: a window onto every
+# visit the org had ever recorded, for any stranger the identity provider
+# happened to authenticate. The hand-kept guest-wall list above would have caught
+# it only because somebody remembered to add the new name to it, which is exactly
+# the fragility a sweep exists to remove.
+view_offenders = []
+for col in cols:
+    if col.get("type") != "view":
+        continue
+    reason = every_rule_is_gated(col)
+    if reason:
+        view_offenders.append(f"{col['name']}: {reason}")
+h.check(
+    "every VIEW states the gate itself, since it inherits none",
+    not view_offenders,
+    "; ".join(view_offenders)
+    + " — a view over a carefully scoped table is a second door onto it",
 )
 
 
