@@ -2482,6 +2482,147 @@ h.check(
 )
 
 
+# ── eiermann-bbj: every rung of both ladders is REACHABLE ──────────────────
+#
+# The window bug (eiermann-uga) survived because nothing asked whether a rung
+# could be reached AT ALL. `inRhythm` was impossible at the base interval, and
+# every individual row was still coloured correctly — the ladder as a whole was
+# broken and no single assertion could see it. A rung that no state of the world
+# produces is dead code wearing the shape of a feature.
+#
+# So the ladders are asserted as a CENSUS: every rank gets a case that produces
+# it, the observed ranks are compared against the full range, and anything
+# nobody reached fails by name. That is the half a per-case test cannot do — a
+# rung added later with no case fails here, and a rung that quietly became
+# unreachable fails here too.
+#
+# `spots.next_due_at` is client-writable, so the Spot dates are set directly.
+# `nests.next_due_at` is NOT — it is refused from a client — so every nest rank
+# is reached through the rhythm, with a backdated `visited_at` doing the work a
+# PATCH cannot.
+
+SPOT_RUNGS = {0: "overdue", 1: "due today", 2: "due soon", 3: "in rhythm",
+              4: "prospect", 5: "paused", 6: "closed"}
+NEST_RUNGS = {0: "overdue", 1: "due today", 2: "due soon", 3: "in rhythm",
+              4: "protected", 5: "gone"}
+
+
+def spot_at(name, phase="active", due=None, **fields):
+    """An active Spot dated [due] days out, or one in another [phase]."""
+    row = h.mk(
+        coord_token, "spots", {"org": ORG, "name": name, "phase": phase, **fields}
+    )
+    if due is not None:
+        h.req(
+            "PATCH", f"/api/collections/spots/records/{row['id']}", T,
+            {"next_due_at": h.stamp(days=due)},
+        )
+    return row
+
+
+# Rank 2 needs the date INSIDE the window, and for a Spot created just now the
+# window is ceil(daysUntil / 4) — so only tomorrow qualifies. That is not a
+# quirk of the test: the reconstruction anchor is the last checked visit, and a
+# Spot nobody has visited has only its creation to count from.
+seen_spot = {
+    0: urgency_of(spot_at("Leiter überfällig", due=-3)["id"]),
+    1: urgency_of(spot_at("Leiter heute", due=0)["id"]),
+    2: urgency_of(spot_at("Leiter bald", due=1)["id"]),
+    3: urgency_of(spot_at("Leiter im Rhythmus", due=7)["id"]),
+    4: urgency_of(spot_at("Leiter Erkundung", phase="prospect")["id"]),
+    # A pause is refused without a reason (`spot_pause_needs_reason`), which is
+    # itself the rule that a pause somebody has to explain is one they mean.
+    5: urgency_of(
+        spot_at("Leiter pausiert", phase="paused",
+                pause_reason="Gerüst am Haus")["id"]
+    ),
+    6: urgency_of(
+        spot_at("Leiter geschlossen", phase="closed", closed_reason="netted")["id"]
+    ),
+}
+for rung, label in SPOT_RUNGS.items():
+    h.check(
+        f"a Spot can reach urgency {rung} ({label})",
+        seen_spot.get(rung) == rung,
+        f"the case built for {label} ranked {seen_spot.get(rung)} — a rung "
+        "nothing can produce is dead code that looks like a feature",
+    )
+h.check(
+    "the Spot ladder has no rung this suite cannot reach",
+    set(seen_spot) == set(SPOT_RUNGS),
+    f"reached {sorted(seen_spot)} of {sorted(SPOT_RUNGS)}",
+)
+
+# And the point of the whole change: the window is PROPORTIONAL, so the same
+# number of days until the date lands on different rungs depending on the
+# interval behind it. Both of these are due in three days. The first has only
+# its creation to count from, so its interval reads as three days and its window
+# as one. The second was last checked 27 days ago, so its interval reads as 30
+# and its window as 8 — and three days out is inside that.
+#
+# This is the assertion a fixed window cannot pass, whatever number it is fixed
+# at: one window cannot be both narrower and wider than three days.
+near = spot_at("Kurzer Rhythmus", due=3)
+far = h.mk(coord_token, "spots", {"org": ORG, "name": "Langer Rhythmus",
+                                  "phase": "active"})
+status, _ = post_visit(
+    member_token,
+    {"spot": far["id"], "outcome": "checked", "visited_at": h.stamp(days=-27),
+     "checks": []},
+)
+h.check("a Spot with no nests can be recorded as checked", h.ok(status),
+        f"status {status}")
+# After the visit, because the visit endpoint recomputes the date it would
+# otherwise overwrite.
+h.req("PATCH", f"/api/collections/spots/records/{far['id']}", T,
+      {"next_due_at": h.stamp(days=3)})
+h.check(
+    "the same three days out ranks differently on a short and a long rhythm",
+    urgency_of(near["id"]) == 3 and urgency_of(far["id"]) == 2,
+    f"short rhythm ranked {urgency_of(near['id'])} (want 3, outside its "
+    f"one-day window), long rhythm ranked {urgency_of(far['id'])} (want 2, "
+    "inside its eight-day window) — a FIXED window cannot produce both",
+)
+
+# The nest rungs. Every date here is the rhythm's own work: one empty check with
+# a backdated visit puts `next_due_at` a base interval after that date, so the
+# backdating chooses the rung.
+gone_two = mknest("LG")
+h.req("PATCH", f"/api/collections/nests/records/{gone_two['id']}", coord_token,
+      {"status": "gone"})
+prot_two = mknest("LP", species="protected")
+
+
+def nest_rank_after(label, days_ago):
+    nest = mknest(label)
+    h.check(
+        f"the rhythm accepts a check {days_ago} days back for {label}",
+        h.ok(empty_check(nest["id"], h.stamp(days=days_ago))),
+    )
+    return state_of(nest["id"]).get("urgency")
+
+
+seen_nest = {
+    0: nest_rank_after("L0", -10),
+    1: nest_rank_after("L1x", -7),
+    2: nest_rank_after("L2", -5),
+    3: state_of(mknest("L3")["id"]).get("urgency"),
+    4: state_of(prot_two["id"]).get("urgency"),
+    5: state_of(gone_two["id"]).get("urgency"),
+}
+for rung, label in NEST_RUNGS.items():
+    h.check(
+        f"a nest can reach urgency {rung} ({label})",
+        seen_nest.get(rung) == rung,
+        f"the case built for {label} ranked {seen_nest.get(rung)}",
+    )
+h.check(
+    "the nest ladder has no rung this suite cannot reach",
+    set(seen_nest) == set(NEST_RUNGS),
+    f"reached {sorted(seen_nest)} of {sorted(NEST_RUNGS)}",
+)
+
+
 # ── The shapes the chronology actually asks for ────────────────────────────
 #
 # eiermann-3is.5. These are not access-rule assertions: the rules above already
