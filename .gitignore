@@ -90,3 +90,7 @@ Thumbs.db
 # The rule suite is Python; its bytecode cache is not a source file.
 __pycache__/
 *.pyc
+
+# Claude Code's per-session git worktrees. Scratch checkouts of this same repo —
+# committing them would nest the repo inside itself.
+.claude/worktrees/
