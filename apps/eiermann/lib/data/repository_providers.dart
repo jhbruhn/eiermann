@@ -143,3 +143,24 @@ Future<VisitLogRepository> visitLogRepository(Ref ref) async =>
 @Riverpod(keepAlive: true)
 Future<FollowUpsRepository> followUpsRepository(Ref ref) async =>
     FollowUpsRepository(await _client(ref));
+
+/// The org's reporting figures — one call, every number on the statistics
+/// screen.
+///
+/// Not a collection repository: there is no collection behind it. The screen
+/// reads `GET /api/eiermann/stats`, and the aggregation lives on the server
+/// beside the one the printed report uses, so the two cannot disagree.
+@Riverpod(keepAlive: true)
+Future<StatsRepository> statsRepository(Ref ref) async =>
+    StatsRepository(await _client(ref));
+
+/// The rendered period report, as bytes: the Behördenbericht, the
+/// Förderer-Zusammenfassung, and the CSV of the same table.
+///
+/// Separate from [statsRepository] because it reads a FILE — through an HTTP
+/// client rather than the PocketBase SDK, which decodes every response as JSON
+/// and would corrupt a PDF, and with a timeout measured in minutes because a
+/// Typst compile is a subprocess on the server.
+@Riverpod(keepAlive: true)
+Future<ReportsRepository> reportsRepository(Ref ref) async =>
+    ReportsRepository(await _client(ref));

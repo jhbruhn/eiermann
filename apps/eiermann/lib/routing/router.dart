@@ -11,6 +11,7 @@ import 'package:eiermann/features/spots/spot_detail_screen.dart';
 import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
 import 'package:eiermann/features/startup/splash_screen.dart';
+import 'package:eiermann/features/statistics/statistics_screen.dart';
 import 'package:eiermann/features/tours/tour_editor_screen.dart';
 import 'package:eiermann/features/tours/tour_run_screen.dart';
 import 'package:eiermann/features/tours/tours_screen.dart';
@@ -53,6 +54,15 @@ abstract final class Routes {
   /// number on the dashboard has to be a way IN, and a count that cannot be
   /// opened is a fact nobody can act on.
   static const findings = '/findings';
+
+  /// Die Zahlen: what a period of work came to, and where the exports are
+  /// taken from.
+  ///
+  /// A place rather than a nav destination, and reached from the dashboard's
+  /// app bar: statistics are read at a desk when somebody has to argue for a
+  /// permission or a funding, not between two buildings. A fifth tab would
+  /// spend permanent space on a monthly errand.
+  static const statistics = '/stats';
 
   /// The Touren screen: the templates, and the way into a round.
   ///
@@ -271,6 +281,13 @@ List<RouteBase> appRoutes() {
     GoRoute(
       path: Routes.findings,
       builder: (_, _) => const FindingsScreen(),
+    ),
+    // Die Zahlen: over the shell, like the funnel and the Funde list. The
+    // export sheet opens on top of it and reads its period, so a branch parked
+    // here would be a branch that comes back offering last session's year.
+    GoRoute(
+      path: Routes.statistics,
+      builder: (_, _) => const StatisticsScreen(),
     ),
     // The template editor and the running round: over the shell, like the
     // dossier, so no branch can be parked on either. The run especially — a

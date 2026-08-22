@@ -1291,5 +1291,165 @@
     "description": "Otherwise the round's finished_at would be earlier than a visit it contains, and it is a statement about what was done on it."
   },
   "serverErrorTourNotFound": "Diese Tour gibt es nicht mehr. Lade die Touren neu.",
-  "serverErrorTourStopSpotNotFound": "Dieses Gebäude gibt es nicht mehr. Lade die Liste neu."
+  "serverErrorTourStopSpotNotFound": "Dieses Gebäude gibt es nicht mehr. Lade die Liste neu.",
+  "statsTitle": "Zahlen",
+  "@statsTitle": {
+      "description": "The statistics screen. Named for what it holds rather than 'Statistik' — a volunteer group reads numbers, it does not do statistics."
+  },
+  "statsPeriodAllTime": "Gesamt",
+  "statsPeriodWholeYear": "Ganzes Jahr",
+  "statsPeriodEarlierYears": "Frühere Jahre",
+  "statsEmptyTitle": "In diesem Zeitraum war niemand unterwegs",
+  "statsEmptyMessage": "Sobald Besuche erfasst sind, stehen hier die Zahlen dazu. Ein Bericht lässt sich trotzdem erzeugen — auch ein leerer Zeitraum ist eine Aussage.",
+  "@statsEmptyMessage": {
+      "description": "A period with no visits is not an error and not an empty app. The export stays offered because 'we could not get in all spring' is itself something an authority is shown."
+  },
+  "statsEmptySection": "Keine Angaben",
+  "statsPercentValue": "{value} %",
+  "@statsPercentValue": {
+      "placeholders": {
+          "value": {
+              "type": "String"
+          }
+      }
+  },
+  "statsVisits": "Besuche",
+  "statsVisitsNote": "{count, plural, =0{kein Gebäude} =1{in 1 Gebäude} other{in {count} Gebäuden}}",
+  "@statsVisitsNote": {
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsEggsRemoved": "Eier entnommen",
+  "statsEggsRemovedNote": "{count, plural, =1{1 Attrappe gelegt} other{{count} Attrappen gelegt}}",
+  "@statsEggsRemovedNote": {
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsChecks": "Nestkontrollen",
+  "statsChecksNote": "Ø {value} Eier je Besuch mit Zugang",
+  "@statsChecksNote": {
+      "description": "Over the visits that got IN — a trip nobody got into had no chance to remove an egg, and averaging over it would understate the work.",
+      "placeholders": {
+          "value": {
+              "type": "String"
+          }
+      }
+  },
+  "statsChecksNoteNone": "Noch kein Besuch mit Zugang",
+  "statsAccessRate": "Zugang erhalten",
+  "statsAccessRateNote": "{count, plural, =0{noch kein Besuch} =1{von 1 Besuch} other{von {count} Besuchen}}",
+  "@statsAccessRateNote": {
+      "description": "The denominator lives inside the tile: a caption under the grid would qualify every tile in it.",
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsFullSwapRate": "Gelege vollständig getauscht",
+  "statsFullSwapRateNote": "{count, plural, =0{noch kein Gelege angetroffen} =1{von 1 angetroffenen Gelege} other{von {count} angetroffenen Gelegen}}",
+  "@statsFullSwapRateNote": {
+      "description": "NOT over all checks: over the clutches actually found. Over every check the figure would sag whenever the team finds more empty nests, which is when the work is going well.",
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsFindings": "Funde",
+  "statsSeriesTitle": "Entnommene Eier im Zeitverlauf",
+  "statsChartTooltipEggs": "{count, plural, =1{1 Ei} other{{count} Eier}}",
+  "@statsChartTooltipEggs": {
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsChartTooltipVisits": "{count, plural, =0{kein Besuch} =1{1 Besuch} other{{count} Besuche}}",
+  "@statsChartTooltipVisits": {
+      "description": "In the tooltip beside the eggs, because a low bar over six visits means the nests were empty — a good month a chart of eggs alone would draw as a bad one.",
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsChartOther": "Sonstige",
+  "@statsChartOther": {
+      "description": "The pie's tail bucket. Three hues plus this one, per the concept — a ring with nine colours is a legend nobody reads."
+  },
+  "statsCheckStatesTitle": "Ergebnisse der Nestkontrollen",
+  "statsCheckStatesFootnote": "{count, plural, =1{1 Nestkontrolle insgesamt} other{{count} Nestkontrollen insgesamt}}",
+  "@statsCheckStatesFootnote": {
+      "description": "The rows are a complete census of one enum, so they sum to this — printing the total lets a reader check that.",
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsFindingsTitle": "Funde nach Art",
+  "statsFindingsEmpty": "Nichts gefunden — das ist der Normalfall.",
+  "statsSpeciesTitle": "Artbezeichnungen",
+  "statsSpeciesCaption": "Anteil an den Funden",
+  "statsSkipReasonsTitle": "Warum keine Kontrolle möglich war",
+  "statsSkipReasonsCaption": "Anteil der nicht durchgeführten Kontrollen",
+  "statsSkipReasonsFootnote": "{count, plural, =1{1 Besuch ohne Kontrolle} other{{count} Besuche ohne Kontrolle}}",
+  "@statsSkipReasonsFootnote": {
+      "description": "This list is what a request for a key is argued with, so it is never filtered away.",
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsAddressesTitle": "Besuche je Gebäude",
+  "statsAddressesCaption": "Anteil an den Besuchen",
+  "statsSpotsTitle": "Gebäude nach Status",
+  "statsSpotsStageSubtitle": "Erkundung",
+  "@statsSpotsStageSubtitle": {
+      "description": "Marks the funnel rows as a breakdown OF the prospect row above them, so nobody adds the two lists together."
+  },
+  "statsSpotsFootnote": "{count, plural, =1{1 Gebäude, Stand heute — unabhängig vom gewählten Zeitraum} other{{count} Gebäude, Stand heute — unabhängig vom gewählten Zeitraum}}",
+  "@statsSpotsFootnote": {
+      "description": "Without this line, picking 2024 would read as 'we had four buildings in 2024'. Access is a standing figure; the period has no bearing on it.",
+      "placeholders": {
+          "count": {
+              "type": "int"
+          }
+      }
+  },
+  "statsExportAction": "Bericht erzeugen",
+  "statsExportPeriod": "Zeitraum",
+  "statsExportAuthority": "Behördenbericht (PDF)",
+  "statsExportAuthorityHint": "Jeder Besuch, nach Adresse gruppiert — auch die, bei denen niemand angetroffen wurde. Für Genehmigung und Verlängerung.",
+  "statsExportSummary": "Förderer-Zusammenfassung (PDF)",
+  "statsExportSummaryHint": "Derselbe Zeitraum ohne Einzelbesuche: Zahlen, Verlauf, Verteilung.",
+  "statsExportCsv": "Tabelle (CSV)",
+  "statsExportCsvHint": "Dieselbe Tabelle für die Tabellenkalkulation.",
+  "statsExportFileReport": "eiermann-bericht-{period}",
+  "@statsExportFileReport": {
+      "description": "File name without extension. ASCII only: a Content-Disposition filename with an umlaut arrives mangled or dropped depending on the client.",
+      "placeholders": {
+          "period": {
+              "type": "String"
+          }
+      }
+  },
+  "statsExportFileSummary": "eiermann-uebersicht-{period}",
+  "@statsExportFileSummary": {
+      "placeholders": {
+          "period": {
+              "type": "String"
+          }
+      }
+  },
+  "statsExportFileAllTime": "gesamt"
 }

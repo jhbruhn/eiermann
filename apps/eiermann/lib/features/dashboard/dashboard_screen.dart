@@ -55,7 +55,18 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.dashboardTitle),
-        actions: const [SignOutAction()],
+        actions: [
+          // The way to the figures and to the exports. Here rather than as a
+          // fifth nav destination: this is what somebody opens when a
+          // permission is up for renewal or a funder asks what the year came to
+          // — a monthly errand, not a place to be between two buildings.
+          IconButton(
+            icon: const Icon(Icons.insights_outlined),
+            tooltip: l10n.statsTitle,
+            onPressed: () => context.push(Routes.statistics),
+          ),
+          const SignOutAction(),
+        ],
       ),
       body: AsyncValueView(
         value: spots,
