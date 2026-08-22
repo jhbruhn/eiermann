@@ -589,22 +589,43 @@ h.check("a prospect ranks below every active Spot", urgency_of(prospect["id"]) =
 h.check("a closed Spot ranks last", urgency_of(closed["id"]) == 6)
 
 # A brand-new active Spot with no nest yet. It is DUE — the base period from
-# the day it was added — but never overdue on that day: painting every new
-# building red is how a colour stops being read. Rank 2 is "due within a week",
-# which for a base interval of 7 days is exactly where day one lands.
+# the day it was added — and on that day it ranks 3, not 2.
 #
-# The view's rank-3 branch for an active Spot with an EMPTY next_due_at is not
-# asserted here, because since the create hook derives the date it can no longer
-# be reached through the API. It stays in the view as the defensive answer for a
-# row that somehow has no date: reading a missing date as urgent would be worse.
+# eiermann-uga: rank 2 is what this asserted before, and that was an ARTIFACT
+# rather than a decision. The window was a fixed `+7 days` and the base period
+# is 7 days, so day one landed inside it — as did every day of every rhythm,
+# which is exactly what made the rank say nothing. With the window a quarter of
+# the interval, a Spot a full period out is in rhythm, climbs to rank 2 five
+# days later, then 1, then 0. It still surfaces inside its first period, and the
+# dossier says why in words (`dueExplainNoNests`).
+#
+# What this does NOT settle: whether "no nest recorded yet" deserves a signal of
+# its own instead of borrowing a due rank. It probably does, and it is filed
+# separately — a building nobody has been to is a different kind of work from a
+# nest falling due, and the ladder cannot say so.
+#
+# The view's rank-3 branch for an active Spot with an EMPTY next_due_at is still
+# not asserted here, because the create hook derives the date and the branch can
+# no longer be reached through the API. It stays in the view as the defensive
+# answer for a row that somehow has no date: reading a missing date as urgent
+# would be worse. Hence the date assertion below — without it this check would
+# also pass on a Spot that got no date at all.
 fresh_active = h.mk(
     coord_token, "spots", {"org": ORG, "name": "Neu, noch kein Nest", "phase": "active"}
 )
+_, fresh_row = h.req(
+    "GET", f"/api/collections/spot_overview/records/{fresh_active['id']}", member_token
+)
 h.check(
-    "a Spot created active is due inside its first rhythm, and NOT overdue",
-    urgency_of(fresh_active["id"]) == 2,
-    f"urgency {urgency_of(fresh_active['id'])} — a building nobody has looked "
-    "at properly must surface, without being red on the day it was added",
+    "a Spot created active gets a date in the future, not none and not the past",
+    (fresh_row or {}).get("next_due_at", "")[:10] > h.stamp()[:10],
+    f"next_due_at {(fresh_row or {}).get('next_due_at')!r}",
+)
+h.check(
+    "a Spot created active is in rhythm on day one, not already due-soon",
+    urgency_of(fresh_active["id"]) == 3,
+    f"urgency {urgency_of(fresh_active['id'])} — a full base period out is not "
+    '"soon"; a window as wide as the period is what made rank 2 permanent',
 )
 
 _, body = h.req(
@@ -2425,15 +2446,39 @@ h.check(
     "red is how a colour stops being read",
 )
 
+# eiermann-uga. The rank-2 window is a QUARTER of the nest's own interval,
+# rounded up — not a fixed week. So a nest the rhythm just dated a full interval
+# out is IN RHYTHM, and rank 2 has gone back to meaning "actually soon".
+#
+# Both ends are asserted, because either one alone passes on a broken ladder:
+# while the window was a fixed `+7 days` and the base interval was 7, every
+# freshly checked nest ranked 2 and rank 3 could not be reached at all.
 due_row = state_of(ladder_nest["id"])
 due = (due_row.get("next_due_at") or "")[:10]
 today = h.stamp()[:10]
-expected = 0 if due < today else (1 if due == today else 2)
 h.check(
-    "a nest the rhythm dated ranks by that date",
-    due and due_row.get("urgency") == expected,
-    f"due {due!r} against today {today!r} ranked {due_row.get('urgency')}, "
-    f"expected {expected}",
+    "a nest dated a FULL interval out is in rhythm, not due-soon",
+    due > today and due_row.get("urgency") == 3,
+    f"due {due!r} against today {today!r} ranked {due_row.get('urgency')} — "
+    "with a window as wide as the interval, rank 3 is unreachable and "
+    '"diese Woche faellig" is a healthy nest\'s whole cycle',
+)
+
+# The other end, reached through the RHYTHM rather than by writing the field:
+# `next_due_at` is refused from a client, so the only way in is a check with a
+# backdated `visited_at`. A base-interval nest checked five days ago is due in
+# two, and its window is ceil(7 / 4) = 2 — so it lands on rank 2.
+soon = mknest("S1")
+h.check(
+    "a nest can be checked with a backdated visit",
+    h.ok(empty_check(soon["id"], h.stamp(days=-5))),
+)
+soon_row = state_of(soon["id"])
+h.check(
+    "a nest INSIDE its proportional window ranks due-soon",
+    soon_row.get("urgency") == 2,
+    f"due {(soon_row.get('next_due_at') or '')[:10]!r} against today {today!r} "
+    f"ranked {soon_row.get('urgency')}, expected 2",
 )
 
 
