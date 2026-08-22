@@ -41,7 +41,7 @@ void main() {
       expect(row.dummyCount, 2);
       expect(row.eggCount, 3);
       expect(row.isEmpty, isFalse);
-      expect(row.level, NestUrgency.dueThisWeek);
+      expect(row.level, NestUrgency.dueSoon);
       expect(row.oldestSince, DateTime.utc(2026, 8, 14, 9));
       expect(row.lastCheckedAt, DateTime.utc(2026, 8, 19, 9));
     });

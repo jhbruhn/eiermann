@@ -120,7 +120,7 @@ void main() {
 
       expect(counts[SpotUrgency.overdue], 2);
       expect(counts[SpotUrgency.dueToday], 1);
-      expect(counts[SpotUrgency.dueThisWeek], isNull);
+      expect(counts[SpotUrgency.dueSoon], isNull);
     });
 
     test('a rank this build cannot name is left out, not folded in', () {
@@ -166,7 +166,7 @@ void main() {
     );
     expect(
       find.descendant(
-        of: tile(de.spotUrgencyDueThisWeek),
+        of: tile(de.spotUrgencyDueSoon),
         matching: find.text('0'),
       ),
       findsOneWidget,

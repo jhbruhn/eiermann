@@ -155,12 +155,17 @@ void main() {
   testWidgets('a tapped pin says enough to decide whether to go', (
     tester,
   ) async {
+    // Nineteen days overdue, counted from TODAY rather than pinned to a date:
+    // the callout says how many days late it is, and `spotDueLabel` reads the
+    // wall clock, so a fixed date here would drift into a different sentence
+    // every day the suite is run.
+    final today = DateTime.now();
     await pumpMap(tester, [
       row(
         id: 's1',
         name: 'Bahnhofstraße 12',
         urgency: 0,
-        nextDueAt: DateTime.utc(2026, 8, 3),
+        nextDueAt: DateTime(today.year, today.month, today.day - 19),
         contactCount: 2,
       ),
     ]);
@@ -169,14 +174,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bahnhofstraße 12'), findsWidgets);
-    // The rank in WORDS, not only as a colour: colour alone fails WCAG 1.4.1
-    // and says nothing to a colour-blind reader. Scoped to the callout,
-    // because the filter chip above the map names the same rank — and a bare
-    // `findsOneWidget` would break the moment a second place says it right.
+    // The overdue-ness in WORDS, not only as a colour: colour alone fails
+    // WCAG 1.4.1 and says nothing to a colour-blind reader. It is a DAY COUNT
+    // rather than the bare rank name now (eiermann-f0g) — one day late and
+    // ninety days late used to be the same word and the same red. Scoped to
+    // the callout, because the filter chip above the map names the rank too,
+    // and a bare `findsOneWidget` would break the moment a second place says
+    // it right.
     expect(
       find.descendant(
         of: find.byType(BottomSheet),
-        matching: find.textContaining(de.spotUrgencyOverdue),
+        matching: find.textContaining(de.spotDueOverdueDays(19)),
       ),
       findsOneWidget,
     );

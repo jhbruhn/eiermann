@@ -31,7 +31,7 @@ void main() {
         spots: [
           _spot(id: 'a', name: 'Überfällig', level: SpotUrgency.overdue),
           _spot(id: 'b', name: 'Heute', level: SpotUrgency.dueToday),
-          _spot(id: 'c', name: 'Diese Woche', level: SpotUrgency.dueThisWeek),
+          _spot(id: 'c', name: 'Diese Woche', level: SpotUrgency.dueSoon),
           _spot(id: 'd', name: 'Im Rhythmus', level: SpotUrgency.inRhythm),
           _spot(id: 'e', name: 'Pausiert', level: SpotUrgency.paused),
           _spot(id: 'f', name: 'Erkundung', level: SpotUrgency.prospect),

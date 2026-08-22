@@ -116,7 +116,28 @@
     "description": "Urgency is also colour-coded, so every rank must have words: colour-only meaning fails WCAG 1.4.1 and is invisible to a colour-blind carer."
   },
   "spotUrgencyDueToday": "Heute fällig",
-  "spotUrgencyDueThisWeek": "Diese Woche fällig",
+  "spotUrgencyDueSoon": "Bald fällig",
+  "@spotUrgencyDueSoon": {
+    "description": "The name of rank 2, used where it labels a GROUP of Spots (a filter chip, a dashboard tile) and a single date cannot be shown. Was 'Diese Woche fällig', which claimed a calendar week over what is really a window proportional to the interval — and while that window was a fixed seven days, every Spot carried this label forever (eiermann-uga). A single row says the day count instead, see spotDueInDays."
+  },
+  "spotDueInDays": "{days, plural, =1{morgen fällig} other{in {days} Tagen fällig}}",
+  "@spotDueInDays": {
+    "description": "The due line of ONE Spot. A count rather than a rank name, because the rank restated the date worse than the date does — 'Diese Woche fällig · fällig am 24.08.' says fällig twice and adds nothing. Computed in the CLIENT on local calendar days: nest_state's header refuses a days column in SQL because SQLite's DATE('now') is UTC and the difference would be a day out in CET.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "spotDueOverdueDays": "{days, plural, =1{seit gestern überfällig} other{seit {days} Tagen überfällig}}",
+  "@spotDueOverdueDays": {
+    "description": "The other direction, and the reason a bare 'Überfällig' was not enough: one day late and ninety days late were the same word and the same red.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "spotUrgencyInRhythm": "Im Rhythmus",
   "spotUrgencyProspect": "Erkundung läuft",
   "spotUrgencyPaused": "Pausiert",

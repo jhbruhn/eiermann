@@ -146,7 +146,14 @@ enum SpotUrgency {
   /// A due date in the past.
   overdue(0),
   dueToday(1),
-  dueThisWeek(2),
+
+  /// Inside its own due window — a QUARTER of the interval behind the date,
+  /// not a calendar week. It was called `dueThisWeek` while the view used a
+  /// fixed `+7 days`, and both halves of that name were wrong: the window was
+  /// a rolling seven days rather than a week, and since the base interval is
+  /// also seven days every active Spot sat on this rung permanently
+  /// (eiermann-uga).
+  dueSoon(2),
 
   /// Active and not due yet — including an active Spot with no due date at
   /// all, which is waiting for its first nest rather than overdue.
@@ -179,7 +186,10 @@ enum NestUrgency {
   /// A due date in the past.
   overdue(0),
   dueToday(1),
-  dueThisWeek(2),
+
+  /// Inside its own due window — a quarter of `interval_days`, rounded up. See
+  /// [SpotUrgency.dueSoon] for why this is not called `dueThisWeek`.
+  dueSoon(2),
 
   /// Active and not due yet — including a nest that has never been checked,
   /// which is waiting rather than late.

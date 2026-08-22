@@ -43,7 +43,7 @@ class DashboardScreen extends ConsumerWidget {
   static const List<SpotUrgency> _ranks = [
     SpotUrgency.overdue,
     SpotUrgency.dueToday,
-    SpotUrgency.dueThisWeek,
+    SpotUrgency.dueSoon,
     SpotUrgency.prospect,
   ];
 

@@ -212,10 +212,13 @@ class SpotTile extends StatelessWidget {
         const SizedBox(width: ZugvogelSpacing.xs),
         Flexible(
           child: Text(
+            // The count first, the date behind it as the reference. Not
+            // `spotDueOn` any more: the count already says "fällig", and the
+            // rank name that used to stand here said it a third time.
             [
-              spotUrgencyLabel(l10n, level),
+              spotDueLabel(l10n, level, row.nextDueAt),
               if (row.nextDueAt != null)
-                l10n.spotDueOn(formatLocalDate(materialL10n, row.nextDueAt)),
+                formatLocalDate(materialL10n, row.nextDueAt),
             ].join(' · '),
             style: theme.textTheme.bodySmall?.copyWith(
               color: spotUrgencyColor(context, level),

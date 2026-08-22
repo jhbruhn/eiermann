@@ -553,7 +553,7 @@ class _SpotPin extends StatelessWidget {
     final colour = spotUrgencyColor(context, row.level);
 
     return Tooltip(
-      message: '${row.name}\n${spotUrgencyLabel(l10n, row.level)}',
+      message: '${row.name}\n${spotDueLabel(l10n, row.level, row.nextDueAt)}',
       child: GestureDetector(
         onTap: () => _showSpotCallout(context, row),
         child: Stack(
@@ -653,7 +653,7 @@ void _showClusterSheet(BuildContext context, _Cluster cluster) {
                 title: Text(row.name),
                 subtitle: Text(
                   [
-                    spotUrgencyLabel(sheetContext.l10n, row.level),
+                    spotDueLabel(sheetContext.l10n, row.level, row.nextDueAt),
                     ?row.addressLine,
                   ].join(' · '),
                 ),
@@ -707,9 +707,9 @@ class _Callout extends StatelessWidget {
             Expanded(
               child: Text(
                 [
-                  spotUrgencyLabel(l10n, row.level),
+                  spotDueLabel(l10n, row.level, row.nextDueAt),
                   if (row.nextDueAt case final due?)
-                    l10n.spotDueOn(formatLocalDate(materialL10n, due)),
+                    formatLocalDate(materialL10n, due),
                 ].join(' · '),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: spotUrgencyColor(context, row.level),

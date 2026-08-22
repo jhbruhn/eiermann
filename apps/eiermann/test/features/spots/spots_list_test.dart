@@ -125,7 +125,7 @@ void main() {
 
     expect(find.textContaining(de.spotUrgencyOverdue), findsOneWidget);
     expect(find.textContaining(de.spotUrgencyDueToday), findsOneWidget);
-    expect(find.textContaining(de.spotUrgencyDueThisWeek), findsOneWidget);
+    expect(find.textContaining(de.spotUrgencyDueSoon), findsOneWidget);
     expect(find.textContaining(de.spotUrgencyInRhythm), findsOneWidget);
   });
 

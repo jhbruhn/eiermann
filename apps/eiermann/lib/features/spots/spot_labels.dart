@@ -1,3 +1,4 @@
+import 'package:eiermann/features/rhythm/due_countdown.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
@@ -124,13 +125,50 @@ String spotUrgencyLabel(AppLocalizations l10n, SpotUrgency? level) =>
     switch (level) {
       SpotUrgency.overdue => l10n.spotUrgencyOverdue,
       SpotUrgency.dueToday => l10n.spotUrgencyDueToday,
-      SpotUrgency.dueThisWeek => l10n.spotUrgencyDueThisWeek,
+      SpotUrgency.dueSoon => l10n.spotUrgencyDueSoon,
       SpotUrgency.inRhythm => l10n.spotUrgencyInRhythm,
       SpotUrgency.prospect => l10n.spotUrgencyProspect,
       SpotUrgency.paused => l10n.spotUrgencyPaused,
       SpotUrgency.closed => l10n.spotUrgencyClosed,
       null => l10n.spotUrgencyUnknown,
     };
+
+/// The due line for ONE Spot — a day count, not a rank name.
+///
+/// [spotUrgencyLabel] still names the rank where it labels a GROUP: a filter
+/// chip, a dashboard tile, a map cluster. A single row is different, because
+/// the row already carries the date, and the rank next to it restated that date
+/// worse than the date did — "Diese Woche fällig · fällig am 24.08." says
+/// fällig twice and the first half was true of every Spot in the org
+/// (eiermann-uga). So the row says how many days, and the date stays beside it
+/// as the reference.
+///
+/// The three quiet ranks and anything undated keep their NAME, because for them
+/// the absence of a date is the fact: a count of days to a paused Spot's next
+/// visit would invent one. Same reasoning as the first two branches of
+/// `nestDueExplanation`, which answers for the nests.
+String spotDueLabel(
+  AppLocalizations l10n,
+  SpotUrgency? level,
+  DateTime? dueAt, {
+  DateTime? now,
+}) {
+  if (dueAt == null) return spotUrgencyLabel(l10n, level);
+  return switch (level) {
+    SpotUrgency.prospect ||
+    SpotUrgency.paused ||
+    SpotUrgency.closed ||
+    // A rank this build has no name for gets the unknown label rather than a
+    // confident day count: the server grew a rung, and guessing what it means
+    // is worse than saying so.
+    null => spotUrgencyLabel(l10n, level),
+    _ => switch (dueInDays(dueAt, now: now)) {
+      final days when days < 0 => l10n.spotDueOverdueDays(-days),
+      0 => l10n.spotUrgencyDueToday,
+      final days => l10n.spotDueInDays(days),
+    },
+  };
+}
 
 /// The colour for an urgency rank, from the theme's semantic roles.
 ///
@@ -144,7 +182,7 @@ Color spotUrgencyColor(BuildContext context, SpotUrgency? level) {
   final colors = context.zvColors;
   return switch (level) {
     SpotUrgency.overdue => colors.critical,
-    SpotUrgency.dueToday || SpotUrgency.dueThisWeek => colors.warning,
+    SpotUrgency.dueToday || SpotUrgency.dueSoon => colors.warning,
     SpotUrgency.inRhythm => colors.good,
     _ => Theme.of(context).colorScheme.onSurfaceVariant,
   };
@@ -154,7 +192,7 @@ Color spotUrgencyColor(BuildContext context, SpotUrgency? level) {
 /// ranks that call for action.
 IconData spotUrgencyIcon(SpotUrgency? level) => switch (level) {
   SpotUrgency.overdue => Icons.priority_high,
-  SpotUrgency.dueToday || SpotUrgency.dueThisWeek => Icons.schedule,
+  SpotUrgency.dueToday || SpotUrgency.dueSoon => Icons.schedule,
   SpotUrgency.inRhythm => Icons.check_circle_outline,
   SpotUrgency.prospect => Icons.forum_outlined,
   SpotUrgency.paused => Icons.pause_circle_outline,
