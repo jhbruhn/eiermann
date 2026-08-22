@@ -113,9 +113,7 @@ void main() {
     Size size = const Size(400, 800),
     String at = '/',
   }) async {
-    tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(size);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

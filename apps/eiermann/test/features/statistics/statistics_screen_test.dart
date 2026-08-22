@@ -101,9 +101,7 @@ void main() {
   /// the default 800x600 every card under the KPI grid is simply absent — and
   /// the test would read as "the breakdown is missing".
   Future<void> pump(WidgetTester tester, OrgStatistics figures) async {
-    tester.view.physicalSize = const Size(1000, 4000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(1000, 4000));
 
     when(
       () => repo.fetch(

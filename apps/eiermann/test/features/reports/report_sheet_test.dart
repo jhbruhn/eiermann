@@ -62,9 +62,7 @@ void main() {
   });
 
   Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1000, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(1000, 2400));
 
     await tester.pumpApp(
       // The Scaffold stands in for what showAppSheet provides in the app: a
@@ -105,9 +103,7 @@ void main() {
     // Somebody who has just read the 2021 figures and taps "exportieren" is
     // asking for the 2021 report, not for whatever year a sheet would default
     // to.
-    tester.view.physicalSize = const Size(1000, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(1000, 2400));
     await tester.pumpApp(
       const Scaffold(body: ReportSheet()),
       overrides: [

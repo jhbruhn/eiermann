@@ -61,9 +61,7 @@ void main() {
   /// third template is added above it, and the test would read as "the control
   /// is missing".
   Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1000, 3000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(1000, 3000));
 
     await tester.pumpWidget(
       ProviderScope(

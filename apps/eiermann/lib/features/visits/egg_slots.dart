@@ -8,6 +8,10 @@ import 'package:flutter/foundation.dart';
 /// metric is the real eggs REMOVED, so that case must be recordable — and it is
 /// a different fact from a swap, since the nest is then genuinely empty and the
 /// birds may start over.
+///
+/// Not a `WireEnum`: this is the egg grid's editor state. What crosses the wire
+/// is the resulting list of [EggKind] the Besuch carries — an action is how the
+/// volunteer got there, not what is recorded.
 enum SlotAction {
   /// Left where it was. The only legal action on a dummy, and on an egg
   /// somebody decided not to touch.

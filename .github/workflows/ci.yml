@@ -54,12 +54,19 @@ jobs:
 
       # build_runner only generates for the package it runs in, so each member
       # with codegen needs its own step.
+      #
+      # WITHOUT `--delete-conflicting-outputs`: build_runner removed that option,
+      # and passing it now only earns a "these options have been removed and
+      # were ignored" warning. Left in, it reads as a safeguard that is doing
+      # something — and the next person to hit a conflicting-output error would
+      # look at the flag, see it already there, and conclude the problem is
+      # elsewhere. `guards/codegen_test.dart` fails on any removed flag.
       - name: Generate code (eiermann_models)
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build
         working-directory: packages/eiermann_models
 
       - name: Generate code (app)
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build
         working-directory: apps/eiermann
 
       # From the REPO ROOT, so the workspace is analysed as one thing. Running

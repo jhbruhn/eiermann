@@ -71,9 +71,7 @@ void main() {
   });
 
   Future<void> openPicker(WidgetTester tester, {GeoPoint? initial}) async {
-    tester.view.physicalSize = const Size(900, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(900, 1600));
     await tester.pumpApp(
       _Host(initial: initial),
       overrides: [

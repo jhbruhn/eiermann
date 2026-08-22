@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
+import 'package:zugvogel_core/zugvogel_core.dart' show WireEnum;
 import 'package:zugvogel_data/zugvogel_data.dart'
     show RepositoryErrorKind, RepositoryException;
 
@@ -12,7 +13,7 @@ import 'package:zugvogel_data/zugvogel_data.dart'
 /// they are three renderings of ONE report over one row set — not three
 /// features. The `wire` value is the `?format=` the server branches on, so
 /// renaming the Dart identifier cannot change what is asked for.
-enum ReportFormat {
+enum ReportFormat implements WireEnum {
   /// The Behördenbericht: every visit, grouped by address. What a permission is
   /// renewed on.
   authority('pdf', 'pdf', 'application/pdf'),
@@ -29,6 +30,7 @@ enum ReportFormat {
   const ReportFormat(this.wire, this.extension, this.mimeType);
 
   /// The `?format=` value the route branches on.
+  @override
   final String wire;
 
   /// The file extension a share sheet should offer.

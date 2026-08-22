@@ -49,9 +49,7 @@ void main() {
     // Six fields plus the save button do not fit the default 800x600 test
     // window, and a tap landing a few pixels below the fold is a harness
     // artefact, not a finding about the sheet.
-    tester.view.physicalSize = const Size(800, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(800, 1600));
     await tester.pumpApp(
       const _Host(),
       overrides: [

@@ -87,9 +87,7 @@ void main() {
     // the test then reads as "the save did nothing" rather than "the button is
     // offscreen". It cost exactly that when the species field grew a
     // suggestion row.
-    tester.view.physicalSize = const Size(1200, 3000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
+    tester.useSurface(const Size(1200, 3000));
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpApp(

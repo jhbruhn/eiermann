@@ -13,6 +13,9 @@ typedef LocationFix = ({double lat, double lon});
 /// again, and a permanently denied one can only be changed in the system
 /// settings — an app that said "location unavailable" to all three would send
 /// somebody looking in the wrong place.
+///
+/// Not a `WireEnum`: these come from the platform's location service, not from
+/// PocketBase, and none of them is ever written to a record.
 enum LocationRefusal {
   /// Location services are switched off on the device.
   serviceOff,

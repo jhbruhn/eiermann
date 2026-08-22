@@ -43,9 +43,7 @@ void main() {
     // The sheet's explanation, its fields and the button do not fit the default
     // 800x600, and a tap landing below the fold is a harness artefact rather
     // than a finding about the sheet.
-    tester.view.physicalSize = const Size(800, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(800, 1600));
     await tester.pumpApp(
       _Host(spot),
       overrides: [spotsRepositoryProvider.overrideWith((ref) async => spots)],

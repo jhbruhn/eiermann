@@ -4,6 +4,10 @@ import 'package:eiermann_models/src/models/visit.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 /// What has happened to one building on a round.
+///
+/// Not a `WireEnum`: nothing stores this. It is derived on the client from
+/// whether the stop has a visit and what that visit's outcome was — the row
+/// the server holds is the Besuch, and this is how the progress list reads it.
 enum TourStopState {
   /// Planned, not reached yet. The only state a stop can be in without a visit.
   pending,

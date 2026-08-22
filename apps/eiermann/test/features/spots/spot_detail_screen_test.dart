@@ -111,9 +111,7 @@ void main() {
     Spot record = spot,
     List<SpotContact> rows = const [caretaker],
   }) async {
-    tester.view.physicalSize = const Size(800, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(800, 1600));
     when(() => spots.getOne(any())).thenAnswer((_) async => record);
     when(() => contacts.forSpot(any())).thenAnswer((_) async => rows);
     when(

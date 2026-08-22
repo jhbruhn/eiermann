@@ -77,9 +77,7 @@ void main() {
     List<SpotOverview> rows, {
     Map<String, List<SpotOverview>> matching = const {},
   }) async {
-    tester.view.physicalSize = const Size(900, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(900, 1600));
     when(() => overview.search(any())).thenAnswer(
       (call) async =>
           matching[call.positionalArguments.first as String] ?? rows,
@@ -416,9 +414,7 @@ void main() {
       // The controls are a card OVER the map, and seven chips is the worst
       // case. Wrapped onto three lines they would cover the thing they filter;
       // this is the test that fails if the row ever stops scrolling.
-      tester.view.physicalSize = const Size(360, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      tester.useSurface(const Size(360, 800));
       await pumpMap(tester, [
         for (final level in SpotUrgency.values)
           row(

@@ -55,9 +55,7 @@ void main() {
   });
 
   Future<void> openSheet(WidgetTester tester, {Spot? spot}) async {
-    tester.view.physicalSize = const Size(900, 2000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(900, 2000));
     await tester.pumpApp(
       _Host(spot: spot),
       overrides: [

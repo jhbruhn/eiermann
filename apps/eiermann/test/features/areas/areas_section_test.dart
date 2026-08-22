@@ -9,7 +9,6 @@ import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -60,9 +59,7 @@ void main() {
 
   setUpAll(() async {
     de = await germanStrings();
-    materialDe = await GlobalMaterialLocalizations.delegate.load(
-      const Locale('de'),
-    );
+    materialDe = await germanMaterialStrings();
     registerFallbackValue(<String, dynamic>{});
     registerFallbackValue(<http.MultipartFile>[]);
     registerFallbackValue(ImageSource.gallery);

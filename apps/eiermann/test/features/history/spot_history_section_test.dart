@@ -41,9 +41,7 @@ void main() {
   ).thenAnswer((_) async => PbPage(items: rows, cursor: cursor));
 
   Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(800, 2000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(800, 2000));
     await tester.pumpApp(
       const Scaffold(
         body: SingleChildScrollView(

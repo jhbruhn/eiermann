@@ -1364,6 +1364,9 @@ print("\n[custom routes]")
 
 import os
 
+import glob
+import re as _re
+
 HOOKS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pb_hooks")
 offenders = h.hook_scope_offenders(HOOKS)
 h.check(
@@ -1371,6 +1374,186 @@ h.check(
     not offenders,
     "each handler runs in its own JSVM context, so these are NOT in scope "
     f"inside it — a 400 at request time: {offenders}",
+)
+
+# ...and reaches its helpers the one way that works from inside one.
+#
+# The other half of the same trap (eiermann-934.4). A handler's own context has
+# no file-level bindings, so everything it needs arrives through `require` — and
+# `require` there resolves against the PROCESS working directory, not against
+# the file doing the requiring. `require("./app_rhythm.js")` therefore reads as
+# a path relative to wherever PocketBase happens to have been started, which in
+# the dev override, in the image and under `migrate up` are three different
+# directories. The absolute `${__hooks}/…` template form is the only spelling
+# that resolves in all three, and the failure of any other is again a 400 at
+# request time with a `ReferenceError` no log line explains.
+#
+# `${__hooks}` cannot appear in a plain quoted string, so the sweep is exactly
+# "a require whose argument is not a backtick template".
+bad_requires = []
+for path in sorted(glob.glob(os.path.join(HOOKS, "*.js"))):
+    name = os.path.basename(path)
+    # Vendored from the base image; zugvogel's own suite owns their spelling.
+    if name.startswith("zv_"):
+        continue
+    with open(path, encoding="utf-8") as handle:
+        code = "\n".join(
+            line
+            for line in handle.read().split("\n")
+            if not line.strip().startswith("//")
+        )
+    for match in _re.finditer(r"require\(\s*([^)]*?)\s*\)", code):
+        argument = match.group(1)
+        if argument.startswith("`") and "${__hooks}/" in argument:
+            continue
+        bad_requires.append(f"{name}: require({argument})")
+
+h.check(
+    "every require uses the absolute ${__hooks} form",
+    not bad_requires,
+    f"{bad_requires} — a relative require resolves against the PROCESS working "
+    "directory, which differs between the image, the dev override and "
+    "`migrate up`",
+)
+require_count = 0
+for path in glob.glob(os.path.join(HOOKS, "*.js")):
+    if os.path.basename(path).startswith("zv_"):
+        continue
+    with open(path, encoding="utf-8") as handle:
+        require_count += len(_re.findall(r"require\(", handle.read()))
+h.check(
+    "...and the sweep found requires to check at all",
+    require_count >= 10,
+    f"{require_count} requires found — a sweep over nothing passes over "
+    "anything",
+)
+
+
+# ── One JSON field, one reader ─────────────────────────────────────────────
+#
+# eiermann-934.2. `record.get(<json field>)` hands JS a `types.JSONRaw` — a BYTE
+# ARRAY. Every property access on it is `undefined`, so a reader written the
+# obvious way falls silently through to its own default and the setting is inert
+# with no error anywhere. federfall had that trap written five times, correct in
+# three; two shipped, documented features were dead for every org.
+#
+# The countermeasure is arithmetic rather than vigilance: keep the number of
+# JSON fields at one and the number of readers at one, and there is one place
+# left to get it wrong. zv_org.js is that reader, and it lives in the base image
+# so both apps share it.
+#
+# The list is spelled out rather than counted, so that a fourth JSON field
+# fails here and its author has to say which of the two kinds it is: a
+# SETTINGS field, which something will eventually want to read and which
+# therefore belongs inside zv_org.js's one field — or an OPAQUE payload, stored
+# whole and handed back whole, never property-accessed in JS. The two
+# infrastructure ones are the second kind: `geocode_cache.response` is replayed
+# to the client verbatim and `idempotency_keys.response` is a recorded answer.
+# Passing a JSONRaw straight back to Go marshals correctly; only property
+# access in JS is broken, which is why those two are safe and a third settings
+# field would not be.
+json_fields = sorted(
+    f"{col['name']}.{field['name']}"
+    for col in base_collections(h.collections(T), writable_only=False)
+    for field in fields_of(col, "json")
+)
+h.check(
+    "the schema holds exactly one settings JSON field, and two opaque ones",
+    json_fields
+    == [
+        "geocode_cache.response",
+        "idempotency_keys.response",
+        "organisations.settings",
+    ],
+    f"{json_fields} — a new JSON field is a new place for `record.get()` to "
+    "return a byte array whose every property reads `undefined`. If it holds "
+    "configuration, put it in organisations.settings, which zv_org.js already "
+    "decodes correctly.",
+)
+
+# And nothing here decodes it. An eiermann hook that wants a setting requires
+# zv_org.js; one that spells out `getString("settings")` has just become the
+# second reader.
+own_readers = []
+settings_callers = 0
+for path in sorted(glob.glob(os.path.join(HOOKS, "*.js"))):
+    name = os.path.basename(path)
+    if name.startswith("zv_"):
+        continue
+    with open(path, encoding="utf-8") as handle:
+        code = "\n".join(
+            line
+            for line in handle.read().split("\n")
+            if not line.strip().startswith("//")
+        )
+    if _re.search(r'get(String)?\(\s*["\']settings["\']\s*\)', code):
+        own_readers.append(name)
+    if "zv_org.js" in code:
+        settings_callers += 1
+
+h.check(
+    "no eiermann hook decodes organisations.settings itself",
+    not own_readers,
+    f"{own_readers} — go through require(`${{__hooks}}/zv_org.js`).settingsOf, "
+    "which is the one place that knows get() returns a byte array and "
+    "getString() does not",
+)
+h.check(
+    "...and the sweep found settings readers to check at all",
+    settings_callers >= 2,
+    f"{settings_callers} callers of zv_org.js — a sweep over nothing passes "
+    "over anything",
+)
+
+
+# ── A view column is asked for by type ─────────────────────────────────────
+#
+# eiermann-934.3. A column PocketBase cannot trace back to a real one — anything
+# computed, which is every interesting column in these four views — falls back
+# to type `json`. `getString()` then returns the raw JSON text: `"Bahnhofstr. 1"`
+# WITH the quotes, `12` as a string that happens to parse. It fails quietly and
+# late: an address sorts under `"`, a date does not parse, an enum misses its
+# label map, and the CSV's formula guard inspects a quote instead of the `=` it
+# exists to catch.
+#
+# Sniffing per value is not the fix — a Spot named `true` and a street named
+# `123` both parse as JSON just fine, and that row comes back a boolean. The
+# collection has to be ASKED. app_stats.js's `viewReader` is where that asking
+# lives, and this sweep is what stops the next view reader skipping it.
+view_names = [c["name"] for c in h.collections(T) if c.get("type") == "view"]
+
+untyped_view_readers = []
+view_reader_hits = 0
+for path in sorted(glob.glob(os.path.join(HOOKS, "*.js"))):
+    name = os.path.basename(path)
+    if name.startswith("zv_"):
+        continue
+    with open(path, encoding="utf-8") as handle:
+        code = "\n".join(
+            line
+            for line in handle.read().split("\n")
+            if not line.strip().startswith("//")
+        )
+    reads = [v for v in view_names if _re.search(rf'Record[sA-Za-z]*By\w*\(\s*["\']{v}["\']', code)]
+    if not reads:
+        continue
+    view_reader_hits += len(reads)
+    # Either it builds the typed reader itself (app_stats.js does) or it takes
+    # one from the module that has it.
+    if "field.type()" not in code and "viewReader" not in code:
+        untyped_view_readers.append(f"{name} reads {reads}")
+
+h.check(
+    "every hook that reads a view asks the collection for the column type",
+    not untyped_view_readers,
+    f"{untyped_view_readers} — a computed column is typed `json` and "
+    "getString() returns it WITH the quotes; use app_stats.js's viewReader",
+)
+h.check(
+    "...and the sweep found view reads to check at all",
+    view_reader_hits >= 1 and len(view_names) >= 4,
+    f"{view_reader_hits} reads over {len(view_names)} views — a sweep over "
+    "nothing passes over anything",
 )
 
 # A hook must never send a sentence a user reads: the server does not know which
@@ -1390,9 +1573,6 @@ h.check(
 # idempotency-key clash is a 409, and letting it throw its own ApiError would
 # mean this sweep needs an exception, and a sweep with an exception is a sweep
 # somebody widens.
-import glob
-import re as _re
-
 direct = []
 for path in sorted(glob.glob(os.path.join(HOOKS, "*.js"))):
     name = os.path.basename(path)

@@ -137,9 +137,7 @@ void main() {
     // 800x600 surface the finish button drops out of the tree the moment the
     // failure card above it appears, and the test reads as "the retry button is
     // missing" when the screen is simply scrolled.
-    tester.view.physicalSize = surface;
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
+    tester.useSurface(surface);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpApp(
@@ -838,9 +836,7 @@ void main() {
       );
       when(() => nestStates.forSpot('s1')).thenAnswer((_) async => [nestRow()]);
 
-      tester.view.physicalSize = const Size(1200, 3000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
+      tester.useSurface(const Size(1200, 3000));
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         ProviderScope(

@@ -51,9 +51,7 @@ void main() {
   /// the default 800x600 the finish button vanishes the moment a third stop is
   /// inserted above it — and the test would read as "the control is missing".
   Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1000, 3000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    tester.useSurface(const Size(1000, 3000));
 
     await tester.pumpApp(
       const TourRunScreen(runId: 'r1'),

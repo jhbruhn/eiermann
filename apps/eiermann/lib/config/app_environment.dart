@@ -13,6 +13,10 @@ export 'package:zugvogel_pb_client/zugvogel_pb_client.dart' show MapMode;
 /// to repoint is prescribed by the server through `/api/eiermann/info` instead
 /// — the map source is the standing example (see `mapMode` and friends, which
 /// are only the fallback).
+///
+/// Not a `WireEnum`: a build-time define never crosses the wire. Renaming a
+/// value here changes which dart_defines file matches, not what any record
+/// says.
 enum AppFlavor { development, staging, production }
 
 abstract final class AppEnvironment {
