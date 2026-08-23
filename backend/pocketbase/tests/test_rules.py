@@ -2905,6 +2905,80 @@ h.check(
     "rhythm, and by then the remaining egg has hatched",
 )
 
+# ── The closing date is the server's (eiermann-jgc) ─────────────────────────
+#
+# `app_spot_phase.js` calls `closed_at` "server-owned, like next_due_at: a client
+# that can write the closing date can backdate a decision nobody made", and the
+# rule beside it pinned `next_due_at` and not this. Measured before the fix: a
+# closing PATCH carrying `closed_at: "2019-05-05"` answered 200 and stored 2019,
+# because the hook fills the field only when it is EMPTY.
+#
+# Both paths are asserted, because the create rule carried no field guards at all
+# and the issue did not mention it.
+
+jgc_spot = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Schliessdatum", "phase": "active"}
+)
+_jgc_status, _jgc_body = h.req(
+    "PATCH", f"/api/collections/spots/records/{jgc_spot['id']}", member_token,
+    {"phase": "closed", "closed_reason": "netted",
+     "closed_at": "2019-05-05 10:00:00.000Z"},
+)
+h.check(
+    "a closing cannot be BACKDATED",
+    _jgc_status >= 400,
+    f"status {_jgc_status}, stored={(_jgc_body or {}).get('closed_at')!r} — the "
+    "hook fills this field only when it is empty, so a value the client sent "
+    "survives; that is a decision nobody made, dated to a day nobody chose",
+)
+
+# The closing itself still works. Pinning the date must not cost the transition
+# the date belongs to — which is the failure the canary for this checks.
+_jgc_status, _jgc_body = h.req(
+    "PATCH", f"/api/collections/spots/records/{jgc_spot['id']}", member_token,
+    {"phase": "closed", "closed_reason": "netted"},
+)
+h.check(
+    "...while closing it normally still works, and the server dates it",
+    h.ok(_jgc_status)
+    and str((_jgc_body or {}).get("closed_at") or "")[:4] >= "2020",
+    f"status {_jgc_status}, closed_at="
+    f"{(_jgc_body or {}).get('closed_at')!r} — closing is the ordinary act "
+    "this whole field exists to record",
+)
+
+_jgc_status, _jgc_body = h.req(
+    "POST", "/api/collections/spots/records", member_token,
+    {"org": ORG, "name": "Schon zu", "phase": "closed", "closed_reason": "netted",
+     "closed_at": "2019-05-05 10:00:00.000Z"},
+)
+h.check(
+    "...and a Spot cannot be CREATED already closed on a chosen date",
+    _jgc_status >= 400,
+    f"status {_jgc_status}, stored={(_jgc_body or {}).get('closed_at')!r} — the "
+    "create rule carried no field guards at all, so this path was open even "
+    "after the update rule was not",
+)
+
+# `next_due_at` deliberately gets no create clause, and this is why: the create
+# hook assigns it unconditionally, so a client's value is overwritten before the
+# row exists. Asserted rather than assumed, because the asymmetry with
+# `closed_at` reads as an oversight and is the whole difference between the two.
+_jgc_status, _jgc_body = h.req(
+    "POST", "/api/collections/spots/records", member_token,
+    {"org": ORG, "name": "Eigenes Datum", "phase": "active",
+     "next_due_at": "2019-05-05 10:00:00.000Z"},
+)
+h.check(
+    "a chosen next_due_at is overwritten on create, not refused",
+    h.ok(_jgc_status)
+    and not str((_jgc_body or {}).get("next_due_at") or "").startswith("2019"),
+    f"status {_jgc_status}, stored={(_jgc_body or {}).get('next_due_at')!r} — "
+    "the rhythm derives this before the row exists; if that ever stops being "
+    "true, the create rule needs the clause `closed_at` has",
+)
+
+
 # ── Authorship is the server's (eiermann-ldi) ───────────────────────────────
 #
 # Measured before the fix: this PATCH answered 200 and stored both values.
@@ -5352,8 +5426,6 @@ WRITABLE_AFTER_CREATE = {
         "pause_reason": "same",
         "closed_reason": "a closing reason is corrected, and it is what a "
                          "reader asks of a closed Spot six months later",
-        "closed_at": "BUG:eiermann-jgc — the phase hook OWNS this date, and a "
-                     "client can put a closing date on an open Spot",
     },
     "spot_contacts": {
         "name": "a contact's details change and are corrected",
