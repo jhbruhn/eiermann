@@ -18,6 +18,7 @@ export 'src/models/nest_egg.dart';
 export 'src/models/nest_state.dart';
 export 'src/models/org_statistics.dart';
 export 'src/models/organisation.dart';
+export 'src/models/rhythm_settings.dart';
 export 'src/models/species_label.dart';
 export 'src/models/spot.dart';
 export 'src/models/spot_contact.dart';

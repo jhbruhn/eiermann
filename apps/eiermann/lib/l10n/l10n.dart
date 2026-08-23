@@ -145,6 +145,17 @@ class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
     'visit_tour_run_finished' => _l10n.serverErrorVisitTourRunFinished,
     'tour_not_found' => _l10n.serverErrorTourNotFound,
     'tour_stop_spot_not_found' => _l10n.serverErrorTourStopSpotNotFound,
+    // The rhythm numbers. Mapped even though the settings screen pre-empts each
+    // of them, because that screen is not the only caller the route can ever
+    // have — and a refusal about which of four fields is wrong is exactly the
+    // kind that must not arrive as generic copy.
+    'rhythm_base_interval_invalid' => _l10n.serverErrorRhythmBaseInterval,
+    'rhythm_empty_checks_per_step_invalid' => _l10n.serverErrorRhythmPerStep,
+    'rhythm_half_clutch_return_invalid' => _l10n.serverErrorRhythmHalfClutch,
+    'rhythm_interval_steps_invalid' => _l10n.serverErrorRhythmSteps,
+    'rhythm_interval_steps_not_ascending' =>
+      _l10n.serverErrorRhythmStepsNotAscending,
+    'rhythm_steps_below_base' => _l10n.serverErrorRhythmStepsBelowBase,
     _ => null,
   };
 }

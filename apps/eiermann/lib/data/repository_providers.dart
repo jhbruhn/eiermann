@@ -175,3 +175,13 @@ Future<ReportsRepository> reportsRepository(Ref ref) async =>
 @Riverpod(keepAlive: true)
 Future<UsersRepository> usersRepository(Ref ref) async =>
     UsersRepository(await _client(ref));
+
+/// The org's rhythm numbers — the intervals every due date is built from.
+///
+/// Its own route, not a read of `organisations`: the numbers sit in that
+/// table's `settings` JSON, and mapping a JSON field a second time in the
+/// client is the trap that left two federfall features silently inert. The
+/// server decodes once and answers in types.
+@Riverpod(keepAlive: true)
+Future<RhythmRepository> rhythmRepository(Ref ref) async =>
+    RhythmRepository(await _client(ref));

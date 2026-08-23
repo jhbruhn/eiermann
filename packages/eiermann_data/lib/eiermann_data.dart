@@ -17,6 +17,7 @@ export 'src/repositories/nest_eggs_repository.dart';
 export 'src/repositories/nest_state_repository.dart';
 export 'src/repositories/nests_repository.dart';
 export 'src/repositories/reports_repository.dart';
+export 'src/repositories/rhythm_repository.dart';
 export 'src/repositories/species_labels_repository.dart';
 export 'src/repositories/spot_contacts_repository.dart';
 export 'src/repositories/spot_overview_repository.dart';

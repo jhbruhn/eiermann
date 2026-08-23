@@ -5,6 +5,7 @@ import 'package:eiermann/features/auth/pending_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/findings/findings_screen.dart';
 import 'package:eiermann/features/home/nav_shell.dart';
+import 'package:eiermann/features/rhythm/rhythm_settings_screen.dart';
 import 'package:eiermann/features/server_setup/setup_screen.dart';
 import 'package:eiermann/features/spots/prospects_screen.dart';
 import 'package:eiermann/features/spots/spot_detail_screen.dart';
@@ -74,6 +75,13 @@ abstract final class Routes {
   /// from the dashboard, because only the coordination can change anything
   /// here.
   static const team = '/team';
+
+  /// The intervals every due date is computed from.
+  ///
+  /// Readable by every member — a date you are told to trust without seeing
+  /// where it came from is a date people override — and writable only by the
+  /// coordination, which is the server's rule too.
+  static const rhythmSettings = '/rhythm';
 
   /// The Touren screen: the templates, and the way into a round.
   ///
@@ -305,6 +313,10 @@ List<RouteBase> appRoutes() {
     GoRoute(
       path: Routes.team,
       builder: (_, _) => const TeamScreen(),
+    ),
+    GoRoute(
+      path: Routes.rhythmSettings,
+      builder: (_, _) => const RhythmSettingsScreen(),
     ),
     // The template editor and the running round: over the shell, like the
     // dossier, so no branch can be parked on either. The run especially — a

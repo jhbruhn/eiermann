@@ -254,6 +254,66 @@
   "@pendingWrongAddressHint": {
     "description": "The most common cause by far: the identity provider knows a different address than the invitation used."
   },
+  "rhythmSettingsTitle": "Rhythmus",
+  "@rhythmSettingsTitle": {
+    "description": "The intervals every due date in the app is computed from. This screen is the reason the numbers live in organisations.settings instead of in the hook."
+  },
+  "rhythmExplainer": "Jedes Nest bekommt nach einer Kontrolle ein neues Datum. War etwas drin — ein Ei, ein Küken, ein Vogel darauf —, zählt die Grundfrist. War es leer, und zwar mehrmals hintereinander, wird der Abstand gestreckt: die Leiter unten sagt, um wie viel. Sobald wieder etwas gefunden wird, geht es in EINEM Schritt zurück auf die Grundfrist. Die Leiter steigt langsam und fällt sofort, weil die beiden Fehler unterschiedlich teuer sind: ein totes Nest zu oft zu prüfen kostet eine Stunde, ein lebendes zu selten kostet ein Gelege.",
+  "@rhythmExplainer": {
+    "description": "The model, in full, once. Without it four number fields make somebody guess at the ladder."
+  },
+  "rhythmReadOnlyHint": "Ändern kann diese Zahlen nur die Koordination. Sichtbar sind sie für alle — ein Datum, dem man vertrauen soll, ohne zu sehen, woher es kommt, wird überschrieben.",
+  "rhythmDaysSuffix": "Tage",
+  "rhythmBaseLabel": "Grundfrist",
+  "rhythmBaseHelp": "So lange bis zur nächsten Kontrolle, wenn im Nest etwas war.",
+  "rhythmLadderLabel": "Leiter für leere Nester",
+  "rhythmLadderHelp": "Die Abstände, wenn ein Nest mehrmals hintereinander leer war. Die letzte Stufe ist die Obergrenze — sie wird erreicht und nicht überschritten, denn was ein Dach über sich hat, kann wieder besetzt werden.",
+  "rhythmLadderRung": "Stufe {rung}: {days} Tage",
+  "@rhythmLadderRung": {
+    "placeholders": {
+      "rung": { "type": "int" },
+      "days": { "type": "int" }
+    }
+  },
+  "rhythmLadderCapRung": "Stufe {rung}: {days} Tage — und dann dabei bleiben",
+  "@rhythmLadderCapRung": {
+    "description": "The last rung is the cap and is REACHED rather than exceeded. That is the property somebody has to understand before changing anything here.",
+    "placeholders": {
+      "rung": { "type": "int" },
+      "days": { "type": "int" }
+    }
+  },
+  "rhythmLadderLengthen": "Einen Tag mehr",
+  "rhythmLadderShorten": "Einen Tag weniger",
+  "rhythmLadderAddRung": "Stufe hinzufügen",
+  "rhythmLadderRemoveRung": "Stufe entfernen",
+  "rhythmLadderDescendingWarning": "Die Abstände werden wieder kürzer. Die Leiter soll strecken, je länger ein Nest ungenutzt ist — so herum kehrt sie das um, und der Server nimmt das nicht an.",
+  "rhythmLadderBelowBaseWarning": "Die erste Stufe liegt unter der Grundfrist von {base} Tagen. Ein leeres Nest würde dann öfter geprüft als eines mit Eiern darin. Der Server nimmt das nicht an.",
+  "@rhythmLadderBelowBaseWarning": {
+    "description": "Said here rather than after a round trip. Not a replacement for the server's rule — a refusal you can see coming is one nobody has to decode.",
+    "placeholders": {
+      "base": { "type": "int" }
+    }
+  },
+  "rhythmPerStepLabel": "Leere Kontrollen je Stufe",
+  "rhythmPerStepHelp": "So viele leere Kontrollen hintereinander, bevor der Abstand eine Stufe weiter geht.",
+  "rhythmHalfClutchLabel": "Nachkontrolle nach Halbgelege",
+  "rhythmHalfClutchHelp": "So lange bis zur Nachkontrolle, wenn nur ein Teil eines Geleges getauscht werden konnte. Gilt für neue Nachkontrollen — bereits geplante behalten ihr Datum, weil ein Plan eine Tatsache über eine getroffene Entscheidung ist.",
+  "@rhythmHalfClutchHelp": {
+    "description": "due_at is computed and STORED at creation. Deriving it later would retroactively move every outstanding follow-up, and overdue ones would silently become on time."
+  },
+  "rhythmAutoResumeLabel": "Pausierte Spots kommen von selbst zurück",
+  "rhythmAutoResumeHelp": "Ist ein Pausedatum gesetzt, holt der Server den Spot danach von allein zurück in den Rhythmus. Deshalb ist Pausieren unbedenklich.",
+  "rhythmSaved": "Gespeichert. Neue Fristen gelten ab der nächsten Kontrolle.",
+  "@rhythmSaved": {
+    "description": "Says what does NOT change: dates already written stay where they are, because the rhythm computes a date at check time and stores it."
+  },
+  "serverErrorRhythmBaseInterval": "Die Grundfrist muss eine ganze Zahl zwischen 1 und 365 Tagen sein.",
+  "serverErrorRhythmPerStep": "„Leere Kontrollen je Stufe“ muss eine ganze Zahl ab 1 sein.",
+  "serverErrorRhythmHalfClutch": "Die Nachkontrollfrist muss eine ganze Zahl zwischen 1 und 365 Tagen sein.",
+  "serverErrorRhythmSteps": "Die Leiter braucht zwischen 1 und 10 Stufen, jede eine ganze Zahl zwischen 1 und 365 Tagen.",
+  "serverErrorRhythmStepsNotAscending": "Die Stufen dürfen nicht wieder kürzer werden — die Leiter soll strecken, je länger ein Nest ungenutzt ist.",
+  "serverErrorRhythmStepsBelowBase": "Die erste Stufe liegt unter der Grundfrist. Ein leeres Nest würde dann öfter geprüft als eines mit Eiern darin.",
   "adminMenuTooltip": "Verwaltung",
   "teamTitle": "Team",
   "@teamTitle": {

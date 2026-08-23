@@ -106,6 +106,18 @@ const CODES = {
   reportPeriodMonthInvalid: "report_period_month_invalid",
   reportPeriodMonthNeedsYear: "report_period_month_needs_year",
   reportFormatInvalid: "report_format_invalid",
+
+  // ── Der Rhythmus: the numbers behind every due date ──
+  // Each of these is a value that would have produced a plausible-looking app
+  // doing the wrong thing, silently: `positiveNumber` falls back to its default
+  // for anything it cannot read, so a rejected number would be shown on the
+  // settings screen while the ladder used another one.
+  rhythmBaseIntervalInvalid: "rhythm_base_interval_invalid",
+  rhythmEmptyChecksPerStepInvalid: "rhythm_empty_checks_per_step_invalid",
+  rhythmHalfClutchReturnInvalid: "rhythm_half_clutch_return_invalid",
+  rhythmIntervalStepsInvalid: "rhythm_interval_steps_invalid",
+  rhythmIntervalStepsNotAscending: "rhythm_interval_steps_not_ascending",
+  rhythmStepsBelowBase: "rhythm_steps_below_base",
 };
 
 module.exports = { refuse, CODES };

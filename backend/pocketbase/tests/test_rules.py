@@ -1661,6 +1661,184 @@ h.check(
     "know which language the reader speaks.",
 )
 
+# ── Der Rhythmus: the numbers, and the door they are changed through ───────
+#
+# `organisations.updateRule` is null and stays null, so the settings blob has no
+# client-facing write at all. These numbers reach it through one route that
+# takes five TYPED fields and merges them — which is the whole point: a
+# malformed JSON blob does not error, it falls into defaults, and the app then
+# works correctly with numbers nobody chose.
+
+print("\n[the rhythm numbers]")
+
+RHYTHM = "/api/eiermann/rhythm"
+
+
+def rhythm_of(token):
+    _, body = h.req("GET", RHYTHM, token)
+    return body or {}
+
+
+status, _ = h.req("GET", RHYTHM)
+h.check("the rhythm route is closed to anonymous callers", status >= 400, f"status {status}")
+
+status, _ = h.req("GET", RHYTHM, guest_token)
+h.check(
+    "...and to a guest",
+    status >= 400,
+    f"status {status} — a guest satisfies `role != null`, which is exactly why "
+    f"the gate names the roles instead",
+)
+
+defaults = rhythm_of(member_token)
+h.check(
+    "a member READS the numbers",
+    defaults.get("baseIntervalDays") == 7 and defaults.get("intervalSteps") == [7, 14, 28],
+    f"{defaults} — reading is not administration: somebody looking at 'in 14 "
+    f"Tagen' needs to know whether that is the base interval or a stretched one",
+)
+h.check(
+    "...including the half-clutch window and the auto-resume flag",
+    defaults.get("halfClutchReturnDays") == 4
+    and defaults.get("emptyChecksPerStep") == 3
+    and defaults.get("pauseAutoResume") is True,
+    str(defaults),
+)
+
+status, _ = h.req("PATCH", RHYTHM, member_token, {"baseIntervalDays": 10})
+h.check("a member cannot WRITE them", status == 403, f"status {status}")
+h.check(
+    "...and nothing moved",
+    rhythm_of(member_token).get("baseIntervalDays") == 7,
+)
+
+# Each refusal below is a number that would have produced a plausible-looking
+# app doing the wrong thing. `positiveNumber` falls back to its default for
+# anything it cannot read, so an accepted-then-ignored value would be shown on
+# the settings screen while the ladder used another one.
+for label, body, code in (
+    ("zero", {"baseIntervalDays": 0}, "rhythm_base_interval_invalid"),
+    ("negative", {"baseIntervalDays": -3}, "rhythm_base_interval_invalid"),
+    ("fractional", {"baseIntervalDays": 7.5}, "rhythm_base_interval_invalid"),
+    ("absurd", {"baseIntervalDays": 4000}, "rhythm_base_interval_invalid"),
+    ("not a number", {"baseIntervalDays": "bald"}, "rhythm_base_interval_invalid"),
+    ("zero per step", {"emptyChecksPerStep": 0}, "rhythm_empty_checks_per_step_invalid"),
+    ("zero return", {"halfClutchReturnDays": 0}, "rhythm_half_clutch_return_invalid"),
+    ("an empty ladder", {"intervalSteps": []}, "rhythm_interval_steps_invalid"),
+    ("a ladder of junk", {"intervalSteps": [7, "spaeter"]}, "rhythm_interval_steps_invalid"),
+    ("a ladder that is not a list", {"intervalSteps": 7}, "rhythm_interval_steps_invalid"),
+):
+    status, body_out = h.req("PATCH", RHYTHM, coord_token, body)
+    h.check(
+        f"{label} is refused with {code}",
+        status == 400 and code in refusal_codes(body_out),
+        f"status {status}, codes {refusal_codes(body_out)}",
+    )
+
+status, body_out = h.req("PATCH", RHYTHM, coord_token, {"intervalSteps": [28, 14, 7]})
+h.check(
+    "a DESCENDING ladder is refused",
+    status == 400 and "rhythm_interval_steps_not_ascending" in refusal_codes(body_out),
+    f"status {status}, codes {refusal_codes(body_out)} — the interval is supposed to "
+    f"stretch the longer a nest has gone unused; a ladder that comes back down "
+    f"inverts the thing it exists for",
+)
+
+status, body_out = h.req(
+    "PATCH", RHYTHM, coord_token, {"baseIntervalDays": 14, "intervalSteps": [7, 14, 28]}
+)
+h.check(
+    "a first rung BELOW the base interval is refused",
+    status == 400 and "rhythm_steps_below_base" in refusal_codes(body_out),
+    f"status {status}, codes {refusal_codes(body_out)} — an empty nest would then be "
+    f"checked more often than a live one, and no screen would say so",
+)
+
+h.check(
+    "...and after every refusal the stored numbers are untouched",
+    rhythm_of(coord_token) == defaults,
+    str(rhythm_of(coord_token)),
+)
+
+# The legitimate write. A suite that only asserts refusals would pass against a
+# route that refuses everything.
+status, written = h.req(
+    "PATCH",
+    RHYTHM,
+    coord_token,
+    {"baseIntervalDays": 10, "intervalSteps": [10, 20, 40], "pauseAutoResume": False},
+)
+h.check(
+    "a coordinator changes the numbers",
+    status == 200 and (written or {}).get("baseIntervalDays") == 10,
+    f"status {status}, {written}",
+)
+h.check(
+    "...and the answer is what the RHYTHM will use, read back after the save",
+    (written or {}).get("intervalSteps") == [10, 20, 40]
+    and (written or {}).get("pauseAutoResume") is False,
+    str(written),
+)
+h.check(
+    "...which is what a member reads too",
+    rhythm_of(member_token).get("baseIntervalDays") == 10,
+)
+
+# PARTIAL, in fact and not just in verb: a client that sends one number must not
+# blank the other four by omission. That is the shape of every accidental
+# settings wipe.
+status, partial = h.req("PATCH", RHYTHM, coord_token, {"halfClutchReturnDays": 5})
+h.check(
+    "a PATCH of one field leaves the others alone",
+    status == 200
+    and (partial or {}).get("halfClutchReturnDays") == 5
+    and (partial or {}).get("baseIntervalDays") == 10
+    and (partial or {}).get("intervalSteps") == [10, 20, 40],
+    str(partial),
+)
+
+# The blob is MERGED, never replaced: `settings` is shared with whatever else an
+# operator put in it, and a route that owns five keys must not delete a sixth it
+# has never heard of.
+h.req(
+    "PATCH",
+    f"/api/collections/organisations/records/{ORG}",
+    T,
+    {"settings": {"base_interval_days": 10, "operator_note": "nicht anfassen"}},
+)
+# Not `baseIntervalDays` here: with only `base_interval_days` stored, the ladder
+# falls back to its default [7, 14, 28], and raising the base past 7 is then
+# refused by `rhythm_steps_below_base` — correctly. `halfClutchReturnDays`
+# interacts with nothing, which is what makes it the right probe for the MERGE.
+status, _ = h.req("PATCH", RHYTHM, coord_token, {"halfClutchReturnDays": 6})
+_, org_row = h.req("GET", f"/api/collections/organisations/records/{ORG}", T)
+kept = ((org_row or {}).get("settings") or {})
+h.check(
+    "an inconsistency inherited from the Admin UI does not block an unrelated edit",
+    status == 200,
+    f"status {status} — the stored ladder [7,14,28] sits below the stored base "
+    f"of 10, which an operator's raw JSON put there; refusing a Nachkontrolle "
+    f"edit over it would be a dead end on the one screen that can fix it",
+)
+h.check(
+    "a key this route never heard of survives the write",
+    kept.get("operator_note") == "nicht anfassen"
+    and kept.get("half_clutch_return_days") == 6
+    and kept.get("base_interval_days") == 10,
+    f"status {status}, {kept} — the settings blob is one field shared with the "
+    f"operator, and a route that owns five keys must not delete a sixth",
+)
+
+# Back to the documented defaults, so nothing after this section runs against a
+# rhythm this section invented.
+h.req("PATCH", f"/api/collections/organisations/records/{ORG}", T, {"settings": {}})
+h.check(
+    "the defaults come back when the blob is emptied",
+    rhythm_of(coord_token) == defaults,
+    str(rhythm_of(coord_token)),
+)
+
+
 # Every app route states the gate, and states it from ONE place.
 #
 # A custom route does not inherit an access rule: a `routerAdd` handler sees a
