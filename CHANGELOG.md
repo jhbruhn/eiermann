@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/jhbruhn/eiermann/compare/v1.1.0...v1.1.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **android:** declare INTERNET so a release build has a network ([bb4c310](https://github.com/jhbruhn/eiermann/commit/bb4c310806c22e582ab0539128f39b437bfd2b13))
+* **app:** capitalise the app name in the platform shells ([e590b2e](https://github.com/jhbruhn/eiermann/commit/e590b2e6020628de863814f3a2de49a1f8d2a00d))
+
 ## [1.1.0](https://github.com/jhbruhn/eiermann/compare/v1.0.0...v1.1.0) (2026-08-23)
 
 
