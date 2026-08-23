@@ -124,7 +124,24 @@ onRecordCreateRequest((e) => {
   if (!isCoordinator) {
     e.record.set("role", null);
     e.record.set("is_active", true);
+    e.next();
+    return;
   }
+
+  // An invited account is visible to the team that invited it.
+  //
+  // `emailVisibility` defaults to false, and PocketBase then omits `email` from
+  // every response except the record's own owner and a superuser. So a roster
+  // built on `users.listRule` — which deliberately shows the whole team to the
+  // whole team — would render a column of blanks, and `pending_screen.dart`'s
+  // "you signed in under a different address than the one you were invited
+  // under" would have no address to compare against.
+  //
+  // Set here rather than trusted from the body: it is the one property of an
+  // invite that the invited person did not choose and the coordinator should
+  // not have to remember. The bootstrap coordinator in this same file sets it
+  // for the identical reason.
+  e.record.set("emailVisibility", true);
   e.next();
 }, "users");
 

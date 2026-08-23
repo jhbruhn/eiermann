@@ -24,4 +24,5 @@ export 'src/repositories/spots_repository.dart';
 export 'src/repositories/stats_repository.dart';
 export 'src/repositories/tour_runs_repository.dart';
 export 'src/repositories/tours_repository.dart';
+export 'src/repositories/users_repository.dart';
 export 'src/repositories/visits_repository.dart';

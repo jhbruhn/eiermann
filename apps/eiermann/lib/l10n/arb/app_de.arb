@@ -254,6 +254,95 @@
   "@pendingWrongAddressHint": {
     "description": "The most common cause by far: the identity provider knows a different address than the invitation used."
   },
+  "adminMenuTooltip": "Verwaltung",
+  "teamTitle": "Team",
+  "@teamTitle": {
+    "description": "The roster. Readable by everybody (a visit names its author), changeable only by the coordination."
+  },
+  "teamEmpty": "Noch niemand im Team.",
+  "teamUnnamed": "Ohne Namen",
+  "teamYou": "Du",
+  "teamSelfLockedHint": "Die eigene Rolle und den eigenen Zugang kannst du nicht ändern — sonst könnte sich die Gruppe aussperren.",
+  "@teamSelfLockedHint": {
+    "description": "Says WHY the reader's own row has no controls. Without it a greyed-out row reads as a bug. The rule is the server's: main.pb.js puts a self-edited privilege field back."
+  },
+  "teamSectionWaiting": "Wartet auf Freigabe",
+  "teamSectionWaitingHint": "Angemeldet, aber noch ohne Rolle — diese Konten sehen nichts, bis du sie freischaltest.",
+  "@teamSectionWaitingHint": {
+    "description": "Waiting accounts sort to the top because they are the only rows that are waiting on the READER; everything else is a state of affairs."
+  },
+  "teamSectionActive": "Im Team",
+  "teamSectionFormer": "Kein Zugang mehr",
+  "teamSectionFormerHint": "Bleiben in der Liste, weil ihr Name in den Besuchen steht, die sie aufgenommen haben.",
+  "@teamSectionFormerHint": {
+    "description": "Explains why nobody is deleted: users.deleteRule is null and a departed member's name still has to resolve in every visit they recorded."
+  },
+  "teamRoleMember": "Mitglied",
+  "teamRoleCoordinator": "Koordination",
+  "teamRolePending": "Noch nicht freigeschaltet",
+  "teamInvitePending": "Einladung offen",
+  "@teamInvitePending": {
+    "description": "`verified` is set when somebody completes a password reset, which for an invited account is the moment they set their own password. Unverified and active means they never arrived — otherwise indistinguishable from a member who is simply quiet."
+  },
+  "teamResendInviteAction": "Einladung erneut schicken",
+  "teamInviteResent": "Einladung erneut an {email} geschickt.",
+  "@teamInviteResent": {
+    "description": "The one action on this screen that reports success out loud: a mail leaves no trace in the app, so without it a sent mail and a tap that did nothing look identical.",
+    "placeholders": {
+      "email": { "type": "String" }
+    }
+  },
+  "teamRowMenuTooltip": "Rolle und Zugang",
+  "teamAdmitAsMemberAction": "Als Mitglied freischalten",
+  "teamMakeMemberAction": "Zum Mitglied machen",
+  "teamMakeCoordinatorAction": "Zur Koordination machen",
+  "teamDeactivateAction": "Zugang beenden",
+  "teamReactivateAction": "Zugang wieder geben",
+  "teamDeactivateTitle": "Zugang beenden?",
+  "teamDeactivateMessage": "{name} wird sofort abgemeldet — auch mitten in einer Aufnahme. Der Name bleibt in allen Besuchen stehen, und du kannst den Zugang jederzeit wieder geben.",
+  "@teamDeactivateMessage": {
+    "description": "Deactivation takes effect on a LIVE token because users.authRule is re-evaluated per request, so somebody in a stairwell loses the screen they are on. Says that, and that nothing is lost.",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "teamDeactivateConfirm": "Zugang beenden",
+  "teamInviteAction": "Einladen",
+  "teamInviteTitle": "Person einladen",
+  "teamFieldEmail": "E-Mail",
+  "teamFieldEmailHint": "Die Adresse, mit der sie sich anmeldet",
+  "teamFieldName": "Name",
+  "teamFieldNameHint": "Steht später in jedem Besuch, den sie aufnimmt",
+  "@teamFieldNameHint": {
+    "description": "Name is required although the schema allows it empty: every audit-shaped row stores a text snapshot of its author, and without a name that snapshot is the email address."
+  },
+  "teamFieldPhone": "Telefon",
+  "teamFieldRole": "Rolle",
+  "teamFieldRoleHint": "Die Koordination darf zusätzlich löschen, Rhythmen überschreiben, geschützte Nester freigeben und das Team verwalten.",
+  "teamInvitedTitle": "Konto angelegt",
+  "teamInvitedByMail": "{name} bekommt eine E-Mail an {email} mit einem Link, um ein eigenes Passwort zu setzen. Danach kann sie sich anmelden.",
+  "@teamInvitedByMail": {
+    "description": "The clean path, the same one federfall takes: nobody ever transmits a password somebody else chose.",
+    "placeholders": {
+      "name": { "type": "String" },
+      "email": { "type": "String" }
+    }
+  },
+  "teamInvitedByPassword": "Dieser Server kann keine E-Mail verschicken, also gibst du {name} das Startpasswort selbst weiter. Angemeldet wird sich mit {email}; das Passwort sollte sie danach ändern.",
+  "@teamInvitedByPassword": {
+    "description": "The fallback for a self-hosted instance with no SMTP. federfall hides its invite action in this case; here that would mean a group that can never add anybody.",
+    "placeholders": {
+      "name": { "type": "String" },
+      "email": { "type": "String" }
+    }
+  },
+  "teamInvitedOnceHint": "Dieses Passwort steht nur hier. Der Server kennt davon nur den Hash — es lässt sich später nirgends noch einmal anzeigen.",
+  "@teamInvitedOnceHint": {
+    "description": "Literally true and worth saying: PocketBase stores only the hash, so neither this app nor the Admin UI can show it again."
+  },
+  "teamCopyPasswordAction": "Passwort kopieren",
+  "teamPasswordCopied": "Passwort kopiert",
+  "teamInvitedDoneAction": "Fertig",
   "areasTitle": "Bereiche",
   "@areasTitle": {
     "description": "A Bereich is a named part of a building — 'Dachboden Nord', 'Lichtschacht'. It exists to carry the overview photo, and the photo carries the nest pins."

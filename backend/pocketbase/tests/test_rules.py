@@ -295,6 +295,42 @@ h.check(
     len(h.listf(member_token, "organisations", "id != ''")) == 1,
 )
 
+# ── An invited account is REACHABLE by the team that invited it ────────────
+#
+# `emailVisibility` defaults to false, and PocketBase then omits `email` from
+# every response except the record's own owner and a superuser. So the roster —
+# which `users.listRule` deliberately opens to the whole team — would render a
+# column of blanks, and the pending screen's "you signed in under a different
+# address than the one you were invited under" would have nothing to compare
+# against.
+#
+# The hook sets it for every coordinator-created account rather than trusting
+# the body, so it holds for a client that never heard of the flag.
+invited = h.mk(
+    coord_token,
+    "users",
+    {
+        "email": "invited@eiermann.test",
+        "password": h.user_pass,
+        "passwordConfirm": h.user_pass,
+        "org": ORG,
+        "role": "member",
+        "name": "Eingeladen",
+    },
+)
+h.check(
+    "a coordinator-created account is email-visible to its team",
+    invited.get("emailVisibility") is True,
+    str(invited.get("emailVisibility")),
+)
+_, seen = h.req("GET", f"/api/collections/users/records/{invited['id']}", member_token)
+h.check(
+    "...so a COLLEAGUE actually reads the address, not a blank",
+    (seen or {}).get("email") == "invited@eiermann.test",
+    f"got {(seen or {}).get('email')!r} — a roster of blank addresses is a "
+    f"roster nobody can act on",
+)
+
 
 # ── Property 6: only the coordination adds people ───────────────────────────
 

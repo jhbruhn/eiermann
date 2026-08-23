@@ -164,3 +164,14 @@ Future<StatsRepository> statsRepository(Ref ref) async =>
 @Riverpod(keepAlive: true)
 Future<ReportsRepository> reportsRepository(Ref ref) async =>
     ReportsRepository(await _client(ref));
+
+/// The team roster and the invites that fill it.
+///
+/// Coordinator-only in practice, and enforced twice: `users.createRule` names
+/// the role, and `main.pb.js` puts a privilege field back when anybody else
+/// sends one. The provider itself is ungated — a member can perfectly well READ
+/// the roster, because a visit that names an author nobody can resolve is worse
+/// than no name.
+@Riverpod(keepAlive: true)
+Future<UsersRepository> usersRepository(Ref ref) async =>
+    UsersRepository(await _client(ref));

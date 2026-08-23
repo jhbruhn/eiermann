@@ -16,6 +16,20 @@ abstract class AppUser with _$AppUser {
     UserRole? role,
     String? org,
     @Default(true) bool isActive,
+
+    /// Whether this account has ever confirmed its address.
+    ///
+    /// Set by PocketBase when somebody completes a password reset, which for an
+    /// invited account is the moment they first set their own password. So on
+    /// the roster it reads as "the invitation was picked up" — an invited
+    /// member who never did is otherwise indistinguishable from one who is
+    /// simply quiet.
+    ///
+    /// Defaults to false, unlike [isActive]: an account the server did not
+    /// report a value for has not demonstrated anything, and claiming it had
+    /// would hide exactly the row worth chasing.
+    @Default(false) bool verified,
+    String? invitedBy,
     DateTime? created,
   }) = _AppUser;
 
@@ -31,6 +45,8 @@ abstract class AppUser with _$AppUser {
     // "deactivated" would lock out every user the moment a projection dropped
     // the column.
     isActive: !r.data.containsKey('is_active') || pbBool(r.data['is_active']),
+    verified: pbBool(r.data['verified']),
+    invitedBy: pbString(r.data['invited_by']),
     created: pbDate(r.data['created']),
   );
 }

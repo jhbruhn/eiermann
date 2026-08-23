@@ -12,6 +12,7 @@ import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
 import 'package:eiermann/features/startup/splash_screen.dart';
 import 'package:eiermann/features/statistics/statistics_screen.dart';
+import 'package:eiermann/features/team/team_screen.dart';
 import 'package:eiermann/features/tours/tour_editor_screen.dart';
 import 'package:eiermann/features/tours/tour_run_screen.dart';
 import 'package:eiermann/features/tours/tours_screen.dart';
@@ -63,6 +64,16 @@ abstract final class Routes {
   /// permission or a funding, not between two buildings. A fifth tab would
   /// spend permanent space on a monthly errand.
   static const statistics = '/stats';
+
+  /// The roster: who is on the team, and what each of them may decide.
+  ///
+  /// Over the shell like the other errands, not a nav destination. Inviting
+  /// somebody happens once a season; a tab would spend permanent space on it.
+  /// Readable by everybody — a visit names its author, and a name nobody can
+  /// resolve is worse than no name — but only the coordination sees the way in
+  /// from the dashboard, because only the coordination can change anything
+  /// here.
+  static const team = '/team';
 
   /// The Touren screen: the templates, and the way into a round.
   ///
@@ -288,6 +299,12 @@ List<RouteBase> appRoutes() {
     GoRoute(
       path: Routes.statistics,
       builder: (_, _) => const StatisticsScreen(),
+    ),
+    // The roster: over the shell, like every other errand reached from the
+    // dashboard's app bar.
+    GoRoute(
+      path: Routes.team,
+      builder: (_, _) => const TeamScreen(),
     ),
     // The template editor and the running round: over the shell, like the
     // dossier, so no branch can be parked on either. The run especially — a
