@@ -10,16 +10,39 @@
 #                  -f docker-compose.oidc.yml up --build
 #
 # Then open http://localhost:8091 and use "Mock SSO". At the mock's login page
-# enter any address, and in the optional "claims" box:
+# the "username" box becomes the token's `sub` and NOTHING ELSE: this mock
+# derives no email claim from it and never sends `email_verified`. Both matter,
+# and both were measured here rather than assumed —
 #
-#   {"groups":["tauben-koordination"]}  → provisioned as a coordinator
-#   {"groups":["tauben-team"]}          → provisioned as a member
-#   leave it empty                      → provisioned as a GUEST: signed in and
-#                                         refused by every access rule until a
-#                                         coordinator lets them in
+#   no `email`          → 400, `email: cannot be blank`. The hook refuses an
+#                         account with no address, because every audit-shaped
+#                         row stores a text snapshot of its author.
+#   no `email_verified` → PocketBase will not LINK the identity to an existing
+#                         account and tries to create a second one, which dies
+#                         on the unique index: 400, `email: Value must be
+#                         unique`. Unverified is the right default — an IdP that
+#                         lets anyone type any address could otherwise claim
+#                         somebody else's account.
 #
-# The address of an account that already exists links the identity to it instead
-# — that is the ordinary case for a team that switches to a provider.
+# So spell both out in the claims box, alongside the groups:
+#
+#   {"email":"a@b.test","email_verified":true,"groups":["tauben-koordination"]}
+#       → a coordinator
+#   {"email":"a@b.test","email_verified":true,"groups":["tauben-team"]}
+#       → a member
+#   {"email":"a@b.test","email_verified":true}
+#       → a GUEST: signed in, and refused by every access rule until a
+#         coordinator lets them in
+#
+# A real OIDC provider sends both on its own once the `email` scope is asked for
+# — which /api/eiermann/info prescribes and the app passes through. This is a
+# property of the mock, not of the flow.
+#
+# An address that already has an account links the identity to it instead of
+# creating a second — that is the ordinary case for a team switching to a
+# provider, and it is the path that needs `email_verified` above. For a private
+# IdP that genuinely never sends it, EIERMANN_OIDC_TRUST_EMAIL=true is the
+# deliberate opt-in.
 #
 # Adapted from federfall's file. The group names below are the ones the claims
 # examples above use; a real instance names its own.

@@ -23,6 +23,11 @@ Four are worth knowing before the first start:
 - **The geocoder.** Address lookup runs through the server, never from the client. Left unconfigured it talks to the public Nominatim instance under a placeholder user agent — which works in development and stops the day it matters. Self-host Nominatim, or put a real contact address in `EIERMANN_USER_AGENT`.
 - **The map source.** Prescribed at runtime rather than baked into the app, and all-or-nothing: mode, URL and the attribution the provider requires. The server derives its own Content-Security-Policy from the same URLs, so a tile source it names cannot be blocked by the policy it sent.
 
+Email and password is the default and needs nothing configured.
+A group that has an identity provider can switch sign-in to it instead: set the `EIERMANN_OAUTH2_*` block, and the login screen grows a button per provider, labelled as you named it.
+Register **both** redirect URIs with the provider — `<your instance>/api/oauth2-redirect` for the web app and `eiermann://oauth-callback` for the phones, which take the authorization code themselves because a phone is backgrounded the moment the browser opens.
+Optionally map the provider's groups onto roles; without a mapping everybody who signs in lands as a **Gast** and a coordinator lets them in, and `EIERMANN_OIDC_ALLOWED_GROUPS` refuses the registration outright instead.
+
 That same container serves the web app, so once it is up everyone can simply open its URL in a browser.
 That is the least-effort way to use Eiermann and it needs nothing installed.
 The mobile apps ask for your server's address on first launch.

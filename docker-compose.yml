@@ -31,6 +31,24 @@ services:
       - "${EIERMANN_PORT:-8091}:8090"
     volumes:
       - pb_data:/pb/pb_data
+    # ── SIGN-IN THROUGH AN IDENTITY PROVIDER, AND ANYTHING ELSE IN `.env` ─
+    #
+    # Compose reads `.env` for INTERPOLATION only: a variable in it reaches the
+    # container solely because something below names it. Everything this file
+    # knows about IS named below — but the OAuth2 settings cannot be, because
+    # the variable name carries the PROVIDER's id
+    # (EIERMANN_OAUTH2_<NAME>_CLIENT_ID, and `<NAME>` is whatever the operator
+    # calls it). A fixed list here would quietly ignore every provider not
+    # spelled out, which is exactly the failure this replaces: the OAuth2 block
+    # in `.env.example` was documented, set, and never seen by the server —
+    # `/api/collections/users/auth-methods` answered `enabled: false` and the
+    # app therefore offered no provider at all.
+    #
+    # So the file itself goes in. Optional on purpose: no `.env`, no error.
+    # `environment:` below still wins over anything of the same name in it.
+    env_file:
+      - path: .env
+        required: false
     environment:
       # ── THE FIRST USER ─────────────────────────────────────────────────
       #
