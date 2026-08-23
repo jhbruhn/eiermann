@@ -164,9 +164,9 @@
     }
   },
   "spotUrgencyInRhythm": "Im Rhythmus",
-  "spotUrgencyNeedsSurvey": "Erfassung ausstehend",
+  "spotUrgencyNeedsSurvey": "Nester aufnehmen",
   "@spotUrgencyNeedsSurvey": {
-    "description": "An active Spot with no nest recorded yet. Names the work — a survey — rather than a degree of urgency, because the date such a Spot carries is a placeholder the server derived."
+    "description": "An active Spot with no ACTIVE nest on it. Names the work rather than a degree of urgency, because the date such a Spot carries is a placeholder the server derived. Deliberately says nothing about history: the rung covers a building nobody has surveyed AND one whose nests have all gone (eiermann-hh2), and those lead to the same act — go and record what is there now. The earlier wording, \"Erfassung ausstehend\", read as a first survey and was wrong for the second case."
   },
   "spotUrgencyProspect": "Erkundung läuft",
   "spotUrgencyPaused": "Pausiert",

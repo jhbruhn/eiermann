@@ -760,7 +760,7 @@ survey_area = h.mk(
     "areas",
     {"org": ORG, "spot": fresh_active["id"], "name": "Dachboden"},
 )
-h.mk(
+survey_nest = h.mk(
     coord_token,
     "nests",
     {"org": ORG, "area": survey_area["id"], "label": "N1", "species": "unknown",
@@ -771,6 +771,33 @@ h.check(
     urgency_of(fresh_active["id"]) in (0, 1, 2, 3),
     f"urgency {urgency_of(fresh_active['id'])} — once there is something to "
     "visit the ordinary ladder applies again",
+)
+
+# ...and back onto it when that nest goes. TWO states share this rung — a
+# building nobody has surveyed and one whose nests have all gone — because the
+# view asks `status = 'active'`, mirroring `spotDueFor`'s own fallback test. That
+# is why the rung is called "Nester aufnehmen" and not "Erfassung ausstehend"
+# (eiermann-hh2): the two differ in history, not in what to do about them, and
+# the list has the rank and nothing else to tell them apart with. A nest is never
+# deleted, only set `gone`, so this is the ordinary end of a building's cycle
+# rather than an edge case.
+gone_nest = h.mk(
+    coord_token,
+    "nests",
+    {"org": ORG, "area": survey_area["id"], "label": "N2", "species": "unknown",
+     "status": "active"},
+)
+for nest_id in (survey_nest["id"], gone_nest["id"]):
+    h.req(
+        "PATCH", f"/api/collections/nests/records/{nest_id}", coord_token,
+        {"status": "gone"},
+    )
+h.check(
+    "a Spot whose nests have ALL gone lands back on the same rung",
+    urgency_of(fresh_active["id"]) == 4,
+    f"urgency {urgency_of(fresh_active['id'])} — nothing active is left to "
+    "visit, so the rhythm has nothing to say and somebody has to go and record "
+    "what is there now; the label covers both ways of arriving here",
 )
 
 # An OPEN FOLLOW-UP is a real date somebody entered, and it beats the rung. A

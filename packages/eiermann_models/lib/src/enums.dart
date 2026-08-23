@@ -162,7 +162,13 @@ enum SpotUrgency {
   /// hook dates every active Spot, so nothing reaches it through the API.
   inRhythm(3),
 
-  /// Active, and nobody has recorded a nest in it yet.
+  /// Active, with no ACTIVE nest on it.
+  ///
+  /// Two states share this rung, and deliberately: a building nobody has
+  /// surveyed, and one whose nests have all gone (eiermann-hh2). They differ in
+  /// history and not in what to do about them — go and record what is there now
+  /// — so the label names that act and claims nothing about the past. The list
+  /// could not tell them apart in any case: it has the rank and nothing else.
   ///
   /// **Not a degree of urgency**, which is why it sits below every due rank
   /// instead of among them (eiermann-m0r). A building nobody has been inside

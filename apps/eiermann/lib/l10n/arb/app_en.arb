@@ -85,7 +85,7 @@
   "spotDueInDays": "{days, plural, =1{due tomorrow} other{due in {days} days}}",
   "spotDueOverdueDays": "{days, plural, =1{overdue since yesterday} other{overdue by {days} days}}",
   "spotUrgencyInRhythm": "In rhythm",
-  "spotUrgencyNeedsSurvey": "Survey pending",
+  "spotUrgencyNeedsSurvey": "Record the nests",
   "spotUrgencyProspect": "Prospecting",
   "spotUrgencyPaused": "Paused",
   "spotUrgencyClosed": "Closed",
