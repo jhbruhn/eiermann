@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/jhbruhn/eiermann/compare/v1.0.0...v1.1.0) (2026-08-23)
+
+
+### Features
+
+* **auth:** sign in through an identity provider ([5317004](https://github.com/jhbruhn/eiermann/commit/531700460c5f2de3e34a5b4e52119685f001d934))
+
+
+### Bug Fixes
+
+* **auth:** let a sign-in through an identity provider create its account ([d252263](https://github.com/jhbruhn/eiermann/commit/d252263f9f819ad301c186fde3db126bd14ee6e4))
+
 ## [1.0.0](https://github.com/jhbruhn/eiermann/compare/v0.1.0...v1.0.0) (2026-08-23)
 
 
