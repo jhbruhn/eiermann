@@ -13,3 +13,31 @@ workspace:
   - apps/eiermann
   - packages/eiermann_models
   - packages/eiermann_data
+
+# ── Overrides ──────────────────────────────────────────────────────────────
+#
+# An override here is a statement that the pinned constraint is wrong for THIS
+# repo's builds, and every one of them needs a reason and an exit.
+dependency_overrides:
+  # eiermann-uwd.6 — hold flutter_secure_storage on 10.x.
+  #
+  # zugvogel_pb_client asks for ^11.0.0, and 11.0.0 publishes AAR metadata
+  # demanding `compileSdk` 37 or later. That number does not exist as a stable
+  # Android platform: the SDK ships `platforms;android-37.0`, `android-37.1`,
+  # `android-37.2-beta1` — previews — and AGP 9.0.1 reports 36 as its own
+  # maximum recommended. A release APK could be built against a preview
+  # (`compileSdk = 37` plus `compileSdkMinor = 0` does resolve, measured), and
+  # that is exactly what makes it the wrong answer: preview platforms are
+  # WITHDRAWN from the SDK repository when the final one ships, and a release
+  # tag that can no longer be rebuilt is a release nobody can audit or patch.
+  #
+  # 10.3.1 compiles against 36 and is API-identical for the three calls anything
+  # here makes — `read`, `write` and `delete` by key, through a const
+  # `FlutterSecureStorage()` (zugvogel's `auth_token_storage.dart` is the only
+  # caller in the workspace). So the override costs nothing and removes a
+  # dependency on an Android release that is not out yet.
+  #
+  # The exit: raise zugvogel's own constraint to allow 10.x — this belongs in
+  # the shared package, not in an override here — or drop this block once
+  # API 37 is a stable platform and AGP recommends it. Tracked as eiermann-k9x.
+  flutter_secure_storage: ^10.3.1

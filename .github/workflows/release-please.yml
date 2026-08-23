@@ -83,3 +83,147 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  android:
+    name: Publish the Android APKs
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FLUTTER_VERSION: "3.44.3"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # From the repo ROOT: this is a pub workspace, and resolving inside the app
+      # would resolve one member against nothing.
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate code (eiermann_models)
+        run: dart run build_runner build
+        working-directory: packages/eiermann_models
+
+      - name: Generate code (app) + localizations
+        run: |
+          flutter gen-l10n
+          dart run build_runner build
+        working-directory: apps/eiermann
+
+      # A release with no keystore configured would otherwise build cheerfully
+      # and ship DEBUG-SIGNED APKs — which cannot be upgraded over a properly
+      # signed install, so the damage lands on users' phones and is only fixable
+      # by making them uninstall. Fail here instead.
+      - name: Require a signing key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. An unsigned or" \
+                 "debug-signed release cannot be upgraded over an existing" \
+                 "install — set the four ANDROID_KEYSTORE_* secrets first."
+            exit 1
+          fi
+
+      - name: Decode the release keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      # ── Two builds, and why they cannot be one ─────────────────────────────
+      #
+      # A universal (fat) APK carries every ABI's native libraries and installs
+      # anywhere; the per-ABI splits are roughly a third of that weight.
+      # `--split-per-abi` renames the outputs, so it cannot share an invocation
+      # with the universal build.
+      #
+      # Only arm64-v8a and armeabi-v7a are split out — the two ABIs real phones
+      # ship. The universal APK still covers the rare x86_64 case, so a third
+      # split would be a file nobody downloads.
+      #
+      # ── The versionCode trap, which is the whole reason this is documented ─
+      #
+      # Flutter OFFSETS the versionCode per ABI for `--split-per-abi`:
+      # armeabi-v7a → 1xxx, arm64-v8a → 2xxx. Measured here, not assumed: with
+      # `--build-number=777` the three APKs came out 777 (universal), 1777
+      # (armeabi-v7a) and 2777 (arm64-v8a), and the splits were 23.6 MB and
+      # 25.7 MB against the universal's 69.1 MB. Each stream is therefore
+      # monotonic on its own, and an updater
+      # (Obtainium and friends) must keep its APK filter on ONE variant:
+      #
+      #   universal → arm64      upgrades cleanly (777 → 2777)
+      #   arm64     → universal  reads as a DOWNGRADE (2777 → 778) and Android
+      #                          refuses it; only a reinstall gets out of that.
+      #
+      # This is also why the filenames below name the variant explicitly rather
+      # than leaving Flutter's `app-arm64-v8a-release.apk`: a person choosing a
+      # download is choosing a stream they will stay on.
+      - name: Build the signed APKs (universal + per-ABI)
+        working-directory: apps/eiermann
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD }}
+        run: |
+          common=(
+            --release
+            --target lib/main_production.dart
+            --dart-define-from-file=dart_defines/production.json
+            --build-name="${{ needs.release-please.outputs.version }}"
+            --build-number="${{ github.run_number }}"
+          )
+          flutter build apk "${common[@]}"
+          flutter build apk "${common[@]}" \
+            --split-per-abi \
+            --target-platform android-arm64,android-arm
+
+      # Trust the build, verify the signer. `build.gradle.kts` falls back to the
+      # debug key when it finds no keystore — correct for `flutter run --release`
+      # on a laptop, catastrophic in a release — so the one thing worth asserting
+      # is that the fallback did NOT happen.
+      - name: Verify the APKs are not debug-signed
+        working-directory: apps/eiermann/build/app/outputs/flutter-apk
+        run: |
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -1)
+          status=0
+          for apk in app-release.apk app-arm64-v8a-release.apk app-armeabi-v7a-release.apk; do
+            echo "── $apk"
+            certs=$("$apksigner" verify --print-certs "$apk")
+            echo "$certs"
+            if grep -qi "CN=Android Debug" <<<"$certs"; then
+              echo "::error::$apk is DEBUG-SIGNED — it cannot be upgraded over a real install."
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Remove the decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Attach the APKs to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${{ needs.release-please.outputs.version }}"
+          out="apps/eiermann/build/app/outputs/flutter-apk"
+          cp -f "$out/app-release.apk"              "eiermann-${v}-universal.apk"
+          cp -f "$out/app-arm64-v8a-release.apk"    "eiermann-${v}-arm64-v8a.apk"
+          cp -f "$out/app-armeabi-v7a-release.apk"  "eiermann-${v}-armeabi-v7a.apk"
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+            "eiermann-${v}-universal.apk" \
+            "eiermann-${v}-arm64-v8a.apk" \
+            "eiermann-${v}-armeabi-v7a.apk"
