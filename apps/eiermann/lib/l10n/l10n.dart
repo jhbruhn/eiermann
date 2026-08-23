@@ -134,6 +134,10 @@ class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
     // is no photo, so this is somebody removing the photo while somebody
     // else is placing a nest on it.
     'nest_pin_needs_area_photo' => _l10n.serverErrorNestPinNeedsAreaPhoto,
+    // The same invariant from the other side, and mapped although no screen
+    // offers photo removal yet: the day one does, an unmapped code would put
+    // generic copy on a refusal whose whole value is naming the way out.
+    'area_photo_still_pinned' => _l10n.serverErrorAreaPhotoStillPinned,
     'visit_nest_foreign_spot' => _l10n.serverErrorVisitNestForeignSpot,
     'visit_nest_duplicate' => _l10n.serverErrorVisitNestDuplicate,
     'visit_eggs_do_not_balance' => _l10n.serverErrorVisitEggsDoNotBalance,

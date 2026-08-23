@@ -854,6 +854,10 @@
   "@serverErrorNestPinNeedsAreaPhoto": {
     "description": "Shown when a pin is written to an area that has no photo — reachable when somebody else removed the photo while the pin was being placed."
   },
+  "serverErrorAreaPhotoStillPinned": "Auf diesem Foto sind Nester eingezeichnet — solange sie dort stehen, lässt sich das Foto nicht entfernen. Tausche es stattdessen aus: die Nester bleiben erhalten und du prüfst anschließend ihre Position gegen das neue Bild.",
+  "@serverErrorAreaPhotoStillPinned": {
+    "description": "Shown when removing an area photo is refused because nests are pinned on it. Names the replacement path, because that is the one that keeps the pins."
+  },
   "serverErrorVisitNestForeignSpot": "Dieses Nest gehört nicht zu diesem Spot. Lade den Spot neu.",
   "serverErrorVisitNestDuplicate": "Dieses Nest wurde in diesem Besuch schon geprüft.",
   "serverErrorVisitEggsDoNotBalance": "Die Eierzahlen gehen nicht auf. Prüfe, wie viele echte Eier entnommen und wie viele Attrappen eingelegt wurden.",

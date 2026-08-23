@@ -19,6 +19,11 @@ onRecordUpdateRequest((e) => {
   const photo = require(`${__hooks}/app_area_photo.js`);
   const body = e.requestInfo().body || {};
   photo.guardReviewFields(body);
+  // Before anything mutates the record: a Bereich whose photo is on its way out
+  // from under existing pins is refused outright, because those pins would be
+  // coordinates on a picture that does not exist — the state the nest write path
+  // has refused to CREATE since bmg.4, reachable here from the other side.
+  photo.guardPhotoRemoval(e.app, e.record);
   // Order matters, and only in one direction: a request that both ends the pass
   // and replaces the photo ends up FLAGGED. The replacement is the later fact
   // about the building, and the pins have not been seen against the new picture.

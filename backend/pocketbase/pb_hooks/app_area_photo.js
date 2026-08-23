@@ -55,6 +55,30 @@
 // pictures of the inside of somebody's building, and storing them has to justify
 // itself continuously. Once the pins are confirmed, nothing justifies the copy.
 
+// ── Removing the photo is the same drift, without the second picture ───────
+//
+// `guardPinNeedsPhoto` in `app_nest_rules.js` refuses a pin on a Bereich with no
+// photo: a pin is a pair of normalised coordinates and nothing else, so stored
+// with no image it is not a wrong position but a position on a picture that does
+// not exist. The nest write path has held that since bmg.4; this one did not.
+//
+// The areas update rule pins `org` and `spot` and says nothing about `photo`, and
+// `guardReviewFields` covers only the two review fields — so a client could send
+// `photo: ""`. `isReplacement` sees no pending upload, `startReview` does not run,
+// and the Bereich arrives in exactly the state the nest path refuses to create:
+// pins over nothing. No screen can draw them, so nothing ever reports it, and the
+// day somebody uploads a photo again the nests reappear at whatever corner those
+// old numbers happen to name.
+//
+// Of the three possible answers only one holds the invariant. Deleting the pins
+// along with the photo throws away the expensive thing — somebody walked the
+// attic to place them — for a click that reads as "remove a picture". Treating a
+// removal as a replacement raises a review flag over a pass with nothing to
+// compare against, which is the dangling `previous_photo` failure by another
+// route. So a removal is REFUSED while a pin exists, and the client is told to
+// clear the pins or replace the photo instead — replacing keeps the nests and
+// puts them through the pass this file exists for.
+
 /** The fields the client may not write, in any request, ever. */
 const SERVER_OWNED = "previous_photo";
 
@@ -92,6 +116,57 @@ function hasPins(app, areaId) {
     { area: areaId },
   );
   return rows.length > 0;
+}
+
+/**
+ * Whether this write leaves the Bereich with no photo at all.
+ *
+ * Asked of the RECORD rather than of the request body, because a file field can
+ * be emptied in more shapes than one — `photo: ""`, `photo: null`, an empty
+ * multipart part, and PocketBase's own `photo-` delete modifier — and a guard
+ * that enumerates wire forms is a guard with a form nobody thought of. By the
+ * time an update-request hook runs, the body is bound to the record, so the
+ * outcome is readable directly.
+ *
+ * [isReplacement] short-circuits first as belt and braces, not because the field
+ * check needs it: measured by bypassing this line against a real instance, a
+ * replacement's pending upload has ALREADY put its generated name into `photo`,
+ * so the value test alone answers correctly. It stays because leaning on that
+ * would tie this guard to when PocketBase materialises a pending file's name —
+ * an ordering nothing here controls and no failure would name. A pending file
+ * means a photo is arriving, which is all this needs to know.
+ */
+function isRemoval(record) {
+  if (isReplacement(record)) return false;
+  if (!String(record.original().get("photo") || "")) return false;
+  return !String(record.get("photo") || "");
+}
+
+/**
+ * Refuses removing the photo out from under a pin.
+ *
+ * The other half of `guardPinNeedsPhoto` in `app_nest_rules.js`: that one keeps
+ * a pin from being written onto a photoless Bereich, this one keeps a Bereich
+ * from becoming photoless underneath the pins it already carries. Both describe
+ * one invariant — a pin exists only against an image — and a rule enforced on
+ * one write path is a rule with a way around it.
+ *
+ * [hasPins] is the same reader the review pass uses, so "what counts as a pin"
+ * is decided once: (0, 0) is how "no pin" arrives on the wire, and a nest that
+ * was never placed does not hold a photo hostage.
+ *
+ * Refused rather than cascaded on purpose — see the note at the top of this
+ * file. The client's sentence names the two ways out, because a refusal that
+ * does not is a dead end on a screen.
+ */
+function guardPhotoRemoval(app, record) {
+  if (!isRemoval(record)) return;
+  if (!hasPins(app, record.id)) return;
+  const { refuse, CODES } = require(`${__hooks}/app_refuse.js`);
+  refuse(
+    CODES.areaPhotoStillPinned,
+    `area ${record.id} still carries pins that would point at no image`,
+  );
 }
 
 /**
@@ -180,6 +255,7 @@ function startReview(app, record, next) {
 }
 
 module.exports = {
+  guardPhotoRemoval,
   guardReviewFields,
   finishReview,
   startReview,

@@ -1541,6 +1541,101 @@ h.check(
     "confirmed nothing justifies keeping a second one",
 )
 
+# ── Removing the photo out from under the pins (eiermann-4m4) ───────────────
+#
+# The other half of `nest_pin_needs_area_photo`. That guard refuses WRITING a pin
+# onto a photoless Bereich; nothing refused taking the photo away underneath pins
+# that were already there, and the areas update rule pins only `org` and `spot`.
+# The end state is identical and invisible: coordinates on an image that does not
+# exist, undrawable by any screen, reappearing at arbitrary corners the day a new
+# photo lands.
+#
+# `swap` still carries the pinned nest from above, so it is the fixture this
+# needs. Every shape a file field can be emptied in gets its own assertion —
+# enumerating them is exactly what the hook refuses to do, so the suite does it
+# instead.
+
+status, body = h.req(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    {"photo": ""},
+)
+h.check(
+    "the photo cannot be removed while a nest is pinned on it",
+    status >= 400 and refused_with(body, "area_photo_still_pinned"),
+    f"status {status}, {refusal_codes(body)} — the pins would keep their two "
+    "numbers and point at nothing, which is the state the nest write path has "
+    "refused to CREATE since bmg.4",
+)
+h.check(
+    "...and it is still there",
+    bool(area_now(swap["id"]).get("photo")),
+    "a refusal that refuses and writes anyway is the worst of both",
+)
+
+status, body = h.req(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    {"photo": None},
+)
+h.check(
+    "...whether it is emptied with a null",
+    status >= 400 and refused_with(body, "area_photo_still_pinned"),
+    f"status {status}, {refusal_codes(body)} — the guard reads the record it "
+    "would leave behind, not a list of wire shapes",
+)
+
+# PocketBase's own file-delete modifier: `photo-` naming the file to drop. A
+# guard written against the plain key alone would have this way round it.
+status, body = h.req(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    {"photo-": area_now(swap["id"]).get("photo")},
+)
+h.check(
+    "...or with PocketBase's `photo-` delete modifier",
+    status >= 400 and refused_with(body, "area_photo_still_pinned"),
+    f"status {status}, {refusal_codes(body)} — a file field is emptied by more "
+    "than one wire form, which is why the guard asks the record",
+)
+h.check(
+    "...and the photo survived all three",
+    bool(area_now(swap["id"]).get("photo")),
+    "one of the shapes above got through, and the pins are now over nothing",
+)
+
+# The way out the refusal names. Replacing keeps the nests and puts them through
+# the pass — asserted here rather than assumed, because a refusal that leaves no
+# working path is a dead end on a screen.
+status, still_works = put_photo(swap["id"])
+h.check(
+    "...while REPLACING it still works, which is what the refusal offers",
+    h.ok(status) and bool((still_works or {}).get("photo")),
+    f"status {status} — the guard must not catch the replacement path: an "
+    "incoming file is a pending upload, not an empty field",
+)
+h.req(
+    "PATCH", f"/api/collections/areas/records/{swap['id']}", member_token,
+    {"pins_need_review": False},
+)
+
+# The mirror image: with no pin there is nothing to strand, and a Bereich whose
+# photo was a mistake has to be able to lose it.
+unpinned = h.mk(
+    member_token,
+    "areas",
+    {"org": ORG, "spot": swap_host["id"], "name": "Falsches Foto"},
+)
+put_photo(unpinned["id"])
+status, cleared = h.req(
+    "PATCH", f"/api/collections/areas/records/{unpinned['id']}", member_token,
+    {"photo": ""},
+)
+h.check(
+    "a photo with no pin on it can still be removed",
+    h.ok(status) and not (cleared or {}).get("photo"),
+    f"status {status}, photo={(cleared or {}).get('photo')!r} — the invariant "
+    "is about stranded pins, and a guard that refused every removal would make "
+    "a wrong upload permanent",
+)
+
 # A Bereich nobody has pinned has nothing to review, and flagging it would keep
 # a picture of somebody's property for the duration of a formality.
 bare = h.mk(

@@ -387,6 +387,7 @@
   "serverErrorNestProtectedNoEggChanges": "Nothing may be changed at this nest: it is marked as a protected species. Interfering with the clutches of protected birds is prohibited under §44 BNatSchG.",
   "serverErrorNestAreaNotFound": "That area no longer exists. Reload the Spot.",
   "serverErrorNestPinNeedsAreaPhoto": "This area has no photo — without one there is nowhere to mark a nest. Reload the area and add a photo first.",
+  "serverErrorAreaPhotoStillPinned": "Nests are marked on this photo — it cannot be removed while they are. Replace it instead: the nests are kept, and you then check their positions against the new picture.",
   "serverErrorVisitNestForeignSpot": "That nest does not belong to this Spot. Reload the Spot.",
   "serverErrorVisitNestDuplicate": "This nest has already been checked on this visit.",
   "serverErrorVisitEggsDoNotBalance": "The egg counts do not add up. Check how many real eggs were removed and how many dummies were placed.",
