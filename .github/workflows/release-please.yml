@@ -128,19 +128,101 @@ jobs:
       # and ship DEBUG-SIGNED APKs — which cannot be upgraded over a properly
       # signed install, so the damage lands on users' phones and is only fixable
       # by making them uninstall. Fail here instead.
+      #
+      # All FOUR are checked, not just the keystore. Gradle reads the other
+      # three straight from the environment (`android/app/build.gradle.kts`),
+      # and an unset one reaches it as null — which surfaces four minutes later
+      # as a Gradle stack trace naming neither the secret nor this workflow.
       - name: Require a signing key
         env:
-          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. An unsigned or" \
+          missing=""
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_ALIAS \
+                      ANDROID_KEYSTORE_PASSWORD \
+                      ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD; do
+            eval "value=\${$name}"
+            [ -z "$value" ] && missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing signing secret(s):$missing — an unsigned or" \
                  "debug-signed release cannot be upgraded over an existing" \
-                 "install — set the four ANDROID_KEYSTORE_* secrets first."
+                 "install, so this fails here instead. Note that a keystore" \
+                 "made by a current keytool is PKCS12, where the key password" \
+                 "IS the store password: set both secrets to the same value."
             exit 1
           fi
 
+      # `printf %s` rather than `echo`: some shells' echo eats backslashes, and
+      # a keystore that decodes to garbage fails much later and much less
+      # legibly (see the verify step).
       - name: Decode the release keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      # ── Read the keystore HERE, where a failure can say what is wrong ──────
+      #
+      # A truncated ANDROID_KEYSTORE_BASE64 — the base64 of a keystore is a
+      # single ~3.6 kB line, and copying one out of a terminal loses the tail
+      # more often than anybody expects — decodes without complaint into a
+      # short file. `base64 -d` is happy: the input it got was valid base64.
+      #
+      # Nothing then notices until Gradle parses it during `packageRelease`,
+      # where the truncation surfaces as an EOFException carrying NO message,
+      # and AGP interpolates that into:
+      #
+      #     KeytoolException: Failed to read key *** from store
+      #     "/home/runner/work/_temp/release.jks": null
+      #
+      # A trailing ": null" that says nothing, on a task that has nothing to do
+      # with the cause, after a full build has been spent. `keytool -list` reads
+      # the same file with the same passwords in a second and names the real
+      # problem — and because it also resolves the ALIAS, it catches the other
+      # easy mistake: a keystore whose alias is not the one in the secret.
+      #
+      # Its diagnosis goes to STDOUT, not stderr (measured: `keytool error:
+      # java.io.EOFException` on stdout, an empty stderr). Sending stdout to
+      # /dev/null and capturing 2> therefore printed a blank "keytool said:".
+      - name: Verify the keystore can actually be opened
+        env:
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD }}
+        run: |
+          jks="$RUNNER_TEMP/release.jks"
+          size=$(wc -c < "$jks")
+          echo "decoded keystore: $size bytes"
+          if [ "$size" -lt 512 ]; then
+            echo "::error::The decoded keystore is only $size bytes, which is" \
+                 "too small to be one. ANDROID_KEYSTORE_BASE64 is truncated or" \
+                 "empty — regenerate it with 'base64 -w0 your-key.jks' and" \
+                 "check the pasted secret is the whole string."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$jks" \
+                 -storepass "$ANDROID_KEYSTORE_PASSWORD" > keytool.out 2>&1; then
+            echo "::error::The keystore did not open. Either" \
+                 "ANDROID_KEYSTORE_PASSWORD is wrong or the decoded file is" \
+                 "not a keystore (a truncated ANDROID_KEYSTORE_BASE64 reads as" \
+                 "corrupt). keytool said:"
+            sed 's/^/  /' keytool.out
+            exit 1
+          fi
+          if ! keytool -list -keystore "$jks" \
+                 -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+                 -alias "$ANDROID_KEYSTORE_ALIAS" > keytool.out 2>&1; then
+            echo "::error::The keystore opened but holds no such alias." \
+                 "ANDROID_KEYSTORE_ALIAS does not match the key inside it —" \
+                 "'keytool -list -keystore your-key.jks' locally prints the" \
+                 "aliases it does have. keytool said:"
+            sed 's/^/  /' keytool.out
+            exit 1
+          fi
+          echo "keystore opens and holds the configured alias"
 
       # ── Two builds, and why they cannot be one ─────────────────────────────
       #
