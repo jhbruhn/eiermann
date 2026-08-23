@@ -1815,6 +1815,65 @@ for path in sorted(glob.glob(os.path.join(HOOKS, "*.js"))):
             continue
         bad_requires.append(f"{name}: require({argument})")
 
+# ── A migration comment may not name a file that does not exist ─────────────
+#
+# `1700000011` said: "A half-clutch follow-up is not deletable — that distinction
+# cannot be expressed in a rule, so the hook enforces it (app_follow_up.js)."
+# There was no `app_follow_up.js`. The invariant was decided, written down in the
+# confident voice the rest of that file uses for facts, sitting between two hook
+# references that ARE real — and never built. A member's DELETE answered 204
+# until eiermann-9fn.
+#
+# That is what makes a dangling pointer worth a test rather than a tidy-up. A
+# migration is this repo's design record; the next person greps the name, finds
+# nothing, and has to work out whether the guard moved, was renamed, or never
+# existed. Two of the three answers are fine and the third is a hole.
+#
+# The sweep found two more, both harmless and both already corrected: the nests
+# migration pointed at `protected_guard.pb.js` for a guard that lives in
+# `app_nest_rules.js`, and `visit_rows` named `lib_stats.js` for `app_stats.js`.
+#
+# `zv_*.js` files are vendored into the image and are not in this repo, so they
+# are checked the only way available from here: something in `pb_hooks` has to
+# actually `require` them. A fictional `zv_anything.js` still fails.
+migration_files = sorted(glob.glob(os.path.join(HOOKS, "..", "pb_migrations", "*.js")))
+hook_names = {os.path.basename(p) for p in glob.glob(os.path.join(HOOKS, "*.js"))}
+migration_names = {os.path.basename(p) for p in migration_files}
+required_by_hooks = set()
+for path in glob.glob(os.path.join(HOOKS, "*.js")):
+    with open(path, encoding="utf-8") as handle:
+        required_by_hooks.update(
+            _re.findall(r"\$\{__hooks\}/([A-Za-z0-9_.]+\.js)", handle.read())
+        )
+
+# `(?![A-Za-z])` is what keeps `e.json(` and `shared_strings.json` out: both end
+# in `.js` followed by more word characters, and without it this sweep reports
+# every JSON call in the tree.
+dangling = []
+for path in migration_files:
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    for name in sorted(set(_re.findall(
+        r"\b([a-z][A-Za-z0-9_]*(?:\.pb)?\.js)(?![A-Za-z])", text
+    ))):
+        if name in hook_names or name in migration_names:
+            continue
+        if name.startswith("zv_"):
+            if name not in required_by_hooks:
+                dangling.append(
+                    f"{os.path.basename(path)} names vendored {name}, which no "
+                    "hook requires"
+                )
+            continue
+        dangling.append(f"{os.path.basename(path)} names {name}")
+
+h.check(
+    "no migration comment names a hook file that does not exist",
+    not dangling,
+    f"{dangling} — a migration is this repo's design record, and a pointer to "
+    "nothing is how eiermann-9fn's guard read as built for months",
+)
+
 h.check(
     "every require uses the absolute ${__hooks} form",
     not bad_requires,
@@ -5144,6 +5203,175 @@ sweep_collections(
     "every domain rule requires an authenticated, active caller",
     every_rule_is_gated,
 )
+
+# ── The writable-after-create registry (eiermann-ldi) ───────────────────────
+#
+# Three bugs in one week had the same shape, and none of them was a rule anybody
+# wrote wrongly on purpose:
+#
+#   * `1700000011` said a hook in `app_follow_up.js` kept a Halbgelege
+#     Nachkontrolle from being deleted. That file had never existed, and the
+#     DELETE answered 204 (eiermann-9fn).
+#   * The same migration said "the note and the species label are the two things
+#     somebody realises afterwards — the rest is the event", and its update rule
+#     pinned five fields while leaving `author`, `author_name`, `found_at` and
+#     `photo` open (eiermann-ldi).
+#   * `1700000009` pinned `visits.author` and not `visits.author_name` beside
+#     it — the relation protected, the snapshot next to it not.
+#
+# In every case the INTENT was written down, in prose, next to the rule that did
+# not carry it out. Prose is not enforcement, and a comment in the confident
+# voice of the file around it reads as a decision already implemented.
+#
+# So the set of fields a client may still write once a row EXISTS is a registry,
+# on the same argument as the delete-effect registry: an entry with no rule and a
+# rule with no entry both fail. What that buys is not that the rules become
+# right — this registry records some that are wrong, by name and with their issue
+# — but that no field can quietly JOIN the set. A new column on `visits`, or a
+# rule somebody loosens to unblock a screen, stops being a thing nobody has to
+# mention.
+#
+# `HOOK:` marks the fields the RULE leaves open and a hook closes. Those are not
+# an oversight — an access rule cannot express "only when the reason is manual",
+# and CLAUDE.md's own note says invariants need a hook — but they are exactly the
+# combination the three bugs above lived in, so the registry names the guard.
+
+# collection -> {field: why it may be written, or HOOK:<guard> / BUG:<issue>}
+WRITABLE_AFTER_CREATE = {
+    "spots": {
+        "name": "a building's details are corrected as they are learnt",
+        "street": "same", "postal_code": "same", "city": "same",
+        "geo": "the pin is dragged until it is right",
+        "geo_confirmed": "same",
+        "access_note": "the most valuable field in a handover",
+        "note": "free text",
+        "facade_photo": "replaceable, and nothing is derived from it",
+        "phase": "HOOK:app_spot_phase.js guards the transitions",
+        "prospect_stage": "HOOK:app_spot_phase.js",
+        "paused_until": "a pause gets extended or shortened",
+        "pause_reason": "same",
+        "closed_reason": "a closing reason is corrected, and it is what a "
+                         "reader asks of a closed Spot six months later",
+        "closed_at": "BUG:eiermann-jgc — the phase hook OWNS this date, and a "
+                     "client can put a closing date on an open Spot",
+    },
+    "spot_contacts": {
+        "name": "a contact's details change and are corrected",
+        "role": "same", "phone": "same", "email": "same", "note": "same",
+        "is_primary": "which contact leads is a decision, not an event",
+    },
+    "areas": {
+        "name": "renamed as a building is understood",
+        "note": "free text",
+        "sort_index": "the walking order is rearranged",
+        "photo": "HOOK:app_area_photo.js — replacing starts the review pass, "
+                 "and REMOVING is refused while a pin sits on it",
+        "photo_taken_at": "travels with the photo",
+        "previous_photo": "HOOK:app_area_photo.js guardReviewFields",
+        "pins_need_review": "HOOK:app_area_photo.js guardReviewFields",
+    },
+    "nests": {
+        "label": "renamed as a building is understood",
+        "note": "free text", "position_hint": "same",
+        "photo": "replaceable, and nothing is derived from it",
+        "pin_x": "HOOK:app_nest_rules.js — a pin needs a photo under it",
+        "pin_y": "HOOK:app_nest_rules.js",
+        "species": "HOOK:app_nest_rules.js — anyone may flag protected, only "
+                   "the coordination may take it back",
+        "species_label": "free text beside the species",
+        "status": "a nest goes `gone`; it is never deleted",
+    },
+    "visits": {
+        "note": "what somebody meant to write down and did not",
+        "skip_note": "same",
+        "author_name": "BUG:eiermann-ldi — the snapshot that keeps a closed "
+                       "account's visits attributable, and `author` beside it "
+                       "IS pinned",
+    },
+    "visit_photos": {
+        "caption": "a caption is written after the upload",
+        "image": "the file itself; a photo of the wrong door is replaceable",
+    },
+    "findings": {
+        "note": "\"das war eine Dohle\" is what somebody realises afterwards",
+        "species_label": "same — this is the field that sentence is about",
+        "count": "miscounted in a stairwell",
+        "author": "BUG:eiermann-ldi", "author_name": "BUG:eiermann-ldi",
+        "found_at": "BUG:eiermann-ldi — the period report cuts on this date",
+        "photo": "BUG:eiermann-ldi",
+    },
+    "follow_ups": {
+        "due_at": "a reminder is moved",
+        "note": "free text",
+    },
+    "tours": {
+        "name": "a route is renamed", "note": "free text",
+        "sort_index": "the list is rearranged",
+        "is_active": "a route is retired without being deleted",
+    },
+    "tour_spots": {"sort_index": "the stops are reordered"},
+    "tour_runs": {
+        "note": "free text",
+        "finished_at": "HOOK:app_tour_rules.js guardFinish — finishing IS a "
+                       "client action; finishing twice is not",
+    },
+}
+
+# `id`, `created` and `updated` are PocketBase's and no rule needs to say so.
+_SYSTEM_FIELDS = {"id", "created", "updated"}
+
+
+def writable_after_create(col):
+    """The fields [col]'s update rule leaves a client able to write."""
+    rule = col.get("updateRule")
+    if rule is None:
+        return None  # superuser only — the strongest statement available
+    open_fields = []
+    for field in col.get("fields") or []:
+        name = field.get("name")
+        if name in _SYSTEM_FIELDS or field.get("type") == "autodate":
+            continue
+        if f"@request.body.{name}:isset = false" not in rule:
+            open_fields.append(name)
+    return set(open_fields)
+
+
+_registry_problems = []
+for _col in base_collections(cols):
+    _name = _col["name"]
+    _open = writable_after_create(_col)
+    if _open is None:
+        if _name in WRITABLE_AFTER_CREATE:
+            _registry_problems.append(
+                f"{_name}: listed, but its updateRule is null — nothing a "
+                "client can write"
+            )
+        continue
+    if _name not in WRITABLE_AFTER_CREATE:
+        _registry_problems.append(
+            f"{_name}: client-updatable and not in the registry at all "
+            f"({sorted(_open)})"
+        )
+        continue
+    _listed = set(WRITABLE_AFTER_CREATE[_name])
+    for _f in sorted(_open - _listed):
+        _registry_problems.append(
+            f"{_name}.{_f}: writable after create and NOT written down"
+        )
+    for _f in sorted(_listed - _open):
+        _registry_problems.append(
+            f"{_name}.{_f}: in the registry, but the rule pins it — the entry "
+            "is stale"
+        )
+
+h.check(
+    "every field writable after create is written down, and vice versa",
+    not _registry_problems,
+    "; ".join(_registry_problems)
+    + " — a field joining this set is a decision about what a recorded fact "
+    "means, and three bugs got in by never being one",
+)
+
 
 # The sweep above cannot see a VIEW: the shared harness selects `type == "base"`,
 # because every other sweep it drives asks about writes. So views — the one place

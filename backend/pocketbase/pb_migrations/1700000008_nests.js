@@ -33,7 +33,8 @@
 //
 // ── species is a safety field, not a label ─────────────────────────────────
 //
-// See protected_guard.pb.js. `unknown` is a real state and never a silent
+// See `app_nest_rules.js` (`guardSpecies`, registered by `nests.pb.js`).
+// `unknown` is a real state and never a silent
 // assumption of "city pigeon": the app does not identify species, and an
 // undetermined nest stays an open question in the Spot detail until a person
 // decides. Anyone may mark a nest `protected`; only the coordination may take

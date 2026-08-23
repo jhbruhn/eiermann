@@ -40,7 +40,7 @@
 // folded into an "other". A partial census is the version of this table that
 // makes a Behörde ask what the missing checks were.
 //
-// Deriving them in `lib_stats.js` from a nest-grained read would be a second
+// Deriving them in `app_stats.js` from a nest-grained read would be a second
 // query over the same rows, and the summary and the PDF would then have two
 // chances to disagree about whether `not_reachable` counts as "geprüft".
 //
@@ -95,7 +95,7 @@ migrate(
       //
       // The COUNT/SUM columns are bare integer expressions so they cross the
       // wire as numbers. A computed column falls back to type `json`, and a
-      // server-side reader gets the raw JSON — which is why lib_stats.js asks
+      // server-side reader gets the raw JSON — which is why app_stats.js asks
       // the collection for each field's type and decodes rather than guessing.
       // `COALESCE(SUM(...), 0)`: SQLite's SUM over no rows is NULL, and a
       // skipped visit has no checks, so without it the egg columns of every
