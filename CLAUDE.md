@@ -13,10 +13,26 @@ HTML). Everything below is what an agent needs that the concept does not say.
 ## Working language
 
 The domain vocabulary is **German**, and so is every user-facing string: Spot,
-Nest, Gelege, Besuch, Erkundung, Koordination. Code identifiers and comments are
-English; ARB strings, issue titles and `bd close --reason` text are German. The
-German ARB is the gen-l10n **template** (`app_de.arb`), not a translation of an
-English original — see "Localisation" below.
+Nest, Gelege, Besuch, Erkundung, Koordination.
+
+**Everything written for a developer is ENGLISH. No exceptions:**
+
+- code identifiers,
+- **every comment in the code**, doc comments included,
+- **every commit message**, subject and body,
+- test names and `reason:` strings.
+
+German is for what a USER reads, and for the issue tracker: ARB strings, issue
+titles and `bd close --reason` text. The German ARB is the gen-l10n **template**
+(`app_de.arb`), not a translation of an English original — see "Localisation"
+below.
+
+The split is not a style preference. A comment explains a decision to whoever
+touches the code next, and `git log` is this repo's design record — both are read
+by people and tools that do not necessarily read German, and a codebase that
+mixes the two makes every reader guess which language a given line will be in.
+Note that parts of the history predate this rule and are German; that is not a
+precedent to follow.
 
 ## Beads Issue Tracker
 
