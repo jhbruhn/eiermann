@@ -144,10 +144,11 @@ void main() {
       overview(id: 's2', urgency: 0),
       overview(id: 's3', urgency: 1),
       overview(id: 's4', urgency: 4),
+      overview(id: 's5', urgency: 5),
       // Neither of these earns a tile: they are the absence of work, and a
       // number for them would compete with the ranks that ask for a visit.
-      overview(id: 's5', urgency: 3),
-      overview(id: 's6', urgency: 6),
+      overview(id: 's6', urgency: 3),
+      overview(id: 's7', urgency: 7),
     ]);
 
     expect(
@@ -168,6 +169,16 @@ void main() {
       find.descendant(
         of: tile(de.spotUrgencyDueSoon),
         matching: find.text('0'),
+      ),
+      findsOneWidget,
+    );
+    // Rank 4, the rung `needsSurvey` took when it stopped borrowing a due
+    // rank (eiermann-m0r). It gets a tile because it is work, and it is
+    // counted apart from the three visit tiles because it is another kind.
+    expect(
+      find.descendant(
+        of: tile(de.spotUrgencyNeedsSurvey),
+        matching: find.text('1'),
       ),
       findsOneWidget,
     );

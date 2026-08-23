@@ -647,10 +647,26 @@ h.check(
 )
 
 # The urgency ladder is what the map colours by, so its ordering is a contract.
+#
+# `active_spot` gets a NEST before its date is backdated, and that is not
+# decoration. Since eiermann-m0r a Spot with no recorded nest ranks 4 whatever
+# its date says — the date is a placeholder the hook derived — so without the
+# nest this fixture would be asserting the survey rung and calling it "overdue".
 active_spot = h.mk(
     coord_token,
     "spots",
     {"org": ORG, "name": "Überfällig", "phase": "active"},
+)
+active_spot_area = h.mk(
+    coord_token,
+    "areas",
+    {"org": ORG, "spot": active_spot["id"], "name": "Dachboden"},
+)
+h.mk(
+    coord_token,
+    "nests",
+    {"org": ORG, "area": active_spot_area["id"], "label": "N1",
+     "species": "unknown", "status": "active"},
 )
 h.req(
     "PATCH", f"/api/collections/spots/records/{active_spot['id']}", T,
@@ -678,31 +694,31 @@ def urgency_of(spot_id):
 
 
 h.check("an overdue Spot ranks most urgent", urgency_of(active_spot["id"]) == 0)
-h.check("a prospect ranks below every active Spot", urgency_of(prospect["id"]) == 4)
-h.check("a closed Spot ranks last", urgency_of(closed["id"]) == 6)
+h.check("a prospect ranks below every active Spot", urgency_of(prospect["id"]) == 5)
+h.check("a closed Spot ranks last", urgency_of(closed["id"]) == 7)
 
-# A brand-new active Spot with no nest yet. It is DUE — the base period from
-# the day it was added — and on that day it ranks 3, not 2.
+# ── The survey rung (eiermann-m0r) ──────────────────────────────────────────
 #
-# eiermann-uga: rank 2 is what this asserted before, and that was an ARTIFACT
-# rather than a decision. The window was a fixed `+7 days` and the base period
-# is 7 days, so day one landed inside it — as did every day of every rhythm,
-# which is exactly what made the rank say nothing. With the window a quarter of
-# the interval, a Spot a full period out is in rhythm, climbs to rank 2 five
-# days later, then 1, then 0. It still surfaces inside its first period, and the
-# dossier says why in words (`dueExplainNoNests`).
+# A brand-new active Spot with no nest yet. It still gets a DATE — the base
+# period from the day it was added — but that date is a placeholder the hook
+# derived, not a visit anybody scheduled, and it no longer decides the rank.
 #
-# What this does NOT settle: whether "no nest recorded yet" deserves a signal of
-# its own instead of borrowing a due rank. It probably does, and it is filed
-# separately — a building nobody has been to is a different kind of work from a
-# nest falling due, and the ladder cannot say so.
+# The history is worth keeping, because two bugs stacked here. Under the fixed
+# `+7 days` window this row ranked 2, which looked like a signal and was an
+# artifact: the base period is also 7 days, so day one landed inside the window,
+# as did every day of every rhythm (eiermann-uga). Fixing the window dropped it
+# to rank 3 — green, "in Rhythmus", about a building nobody has been inside.
+# That was the ladder being right about a question nobody should have asked it.
+#
+# So the rung is its own: rank 4, below every due rank and above the
+# Erkundungen, checked BEFORE the dates so a placeholder in the past cannot
+# promote it to "überfällig".
 #
 # The view's rank-3 branch for an active Spot with an EMPTY next_due_at is still
-# not asserted here, because the create hook derives the date and the branch can
-# no longer be reached through the API. It stays in the view as the defensive
-# answer for a row that somehow has no date: reading a missing date as urgent
-# would be worse. Hence the date assertion below — without it this check would
-# also pass on a Spot that got no date at all.
+# not asserted, because the create hook derives the date and the branch can no
+# longer be reached through the API. It stays as the defensive answer for a row
+# that somehow has no date. Hence the date assertion below — without it the rank
+# check would also pass on a Spot that got no date at all.
 fresh_active = h.mk(
     coord_token, "spots", {"org": ORG, "name": "Neu, noch kein Nest", "phase": "active"}
 )
@@ -715,10 +731,80 @@ h.check(
     f"next_due_at {(fresh_row or {}).get('next_due_at')!r}",
 )
 h.check(
-    "a Spot created active is in rhythm on day one, not already due-soon",
-    urgency_of(fresh_active["id"]) == 3,
-    f"urgency {urgency_of(fresh_active['id'])} — a full base period out is not "
-    '"soon"; a window as wide as the period is what made rank 2 permanent',
+    "a Spot with no nest recorded ranks as needing a survey, not as in rhythm",
+    urgency_of(fresh_active["id"]) == 4,
+    f"urgency {urgency_of(fresh_active['id'])} — green on a building nobody has "
+    "been inside is what this rung exists to stop; empty does not mean done",
+)
+
+# The rung outranks its own date, which is the whole reason it is checked before
+# the date branches. Backdating the placeholder must NOT produce "überfällig":
+# nobody knows yet what there is to be overdue for.
+h.req(
+    "PATCH", f"/api/collections/spots/records/{fresh_active['id']}", T,
+    {"next_due_at": h.stamp(days=-30)},
+)
+h.check(
+    "...and stays there when its placeholder date has long passed",
+    urgency_of(fresh_active["id"]) == 4,
+    f"urgency {urgency_of(fresh_active['id'])} — a derived date going stale is "
+    "not a visit falling due, and reading it as rank 0 would make the survey "
+    "signal vanish exactly when the building had been neglected longest",
+)
+
+# The other side: recording a nest ends the survey, and the row rejoins the due
+# ranks it was being kept out of. Without this the rung could be a trap that
+# nothing ever leaves.
+survey_area = h.mk(
+    coord_token,
+    "areas",
+    {"org": ORG, "spot": fresh_active["id"], "name": "Dachboden"},
+)
+h.mk(
+    coord_token,
+    "nests",
+    {"org": ORG, "area": survey_area["id"], "label": "N1", "species": "unknown",
+     "status": "active"},
+)
+h.check(
+    "recording a nest takes the Spot off the survey rung",
+    urgency_of(fresh_active["id"]) in (0, 1, 2, 3),
+    f"urgency {urgency_of(fresh_active['id'])} — once there is something to "
+    "visit the ordinary ladder applies again",
+)
+
+# An OPEN FOLLOW-UP is a real date somebody entered, and it beats the rung. A
+# Spot with no nests and an open Nachfassen must not be filed as "not surveyed
+# yet": that would bury a commitment behind a worklist entry. The two NOT EXISTS
+# clauses in the view mirror `spotDueFor`'s own fallback test for this reason.
+followed_up = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Ohne Nest, mit Nachfassen", "phase": "active"},
+)
+h.mk(
+    coord_token,
+    "follow_ups",
+    {"org": ORG, "spot": followed_up["id"], "reason": "manual",
+     "due_at": h.stamp(days=-1)},
+)
+# The date is set by hand because writing a follow-up through the collection API
+# does NOT recompute the Spot's date: `recomputeSpotDue` is called from the visit
+# route and the auto-resume cron, and from nowhere else. In the field a
+# Nachfassen is born inside the visit transaction, which does recompute — this is
+# the same row reached the short way. That the short way leaves the date stale is
+# a real gap and is filed on its own; it is not what this assertion is about, and
+# leaving the date alone here would test the gap instead of the rung.
+h.req(
+    "PATCH", f"/api/collections/spots/records/{followed_up['id']}", T,
+    {"next_due_at": h.stamp(days=-1)},
+)
+h.check(
+    "an open follow-up outranks the survey rung",
+    urgency_of(followed_up["id"]) == 0,
+    f"urgency {urgency_of(followed_up['id'])} — the date on a follow-up is one "
+    "somebody set, not one the hook derived, and the rank must agree with the "
+    "date the row shows beside it",
 )
 
 _, body = h.req(
@@ -3254,16 +3340,35 @@ h.check(
 # PATCH cannot.
 
 SPOT_RUNGS = {0: "overdue", 1: "due today", 2: "due soon", 3: "in rhythm",
-              4: "prospect", 5: "paused", 6: "closed"}
+              4: "needs survey", 5: "prospect", 6: "paused", 7: "closed"}
 NEST_RUNGS = {0: "overdue", 1: "due today", 2: "due soon", 3: "in rhythm",
               4: "protected", 5: "gone"}
 
 
-def spot_at(name, phase="active", due=None, **fields):
-    """An active Spot dated [due] days out, or one in another [phase]."""
+def spot_at(name, phase="active", due=None, nest=True, **fields):
+    """An active Spot dated [due] days out, or one in another [phase].
+
+    [nest] gives it one recorded nest, and defaults on because since
+    eiermann-m0r a Spot without one ranks 4 whatever its date says — the survey
+    rung is checked before the date branches. Every DATE rung therefore needs a
+    nest to be reachable at all, and rung 4 is the one case that must not have
+    one.
+    """
     row = h.mk(
         coord_token, "spots", {"org": ORG, "name": name, "phase": phase, **fields}
     )
+    if nest:
+        area = h.mk(
+            coord_token,
+            "areas",
+            {"org": ORG, "spot": row["id"], "name": f"{name} — Bereich"},
+        )
+        h.mk(
+            coord_token,
+            "nests",
+            {"org": ORG, "area": area["id"], "label": "N1",
+             "species": "unknown", "status": "active"},
+        )
     if due is not None:
         h.req(
             "PATCH", f"/api/collections/spots/records/{row['id']}", T,
@@ -3281,14 +3386,18 @@ seen_spot = {
     1: urgency_of(spot_at("Leiter heute", due=0)["id"]),
     2: urgency_of(spot_at("Leiter bald", due=1)["id"]),
     3: urgency_of(spot_at("Leiter im Rhythmus", due=7)["id"]),
-    4: urgency_of(spot_at("Leiter Erkundung", phase="prospect")["id"]),
+    # The one case built WITHOUT a nest, which is the whole condition for this
+    # rung. Dated in the past on purpose: the rank has to beat its own date, so
+    # a case that also passed at rank 0 would prove nothing.
+    4: urgency_of(spot_at("Leiter nicht erfasst", nest=False, due=-3)["id"]),
+    5: urgency_of(spot_at("Leiter Erkundung", phase="prospect")["id"]),
     # A pause is refused without a reason (`spot_pause_needs_reason`), which is
     # itself the rule that a pause somebody has to explain is one they mean.
-    5: urgency_of(
+    6: urgency_of(
         spot_at("Leiter pausiert", phase="paused",
                 pause_reason="Gerüst am Haus")["id"]
     ),
-    6: urgency_of(
+    7: urgency_of(
         spot_at("Leiter geschlossen", phase="closed", closed_reason="netted")["id"]
     ),
 }
@@ -3315,8 +3424,9 @@ h.check(
 # This is the assertion a fixed window cannot pass, whatever number it is fixed
 # at: one window cannot be both narrower and wider than three days.
 near = spot_at("Kurzer Rhythmus", due=3)
-far = h.mk(coord_token, "spots", {"org": ORG, "name": "Langer Rhythmus",
-                                  "phase": "active"})
+# Built through `spot_at` for the nest alone — without one it would rank 4 and
+# this assertion would be about the survey rung instead of the window.
+far = spot_at("Langer Rhythmus")
 status, _ = post_visit(
     member_token,
     {"spot": far["id"], "outcome": "checked", "visited_at": h.stamp(days=-27),

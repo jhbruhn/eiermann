@@ -127,6 +127,7 @@ String spotUrgencyLabel(AppLocalizations l10n, SpotUrgency? level) =>
       SpotUrgency.dueToday => l10n.spotUrgencyDueToday,
       SpotUrgency.dueSoon => l10n.spotUrgencyDueSoon,
       SpotUrgency.inRhythm => l10n.spotUrgencyInRhythm,
+      SpotUrgency.needsSurvey => l10n.spotUrgencyNeedsSurvey,
       SpotUrgency.prospect => l10n.spotUrgencyProspect,
       SpotUrgency.paused => l10n.spotUrgencyPaused,
       SpotUrgency.closed => l10n.spotUrgencyClosed,
@@ -155,6 +156,13 @@ String spotDueLabel(
 }) {
   if (dueAt == null) return spotUrgencyLabel(l10n, level);
   return switch (level) {
+    // `needsSurvey` joins the quiet ranks here even though it DOES carry a
+    // date, and that is the whole reason it has a rung: the date is a
+    // placeholder the server derived from the day the Spot was added, so
+    // "fällig in 5 Tagen" would state a deadline nobody set. The three below it
+    // keep their name because they have no date; this one keeps its name
+    // because the date it has is not one to count down to.
+    SpotUrgency.needsSurvey ||
     SpotUrgency.prospect ||
     SpotUrgency.paused ||
     SpotUrgency.closed ||
@@ -184,6 +192,13 @@ Color spotUrgencyColor(BuildContext context, SpotUrgency? level) {
     SpotUrgency.overdue => colors.critical,
     SpotUrgency.dueToday || SpotUrgency.dueSoon => colors.warning,
     SpotUrgency.inRhythm => colors.good,
+    // `needsSurvey` falls to the neutral colour with the three quiet ranks, and
+    // it is the case the sentence above was written for: it is WORK, but it is
+    // not a degree of urgency, so a warning hue would invite the reader to
+    // weigh it against a nest falling due tomorrow. Its icon, its word and its
+    // dashboard tile carry it instead. What it must never look like again is
+    // `good` — green on a building nobody has been inside is the bug this rung
+    // exists to fix (eiermann-m0r).
     _ => Theme.of(context).colorScheme.onSurfaceVariant,
   };
 }
@@ -194,6 +209,9 @@ IconData spotUrgencyIcon(SpotUrgency? level) => switch (level) {
   SpotUrgency.overdue => Icons.priority_high,
   SpotUrgency.dueToday || SpotUrgency.dueSoon => Icons.schedule,
   SpotUrgency.inRhythm => Icons.check_circle_outline,
+  // A search, not a clock: the shape has to say "go and look", because it is
+  // the half of the signal that survives the colour being neutral.
+  SpotUrgency.needsSurvey => Icons.travel_explore,
   SpotUrgency.prospect => Icons.forum_outlined,
   SpotUrgency.paused => Icons.pause_circle_outline,
   SpotUrgency.closed => Icons.block,

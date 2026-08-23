@@ -164,6 +164,10 @@
     }
   },
   "spotUrgencyInRhythm": "Im Rhythmus",
+  "spotUrgencyNeedsSurvey": "Erfassung ausstehend",
+  "@spotUrgencyNeedsSurvey": {
+    "description": "An active Spot with no nest recorded yet. Names the work — a survey — rather than a degree of urgency, because the date such a Spot carries is a placeholder the server derived."
+  },
   "spotUrgencyProspect": "Erkundung läuft",
   "spotUrgencyPaused": "Pausiert",
   "spotUrgencyClosed": "Geschlossen",
@@ -1331,7 +1335,7 @@
       }
     }
   },
-  "dueExplainNoNests": "noch kein Nest erfasst — fällig nach der Grundfrist",
+  "dueExplainNoNests": "noch kein Nest erfasst — dieses Gebäude braucht eine Erfassung, keinen Besuch im Rhythmus",
   "@dueExplainNoNests": {
     "description": "Empty does not mean done: a building with no nests recorded is one nobody has looked at properly."
   },

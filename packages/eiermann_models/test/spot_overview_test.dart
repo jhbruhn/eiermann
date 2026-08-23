@@ -109,7 +109,7 @@ void main() {
           'phase': 'closed',
           'closed_reason': 'netted',
           'next_due_at': '',
-          'urgency': 6,
+          'urgency': 7,
         }),
       );
 
@@ -121,16 +121,46 @@ void main() {
   });
 
   group('SpotUrgency', () {
-    test('every rank 0..6 has exactly one name', () {
+    // Written against `values.length` rather than a literal range, because
+    // the literal is what had to be edited when `needsSurvey` went in at 4
+    // (eiermann-m0r) — and an edit is not the same as a check. This asserts
+    // the property the ladder actually has: the ranks are 0..n-1 with no gap
+    // and no repeat, which is what lets `fromRank` be a lookup and lets the
+    // view SORT on the number.
+    test('the ranks are a gapless run from zero, in declaration order', () {
       expect(
-        [for (var rank = 0; rank <= 6; rank++) SpotUrgency.fromRank(rank)],
+        [
+          for (var rank = 0; rank < SpotUrgency.values.length; rank++)
+            SpotUrgency.fromRank(rank),
+        ],
         SpotUrgency.values,
       );
     });
 
     test('an unknown rank has none', () {
-      expect(SpotUrgency.fromRank(7), isNull);
+      expect(SpotUrgency.fromRank(SpotUrgency.values.length), isNull);
+      expect(SpotUrgency.fromRank(-1), isNull);
       expect(SpotUrgency.fromRank(null), isNull);
+    });
+
+    // The wire contract, spelled out. These integers are in `spot_overview`'s
+    // CASE, in the server-side sort the keyset paging rides on, and in
+    // `/spots?urgency=N` links readers keep — so changing one is a `feat!:`,
+    // and a test that only checked the shape above would let it happen quietly.
+    test('the rungs sit on the numbers the server and the URLs use', () {
+      expect(
+        {for (final level in SpotUrgency.values) level.name: level.rank},
+        {
+          'overdue': 0,
+          'dueToday': 1,
+          'dueSoon': 2,
+          'inRhythm': 3,
+          'needsSurvey': 4,
+          'prospect': 5,
+          'paused': 6,
+          'closed': 7,
+        },
+      );
     });
   });
 }

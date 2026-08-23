@@ -40,10 +40,18 @@ class DashboardScreen extends ConsumerWidget {
   /// are asking for a visit. `prospect` earns its place because it is work of a
   /// different kind — a conversation, not a round — and a group that forgets
   /// its running Erkundungen loses buildings it had already half won.
+  ///
+  /// `needsSurvey` earns its place on the same argument and is the reason the
+  /// rung was cut at all (eiermann-m0r): a building nobody has been inside is
+  /// work, and while it borrowed a due rank it was counted as either a visit
+  /// falling due or nothing. It sits after the three visit tiles and before the
+  /// Erkundungen, which is its place on the ladder — the order here is the
+  /// ladder's, so a reader learns one sequence and meets it everywhere.
   static const List<SpotUrgency> _ranks = [
     SpotUrgency.overdue,
     SpotUrgency.dueToday,
     SpotUrgency.dueSoon,
+    SpotUrgency.needsSurvey,
     SpotUrgency.prospect,
   ];
 

@@ -155,18 +155,45 @@ enum SpotUrgency {
   /// (eiermann-uga).
   dueSoon(2),
 
-  /// Active and not due yet — including an active Spot with no due date at
-  /// all, which is waiting for its first nest rather than overdue.
+  /// Active and not due yet.
+  ///
+  /// Including an active Spot with no due date at all: it is waiting for its
+  /// first nest rather than overdue. That is the view's defensive branch — the
+  /// hook dates every active Spot, so nothing reaches it through the API.
   inRhythm(3),
 
+  /// Active, and nobody has recorded a nest in it yet.
+  ///
+  /// **Not a degree of urgency**, which is why it sits below every due rank
+  /// instead of among them (eiermann-m0r). A building nobody has been inside
+  /// needs an Erfassung, not a visit in the rhythm, and the date it carries is
+  /// a placeholder the hook derived — `addedAt + base interval` — rather than
+  /// something somebody recorded.
+  ///
+  /// It outranks its own date on purpose, exactly as `protected` does on
+  /// `nest_state`: an unsurveyed Spot whose placeholder has passed says
+  /// "erfassen", not "überfällig". Left on rank 0 the signal would vanish
+  /// precisely when the building had been neglected longest.
+  ///
+  /// A Spot with no nests but an OPEN FOLLOW-UP is not on this rung — that date
+  /// is real, and burying it here would lose a commitment somebody made.
+  needsSurvey(4),
+
   /// Needs a conversation, not a visit.
-  prospect(4),
-  paused(5),
-  closed(6);
+  prospect(5),
+  paused(6),
+  closed(7);
 
   const SpotUrgency(this.rank);
 
   /// The integer the view emits, and the key the list is ordered by.
+  ///
+  /// A wire value in three places at once, so renumbering one is a `feat!:`:
+  /// `spot_overview` computes it, the server SORTS on it (`urgency,name,id`,
+  /// with keyset paging riding on that order), and it travels in
+  /// `/spots?urgency=N` — a URL a reader can bookmark. `needsSurvey` moved
+  /// prospect, paused and closed up by one for that reason, and could not
+  /// simply be appended: rank order IS display order.
   final int rank;
 
   static SpotUrgency? fromRank(int? rank) {

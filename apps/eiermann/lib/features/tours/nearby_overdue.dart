@@ -34,8 +34,11 @@ class NearbySpot {
 /// Overdue and due-today only. Due-this-week is real work but it is not what
 /// somebody standing on a street corner with twenty spare minutes is looking
 /// for — padding the list with it would bury the two buildings that are
-/// actually late. The other ranks are not work at all: a paused Spot is
-/// deliberately out of the rhythm, and an Erkundung needs a conversation.
+/// actually late. `needsSurvey` is left out for the same reason and not because
+/// it is idle: an Erfassung means walking a building and recording what is in
+/// it, which is not the twenty-minute errand this list answers. The rest are
+/// not work of this kind at all — a paused Spot is deliberately out of the
+/// rhythm, and an Erkundung needs a conversation.
 const Set<SpotUrgency> kNearbyRanks = {
   SpotUrgency.overdue,
   SpotUrgency.dueToday,
