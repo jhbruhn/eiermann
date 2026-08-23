@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/spots/spot_pin_picker.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -356,6 +358,47 @@ void main() {
         expect(find.text(de.spotPinConfirmAction), findsOneWidget);
       });
     }
+  });
+
+  group('the search field', () {
+    /// How far the search text sits from the centre line the two icons share.
+    ///
+    /// The magnifier and the arrow are centred over the field's full height by
+    /// Material; the text is not, and the gap between them is the whole bug.
+    double offsetFromIcons(WidgetTester tester, Finder text) =>
+        tester.getRect(text).center.dy -
+        tester.getRect(find.byIcon(Icons.search)).center.dy;
+
+    testWidgets('puts hint, typed text and icons on ONE centre line', (
+      tester,
+    ) async {
+      // A borderless field with no label keeps Material's asymmetric default
+      // padding while the icons stretch the container to their 48 px minimum:
+      // measured, the hint stood 4 px above the magnifier. Asserted in all
+      // three states the field is ever in, because the suffix changes size
+      // when the search runs and could pull the row with it.
+      final gate = Completer<List<GeoResult>>();
+      when(() => geocoding.forward(any())).thenAnswer((_) => gate.future);
+      await openPicker(tester);
+
+      // Empty: the hint.
+      expect(offsetFromIcons(tester, find.text(de.spotPinSearchHint)), 0);
+
+      // Typed.
+      await tester.enterText(find.byType(TextField), 'Bahnhofstraße 12');
+      await tester.pump();
+      final typed = find.text('Bahnhofstraße 12');
+      expect(offsetFromIcons(tester, typed), 0);
+
+      // Searching: the arrow has become a spinner.
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(offsetFromIcons(tester, typed), 0);
+
+      gate.complete(const []);
+      await tester.pumpAndSettle();
+    });
   });
 
   testWidgets('a tap moves the answer, not just the camera', (tester) async {

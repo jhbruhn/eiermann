@@ -421,6 +421,18 @@ class _SearchBar extends StatelessWidget {
                 hintText: l10n.spotPinSearchHint,
                 prefixIcon: const Icon(Icons.search),
                 border: InputBorder.none,
+                // Symmetric, and tall enough that the content decides the
+                // field's height. A borderless field's default padding is
+                // 8/8, which leaves the content 40 high — but the icons
+                // stretch the container to their 48 minimum and are centred
+                // over it, while the TEXT stays anchored at `contentPadding
+                // .top`. Measured: the hint sat 4 px above the magnifier.
+                // At 16/16 the content is 56 high, the container follows it,
+                // and both land on the same centre line whatever the text
+                // scale.
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: ZugvogelSpacing.md,
+                ),
                 suffixIcon: busy
                     ? const Padding(
                         padding: EdgeInsets.all(ZugvogelSpacing.sm),
