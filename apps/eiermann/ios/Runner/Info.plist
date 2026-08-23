@@ -24,6 +24,21 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Permission prompts. iOS does not warn about a missing one: it KILLS the
+	     process the moment the permission is requested, so the app would crash
+	     the first time somebody photographs a nest — and App Store review
+	     rejects the build before that anyway.
+
+	     German, because the app is German and this string is shown to the person
+	     using it, in the system's own dialog. It has to say what the app does
+	     with the permission, not merely which permission it wants; review
+	     rejects a description that only restates the API. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Eiermann nutzt die Kamera für die Fotos von Bereichen, Nestern und Funden — das Übersichtsfoto ist die Fläche, auf der die Nester eingezeichnet werden.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Eiermann greift auf deine Fotos zu, damit du eine bereits aufgenommene Aufnahme an einen Bereich, ein Nest oder einen Fund hängen kannst.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Eiermann nutzt deinen Standort, um die Karte dort zu öffnen, wo du stehst — beim Anlegen eines Spots und beim Suchen der Gebäude in der Nähe.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
