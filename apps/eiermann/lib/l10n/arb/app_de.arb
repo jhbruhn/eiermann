@@ -314,6 +314,66 @@
   "serverErrorRhythmSteps": "Die Leiter braucht zwischen 1 und 10 Stufen, jede eine ganze Zahl zwischen 1 und 365 Tagen.",
   "serverErrorRhythmStepsNotAscending": "Die Stufen dürfen nicht wieder kürzer werden — die Leiter soll strecken, je länger ein Nest ungenutzt ist.",
   "serverErrorRhythmStepsBelowBase": "Die erste Stufe liegt unter der Grundfrist. Ein leeres Nest würde dann öfter geprüft als eines mit Eiern darin.",
+  "auditTitle": "Protokoll",
+  "@auditTitle": {
+    "description": "Who changed what, and what it used to say. The only place that answers 'since when, and who decided' — a Spot holds its CURRENT phase, a user their CURRENT role, and nothing else."
+  },
+  "auditEmptyTitle": "Noch nichts protokolliert",
+  "auditEmptyMessage": "Hier steht, wer eine Phase geändert, ein geschütztes Nest freigegeben, jemanden freigeschaltet oder die Fristen verstellt hat. Solange nichts davon passiert ist, bleibt es leer.",
+  "auditActorSystem": "System",
+  "@auditActorSystem": {
+    "description": "The server writes the wire value `system` when there is no account to name — a cron, a bootstrap. Never a blank line: an entry with no author answers half the question it exists for."
+  },
+  "auditByOn": "{actor} · {when}",
+  "@auditByOn": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "when": { "type": "String" }
+    }
+  },
+  "auditChange": "{field}: {from} → {to}",
+  "@auditChange": {
+    "placeholders": {
+      "field": { "type": "String" },
+      "from": { "type": "String" },
+      "to": { "type": "String" }
+    }
+  },
+  "auditChangeInitial": "{field}: {to}",
+  "@auditChangeInitial": {
+    "description": "An invite has no previous value — the account did not exist a moment ago. Saying so beats an empty side of an arrow, which reads as a value that was blanked.",
+    "placeholders": {
+      "field": { "type": "String" },
+      "to": { "type": "String" }
+    }
+  },
+  "auditActionSpotPhaseChanged": "Phase geändert",
+  "auditActionSpotDeleted": "Spot gelöscht",
+  "auditActionNestProtected": "Nest als geschützt markiert",
+  "auditActionNestUnprotected": "Nest wieder freigegeben",
+  "@auditActionNestUnprotected": {
+    "description": "The one action in this app that can be illegal: it re-enables egg removal on a nest somebody marked as a protected species. The nest afterwards looks exactly like one that was never protected."
+  },
+  "auditActionNestDeleted": "Nest gelöscht",
+  "auditActionUserInvited": "Person eingeladen",
+  "auditActionUserRoleChanged": "Rolle geändert",
+  "auditActionUserAccessChanged": "Zugang geändert",
+  "auditActionUserProvisioned": "Konto über Anmeldedienst angelegt",
+  "auditActionRhythmChanged": "Rhythmus geändert",
+  "auditActionReportExported": "Bericht exportiert",
+  "auditFieldPhase": "Phase",
+  "auditFieldClosedReason": "Abschlussgrund",
+  "auditFieldPausedUntil": "Pausiert bis",
+  "auditFieldStatus": "Status",
+  "auditFieldSpecies": "Artmarkierung",
+  "auditFieldSpeciesLabel": "Artbezeichnung",
+  "auditFieldRole": "Rolle",
+  "auditFieldIsActive": "Zugang",
+  "auditValueYes": "Ja",
+  "auditValueNo": "Nein",
+  "auditValueSpeciesProtected": "Geschützte Art",
+  "auditValueSpeciesFeralPigeon": "Stadttaube",
+  "auditValueSpeciesUnknown": "Unbekannt",
   "adminMenuTooltip": "Verwaltung",
   "teamTitle": "Team",
   "@teamTitle": {

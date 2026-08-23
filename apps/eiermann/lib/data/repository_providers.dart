@@ -185,3 +185,12 @@ Future<UsersRepository> usersRepository(Ref ref) async =>
 @Riverpod(keepAlive: true)
 Future<RhythmRepository> rhythmRepository(Ref ref) async =>
     RhythmRepository(await _client(ref));
+
+/// The audit trail: who changed what, and what it used to say.
+///
+/// Read-only, and not by convention — `audit_entries` has no create, update or
+/// delete rule at all, so the only way a row appears is a hook deciding it
+/// should. Reading is the coordination's alone, which the server enforces.
+@Riverpod(keepAlive: true)
+Future<AuditRepository> auditRepository(Ref ref) async =>
+    AuditRepository(await _client(ref));

@@ -121,6 +121,15 @@ class _AdminMenu extends StatelessWidget {
             title: Text(l10n.rhythmSettingsTitle),
           ),
         ),
+        PopupMenuItem(
+          value: Routes.audit,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.history),
+            title: Text(l10n.auditTitle),
+          ),
+        ),
       ],
     );
   }

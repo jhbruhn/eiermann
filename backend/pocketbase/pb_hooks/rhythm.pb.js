@@ -85,6 +85,69 @@ routerAdd(
 
     // Read back rather than echoing the patch: this is what the rhythm will
     // actually use, which is the only number worth showing on a settings screen.
-    return e.json(200, settings.read(e.app, org));
+    const now = settings.read(e.app, org);
+
+    // One audit row per number that actually MOVED.
+    //
+    // The screen submits all five on every save — deliberately, because all
+    // five are what the reader looked at — so without the comparison a save
+    // that nudged one number would write five rows and bury it. `emitChanges`
+    // drops the unchanged ones and returns nothing when nothing moved.
+    //
+    // Recorded at all because these numbers decide every due date in the app:
+    // stretching the base interval quietly makes a month of work disappear off
+    // the lists, and the organisation record keeps only the CURRENT value.
+    const audit = require(`${__hooks}/app_audit.js`);
+    const actor = audit.actorOf(e);
+    let orgName = "";
+    try {
+      orgName = e.app.findRecordById("organisations", org).getString("name");
+    } catch (_) {
+      orgName = "";
+    }
+    audit.emitChanges(
+      e.app,
+      {
+        org: org,
+        action: audit.ACTIONS.rhythmChanged,
+        actorId: actor.id,
+        actorLabel: actor.label,
+        targetType: audit.TARGETS.org,
+        target: org,
+        targetLabel: orgName,
+      },
+      [
+        {
+          field: audit.FIELDS.baseIntervalDays,
+          from: current.baseIntervalDays,
+          to: now.baseIntervalDays,
+        },
+        {
+          field: audit.FIELDS.emptyChecksPerStep,
+          from: current.emptyChecksPerStep,
+          to: now.emptyChecksPerStep,
+        },
+        {
+          // A list, stored as the text a reader sees: "7, 14, 28". The client
+          // does not have to parse it back — the row is a statement about what
+          // changed, not a value anything computes with.
+          field: audit.FIELDS.intervalSteps,
+          from: (current.intervalSteps || []).join(", "),
+          to: (now.intervalSteps || []).join(", "),
+        },
+        {
+          field: audit.FIELDS.halfClutchReturnDays,
+          from: current.halfClutchReturnDays,
+          to: now.halfClutchReturnDays,
+        },
+        {
+          field: audit.FIELDS.pauseAutoResume,
+          from: current.pauseAutoResume,
+          to: now.pauseAutoResume,
+        },
+      ],
+    );
+
+    return e.json(200, now);
   },
 );

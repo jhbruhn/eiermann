@@ -9,6 +9,7 @@ library;
 export 'package:zugvogel_data/zugvogel_data.dart';
 
 export 'src/repositories/areas_repository.dart';
+export 'src/repositories/audit_repository.dart';
 export 'src/repositories/auth_repository.dart';
 export 'src/repositories/follow_ups_repository.dart';
 export 'src/repositories/geocoding_repository.dart';

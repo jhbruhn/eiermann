@@ -1,5 +1,6 @@
 import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/features/areas/area_editor_screen.dart';
+import 'package:eiermann/features/audit/audit_screen.dart';
 import 'package:eiermann/features/auth/login_screen.dart';
 import 'package:eiermann/features/auth/pending_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
@@ -82,6 +83,14 @@ abstract final class Routes {
   /// where it came from is a date people override — and writable only by the
   /// coordination, which is the server's rule too.
   static const rhythmSettings = '/rhythm';
+
+  /// The log: who changed what, and what it used to say.
+  ///
+  /// The coordination's alone, enforced by the server rather than by this
+  /// route. Over the shell like the other errands — reading a log is something
+  /// somebody does at a desk when a question has come up, not between two
+  /// buildings.
+  static const audit = '/audit';
 
   /// The Touren screen: the templates, and the way into a round.
   ///
@@ -317,6 +326,10 @@ List<RouteBase> appRoutes() {
     GoRoute(
       path: Routes.rhythmSettings,
       builder: (_, _) => const RhythmSettingsScreen(),
+    ),
+    GoRoute(
+      path: Routes.audit,
+      builder: (_, _) => const AuditScreen(),
     ),
     // The template editor and the running round: over the shell, like the
     // dossier, so no branch can be parked on either. The run especially — a
