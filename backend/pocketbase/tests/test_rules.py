@@ -793,7 +793,7 @@ h.mk(
 # route and the auto-resume cron, and from nowhere else. In the field a
 # Nachfassen is born inside the visit transaction, which does recompute — this is
 # the same row reached the short way. That the short way leaves the date stale is
-# a real gap and is filed on its own; it is not what this assertion is about, and
+# a real gap, filed as eiermann-z3u; it is not what this assertion is about, and
 # leaving the date alone here would test the gap instead of the rung.
 h.req(
     "PATCH", f"/api/collections/spots/records/{followed_up['id']}", T,
