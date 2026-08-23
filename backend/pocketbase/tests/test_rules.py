@@ -349,6 +349,63 @@ status, _ = h.req(
 )
 h.check("a member cannot create a user", status >= 400, f"status {status}")
 
+# ── The one hole the OAuth2 path had to open, and how narrow it is ──────────
+#
+# 1700000020 widened createRule with `@request.context = "oauth2"`, because a
+# first-time sign-in through an identity provider has no authenticated caller
+# and the coordinator-only rule refused the record PocketBase creates for it.
+# The context cannot be forged from an ordinary API call — this asserts that,
+# because if it could, the rule would be self-registration for anybody who can
+# reach the server.
+status, _ = h.req(
+    "POST",
+    "/api/collections/users/records",
+    None,
+    {
+        "email": "anonymous@eiermann.test",
+        "password": h.user_pass,
+        "passwordConfirm": h.user_pass,
+        "org": ORG,
+        "role": "member",
+    },
+)
+h.check(
+    "an ANONYMOUS create is still refused",
+    status >= 400,
+    f"status {status} — the oauth2 context is not something a caller can claim",
+)
+# ...and the same body with the context spelled out in it, since a field named
+# after a rule variable is the obvious thing to try.
+status, _ = h.req(
+    "POST",
+    "/api/collections/users/records",
+    None,
+    {
+        "email": "anonymous2@eiermann.test",
+        "password": h.user_pass,
+        "passwordConfirm": h.user_pass,
+        "org": ORG,
+        "role": "member",
+        "context": "oauth2",
+        "@request.context": "oauth2",
+    },
+)
+h.check(
+    "...including one that puts \"oauth2\" in the body",
+    status >= 400,
+    f"status {status} — the context is the server's, not the body's",
+)
+users_create = next(
+    (c.get("createRule") or "" for c in h.collections(T) if c["name"] == "users"),
+    "",
+)
+h.check(
+    "the rule still names the coordination for every other caller",
+    '@request.context = "oauth2"' in users_create
+    and '@request.auth.role = "coordinator"' in users_create,
+    users_create,
+)
+
 status, _ = h.req("DELETE", f"/api/collections/users/records/{member['id']}", coord_token)
 h.check(
     "NOBODY deletes a user, not even the coordination",

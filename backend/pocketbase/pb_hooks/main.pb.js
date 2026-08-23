@@ -172,6 +172,29 @@ onRecordUpdateRequest((e) => {
 // access rules refuse everything to a role-less account. The one thing that
 // must not happen is a self-provisioned account arriving WITH a role, so the
 // value is cleared on any create that is not the coordination's.
+//
+// ── ...except the one create where the role is the SERVER's own answer ─────
+//
+// A sign-in through an identity provider creates its record with no
+// authenticated caller at all, so it lands in the branch below and had its role
+// blanked. Which made `EIERMANN_OIDC_COORDINATOR_GROUP` and `_MEMBER_GROUP` a
+// no-op: `zv_oauth2_provisioning.js` read the groups claim, chose a role, put
+// it in `createData` — and this handler threw it away a moment later. Measured
+// against the mock provider: the hook logged `role=coordinator` and the stored
+// row came back with `role=""`.
+//
+// The distinction that makes trusting it safe is WHERE the value came from. In
+// every other create the role is a field of a body somebody sent, which is why
+// it cannot be believed. In this one the caller never supplies it: the hook
+// derives it from the provider's claims and the operator's own environment, and
+// `@request.context` is set by PocketBase for the duration of that flow and
+// cannot be forged from an ordinary API call — 1700000020 leans on the same
+// property to let the record be created at all, and the rule suite asserts an
+// anonymous POST claiming that context is still refused.
+//
+// So the wall stays exactly where it was for everybody else, and for an
+// arrival the operator did not map it stays too: no matching group means the
+// library's walled-off role, which every access rule refuses by name.
 onRecordCreateRequest((e) => {
   if (e.hasSuperuserAuth()) {
     e.next();
@@ -183,6 +206,18 @@ onRecordCreateRequest((e) => {
       !!e.auth && String(e.auth.getString("role")) === "coordinator";
   } catch (_) {
     isCoordinator = false;
+  }
+  let isOAuth2 = false;
+  try {
+    isOAuth2 = String(e.requestInfo().context) === "oauth2";
+  } catch (_) {
+    isOAuth2 = false;
+  }
+  if (isOAuth2) {
+    // Provisioned: role, org and is_active are already on the record, decided
+    // by the hook rather than by the caller.
+    e.next();
+    return;
   }
   if (!isCoordinator) {
     e.record.set("role", null);
