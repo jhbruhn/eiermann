@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:eiermann/features/findings/finding_labels.dart';
 import 'package:eiermann/features/history/history_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/routing/back_or_home.dart';
 import 'package:eiermann/routing/router.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
@@ -57,7 +58,11 @@ class _FindingsScreenState extends ConsumerState<FindingsScreen> {
     final feed = ref.watch(findingsFeedProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.findingsTitle)),
+      appBar: AppBar(
+        // Over the shell, so a cold open has nothing to pop back to.
+        leading: const BackOrHomeButton(),
+        title: Text(l10n.findingsTitle),
+      ),
       body: AsyncValueView<FindingsFeedState>(
         value: feed,
         onRetry: () => ref.invalidate(findingsFeedProvider),

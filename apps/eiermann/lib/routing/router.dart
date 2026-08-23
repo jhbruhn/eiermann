@@ -1,12 +1,12 @@
 import 'package:eiermann/core/auth/session.dart';
+import 'package:eiermann/features/admin/management_screen.dart';
 import 'package:eiermann/features/areas/area_editor_screen.dart';
-import 'package:eiermann/features/audit/audit_screen.dart';
 import 'package:eiermann/features/auth/login_screen.dart';
 import 'package:eiermann/features/auth/pending_screen.dart';
 import 'package:eiermann/features/dashboard/dashboard_screen.dart';
 import 'package:eiermann/features/findings/findings_screen.dart';
 import 'package:eiermann/features/home/nav_shell.dart';
-import 'package:eiermann/features/rhythm/rhythm_settings_screen.dart';
+import 'package:eiermann/features/profile/profile_screen.dart';
 import 'package:eiermann/features/server_setup/setup_screen.dart';
 import 'package:eiermann/features/spots/prospects_screen.dart';
 import 'package:eiermann/features/spots/spot_detail_screen.dart';
@@ -14,7 +14,6 @@ import 'package:eiermann/features/spots/spots_map_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
 import 'package:eiermann/features/startup/splash_screen.dart';
 import 'package:eiermann/features/statistics/statistics_screen.dart';
-import 'package:eiermann/features/team/team_screen.dart';
 import 'package:eiermann/features/tours/tour_editor_screen.dart';
 import 'package:eiermann/features/tours/tour_run_screen.dart';
 import 'package:eiermann/features/tours/tours_screen.dart';
@@ -25,6 +24,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:zugvogel_pb_client/zugvogel_pb_client.dart';
+import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 part 'router.g.dart';
 
@@ -61,36 +61,50 @@ abstract final class Routes {
   /// Die Zahlen: what a period of work came to, and where the exports are
   /// taken from.
   ///
-  /// A place rather than a nav destination, and reached from the dashboard's
-  /// app bar: statistics are read at a desk when somebody has to argue for a
-  /// permission or a funding, not between two buildings. A fifth tab would
-  /// spend permanent space on a monthly errand.
+  /// A place rather than a nav destination, and reached from the account menu:
+  /// statistics are read at a desk when somebody has to argue for a permission
+  /// or a funding, not between two buildings. A fifth tab would spend permanent
+  /// space on a monthly errand.
   static const statistics = '/stats';
+
+  /// Your own account: what the app knows about you, and the way out.
+  ///
+  /// Over the shell like the other errands, and reached from the account menu
+  /// rather than from a tab. It also holds the sign-out, which used to be an
+  /// icon in all four shell app bars.
+  static const profile = '/profile';
+
+  /// The coordination's errands, under one address.
+  ///
+  /// A hub with one CHILD route per section rather than three top-level
+  /// locations. That is what gives a directly-opened section — a bookmarked
+  /// `/admin/team`, a web reload — the hub page beneath it, and so a back
+  /// button instead of a dead end.
+  static const admin = '/admin';
 
   /// The roster: who is on the team, and what each of them may decide.
   ///
-  /// Over the shell like the other errands, not a nav destination. Inviting
-  /// somebody happens once a season; a tab would spend permanent space on it.
   /// Readable by everybody — a visit names its author, and a name nobody can
-  /// resolve is worse than no name — but only the coordination sees the way in
-  /// from the dashboard, because only the coordination can change anything
-  /// here.
-  static const team = '/team';
+  /// resolve is worse than no name — but the hub it sits in is the
+  /// coordination's, because only the coordination can change anything here.
+  static const team = '$admin/$teamSegment';
+  static const teamSegment = 'team';
 
   /// The intervals every due date is computed from.
   ///
   /// Readable by every member — a date you are told to trust without seeing
   /// where it came from is a date people override — and writable only by the
   /// coordination, which is the server's rule too.
-  static const rhythmSettings = '/rhythm';
+  static const rhythmSettings = '$admin/$rhythmSegment';
+  static const rhythmSegment = 'rhythm';
 
   /// The log: who changed what, and what it used to say.
   ///
   /// The coordination's alone, enforced by the server rather than by this
-  /// route. Over the shell like the other errands — reading a log is something
-  /// somebody does at a desk when a question has come up, not between two
-  /// buildings.
-  static const audit = '/audit';
+  /// route. Reading a log is something somebody does at a desk when a question
+  /// has come up, not between two buildings.
+  static const audit = '$admin/$auditSegment';
+  static const auditSegment = 'audit';
 
   /// The Touren screen: the templates, and the way into a round.
   ///
@@ -317,19 +331,40 @@ List<RouteBase> appRoutes() {
       path: Routes.statistics,
       builder: (_, _) => const StatisticsScreen(),
     ),
-    // The roster: over the shell, like every other errand reached from the
-    // dashboard's app bar.
+    // Your own account: over the shell, like every other errand reached from
+    // the account menu.
     GoRoute(
-      path: Routes.team,
-      builder: (_, _) => const TeamScreen(),
+      path: Routes.profile,
+      builder: (_, _) => const ProfileScreen(),
     ),
+    // The management hub, with one child route per section. On a wide window
+    // [ManagementScreen] lays the hub and the section out side by side itself —
+    // it is NOT a go_router two-pane, so the hub stays one ordinary route and
+    // its way back to the app never disappears. The sections are CHILDREN
+    // rather than top-level siblings so the hub page sits beneath a
+    // directly-opened section URL, which is what gives it a back button instead
+    // of a dead end. The figures stay out of the hub: they are readable by
+    // everybody and reached from the account menu.
     GoRoute(
-      path: Routes.rhythmSettings,
-      builder: (_, _) => const RhythmSettingsScreen(),
-    ),
-    GoRoute(
-      path: Routes.audit,
-      builder: (_, _) => const AuditScreen(),
+      path: Routes.admin,
+      builder: (_, _) => const ManagementScreen(),
+      routes: [
+        for (final section in AdminSection.values)
+          GoRoute(
+            path: section.segment,
+            // On a wide window the hub is part of BOTH this page and the
+            // parent's, so a page transition would slide the whole two-pane in
+            // when all that changed is the right pane — it reads as a new
+            // screen opening over the hub. A narrow window really is a
+            // full-screen push and keeps the platform transition.
+            pageBuilder: (context, state) {
+              final screen = ManagementScreen(section: section);
+              return context.windowSizeClass.isExpanded
+                  ? NoTransitionPage(key: state.pageKey, child: screen)
+                  : MaterialPage(key: state.pageKey, child: screen);
+            },
+          ),
+      ],
     ),
     // The template editor and the running round: over the shell, like the
     // dossier, so no branch can be parked on either. The run especially — a

@@ -1,4 +1,4 @@
-import 'package:eiermann/features/home/sign_out_action.dart';
+import 'package:eiermann/features/home/account_menu.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_list.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -25,7 +25,7 @@ class SpotsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.spotsTitle),
-        actions: const [SignOutAction()],
+        actions: const [AccountMenu()],
       ),
       body: SpotsList(urgency: urgency),
       floatingActionButton: FloatingActionButton.extended(

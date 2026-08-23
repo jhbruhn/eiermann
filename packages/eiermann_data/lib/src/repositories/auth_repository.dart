@@ -75,5 +75,42 @@ class AuthRepository {
     }
   }
 
+  /// Edits the signed-in account's own name and phone number.
+  ///
+  /// Exactly those two fields, and the shape is the server's:
+  /// `users.updateRule` lets a member write their own row only while `role`,
+  /// `org`, `is_active` and `verified` are absent from the body. Sending one of
+  /// them here would not be a privilege escalation — `main.pb.js` puts the
+  /// stored value back — but it would turn a routine save into a refusal, so
+  /// this method cannot spell one.
+  ///
+  /// Goes through the AUTH collection rather than `UsersRepository` on purpose.
+  /// PocketBase's SDK notices that the updated record is the one in the auth
+  /// store and saves it back, which emits on [changes] — so [currentUser], and
+  /// with it every screen showing the name, follows without anybody
+  /// invalidating anything.
+  Future<AppUser> updateProfile({String? name, String? phone}) async {
+    final me = _pb.authStore.record;
+    if (me == null) {
+      throw const RepositoryException(
+        'not signed in',
+        kind: RepositoryErrorKind.unauthorized,
+      );
+    }
+    try {
+      final updated = await _pb
+          .collection('users')
+          .update(
+            me.id,
+            // Null-aware elements: an omitted argument means "leave unchanged",
+            // never "clear" — an empty string is how a caller clears a field.
+            body: {'name': ?name?.trim(), 'phone': ?phone?.trim()},
+          );
+      return AppUser.fromRecord(updated);
+    } on ClientException catch (e) {
+      throw RepositoryException.fromClient(e);
+    }
+  }
+
   void signOut() => _pb.authStore.clear();
 }

@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:eiermann/data/repository_providers.dart';
-import 'package:eiermann/features/home/sign_out_action.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/routing/back_or_home.dart';
 import 'package:eiermann/routing/router.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
@@ -40,8 +40,11 @@ class ProspectsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        // No account action: this screen sits over the shell and its way out is
+        // the arrow, which leads to a screen that has one. The fallback is for
+        // the cold open, where there is nothing to pop.
+        leading: const BackOrHomeButton(),
         title: Text(l10n.prospectsTitle),
-        actions: const [SignOutAction()],
       ),
       body: AsyncValueView(
         value: spots,

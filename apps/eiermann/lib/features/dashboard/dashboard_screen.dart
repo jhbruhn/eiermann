@@ -1,7 +1,5 @@
-import 'package:eiermann/core/auth/roles.dart';
-import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/features/history/history_providers.dart';
-import 'package:eiermann/features/home/sign_out_action.dart';
+import 'package:eiermann/features/home/account_menu.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
@@ -53,84 +51,22 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final spots = ref.watch(allSpotsProvider);
-    // Only the coordination gets the administration menu. Not a security
-    // boundary — the server holds those — but a member who found the roster
-    // could only look at it, and a menu entry leading to a screen whose every
-    // control is greyed out reads as a broken app rather than as a permission.
-    final mayAdminister =
-        ref.watch(currentUserProvider).value?.role?.canAdminister ?? false;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.dashboardTitle),
-        actions: [
-          // The way to the figures and to the exports. Here rather than as a
-          // fifth nav destination: this is what somebody opens when a
-          // permission is up for renewal or a funder asks what the year came to
-          // — a monthly errand, not a place to be between two buildings.
-          IconButton(
-            icon: const Icon(Icons.insights_outlined),
-            tooltip: l10n.statsTitle,
-            onPressed: () => context.push(Routes.statistics),
-          ),
-          if (mayAdminister) const _AdminMenu(),
-          const SignOutAction(),
-        ],
+        // One button for the whole account surface — the profile, the figures,
+        // the administration — instead of the row of three icons this app bar
+        // used to carry. What is behind it is role-gated in one place
+        // ([accountEntries]), and on anything wider than a phone the rail lists
+        // the same entries outright and this hides itself.
+        actions: const [AccountMenu()],
       ),
       body: AsyncValueView(
         value: spots,
         onRetry: () => ref.invalidate(allSpotsProvider),
         data: (rows) => _Tiles(rows: rows),
       ),
-    );
-  }
-}
-
-/// The coordination's errands, behind one icon.
-///
-/// A menu rather than an icon each: these are things somebody does a handful of
-/// times a year — let a new volunteer in, adjust the rhythm after a season,
-/// look up who changed a phase. Three permanent app-bar icons would give them
-/// the same weight as the work itself.
-class _AdminMenu extends StatelessWidget {
-  const _AdminMenu();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.admin_panel_settings_outlined),
-      tooltip: l10n.adminMenuTooltip,
-      onSelected: (route) => context.push(route),
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: Routes.team,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.groups_outlined),
-            title: Text(l10n.teamTitle),
-          ),
-        ),
-        PopupMenuItem(
-          value: Routes.rhythmSettings,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.timelapse_outlined),
-            title: Text(l10n.rhythmSettingsTitle),
-          ),
-        ),
-        PopupMenuItem(
-          value: Routes.audit,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.history),
-            title: Text(l10n.auditTitle),
-          ),
-        ),
-      ],
     );
   }
 }

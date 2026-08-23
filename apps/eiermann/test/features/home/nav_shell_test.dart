@@ -1,5 +1,6 @@
 import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
+import 'package:eiermann/features/home/account_menu.dart';
 import 'package:eiermann/features/spots/prospects_screen.dart';
 import 'package:eiermann/features/spots/spots_screen.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -211,6 +212,33 @@ void main() {
     ]) {
       expect(railDestination(label), findsOneWidget);
     }
+  });
+
+  testWidgets('a phone carries the account surface in the app bar', (
+    tester,
+  ) async {
+    // One button for the profile, the figures and the administration. It used
+    // to be up to three separate icons, and the row differed from tab to tab.
+    await pumpShell(tester);
+
+    expect(find.byType(AccountMenuButton), findsOneWidget);
+  });
+
+  testWidgets('the rail lists the account entries instead of hiding them', (
+    tester,
+  ) async {
+    // The rail has the room, so nothing is behind a popup — and the app-bar
+    // button stands down, so the same destinations are not offered twice.
+    await pumpShell(tester, size: const Size(1200, 900));
+
+    expect(
+      find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.byType(AccountRailActions),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(AccountMenuButton), findsNothing);
   });
 
   testWidgets('the map is reachable without an app-bar icon', (tester) async {

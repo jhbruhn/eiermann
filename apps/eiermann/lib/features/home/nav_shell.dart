@@ -1,3 +1,4 @@
+import 'package:eiermann/features/home/account_menu.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -81,6 +82,21 @@ class NavShell extends StatelessWidget {
               labelType: extended
                   ? NavigationRailLabelType.none
                   : NavigationRailLabelType.all,
+              // The account entries — profile, the figures, the administration
+              // — live HERE whenever the rail is showing, rather than in each
+              // screen's app bar: the rail has the room to list them outright,
+              // and [AccountMenu] self-hides so the same three destinations are
+              // never offered twice. Bottom-aligned, as Material recommends for
+              // a rail's trailing widget.
+              trailing: Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: ZugvogelSpacing.md),
+                    child: AccountRailActions(extended: extended),
+                  ),
+                ),
+              ),
               destinations: [
                 for (final d in destinations)
                   NavigationRailDestination(

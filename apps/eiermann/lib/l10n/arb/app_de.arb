@@ -374,7 +374,32 @@
   "auditValueSpeciesProtected": "Geschützte Art",
   "auditValueSpeciesFeralPigeon": "Stadttaube",
   "auditValueSpeciesUnknown": "Unbekannt",
-  "adminMenuTooltip": "Verwaltung",
+  "accountTooltip": "Konto",
+  "@accountTooltip": {
+    "description": "Tooltip of the one account button in the app bar of every shell destination."
+  },
+  "adminTitle": "Verwaltung",
+  "adminGroupOrganisation": "Organisation",
+  "adminGroupOversight": "Nachvollziehbarkeit",
+  "adminTeamSubtitle": "Wer dabei ist, wer was entscheiden darf, und wer gegangen ist.",
+  "adminRhythmSubtitle": "Die Abstände, aus denen jedes Fälligkeitsdatum in dieser App gerechnet wird.",
+  "adminAuditSubtitle": "Wer eine Phase geändert, ein geschütztes Nest freigegeben oder die Fristen verstellt hat.",
+  "adminSelectSection": "Wähle links aus, was du verwalten willst.",
+  "@adminSelectSection": {
+    "description": "Placeholder in the hub's right pane on a wide window, before a section is chosen. Deliberately avoids the word Bereich, which in this app means a part of a building."
+  },
+  "profileTitle": "Mein Konto",
+  "profileEditTitle": "Angaben ändern",
+  "profileNameLabel": "Name",
+  "profileNameMissing": "Kein Name hinterlegt",
+  "@profileNameMissing": {
+    "description": "Shown instead of the name when the account has none. The visit history snapshots the author's name when it is written, so this is worth fixing before the next visit."
+  },
+  "profileEmailLabel": "E-Mail",
+  "profileRoleLabel": "Rolle",
+  "profilePhoneLabel": "Telefon",
+  "profileAppVersionLabel": "App-Version",
+  "profileServerVersionLabel": "Server-Version",
   "teamTitle": "Team",
   "@teamTitle": {
     "description": "The roster. Readable by everybody (a visit names its author), changeable only by the coordination."

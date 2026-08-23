@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:eiermann/features/home/sign_out_action.dart';
+import 'package:eiermann/features/home/account_menu.dart';
 import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_sheet.dart';
 import 'package:eiermann/features/spots/spots_providers.dart';
@@ -122,7 +122,7 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.spotsMapTitle),
-        actions: const [SignOutAction()],
+        actions: const [AccountMenu()],
       ),
       body: Stack(
         children: [

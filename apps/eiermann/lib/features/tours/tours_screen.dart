@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/data/repository_providers.dart';
-import 'package:eiermann/features/home/sign_out_action.dart';
+import 'package:eiermann/features/home/account_menu.dart';
 import 'package:eiermann/features/tours/tour_sheet.dart';
 import 'package:eiermann/features/tours/tours_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -39,7 +39,7 @@ class ToursScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.toursTitle),
-        actions: const [SignOutAction()],
+        actions: const [AccountMenu()],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showTourSheet(context),

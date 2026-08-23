@@ -6,6 +6,7 @@ import 'package:eiermann/features/statistics/period_selector.dart';
 import 'package:eiermann/features/statistics/statistics_providers.dart';
 import 'package:eiermann/features/visits/check_labels.dart';
 import 'package:eiermann/l10n/l10n.dart';
+import 'package:eiermann/routing/back_or_home.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,27 +39,34 @@ class StatisticsScreen extends ConsumerWidget {
       statisticsProvider(year: period.year, month: period.month),
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.statsTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.ios_share),
-            tooltip: l10n.statsExportAction,
-            // Available even while the figures are loading or failed: the
-            // export is a server-side render over the same period and does not
-            // need this screen's payload to succeed. Only the year PICKER in
-            // the sheet leans on it, and it degrades to the two recent years.
-            onPressed: () => showReportSheet(context),
-          ),
-        ],
-      ),
-      body: AsyncValueView(
-        value: stats,
-        onRetry: () => ref.invalidate(
-          statisticsProvider(year: period.year, month: period.month),
+    return BackOrHomeScope(
+      child: Scaffold(
+        appBar: AppBar(
+          // Reached by `go` from the account menu, so there can be nothing
+          // beneath it — a cold open, a web reload, or an arrival from a tab.
+          // `AppBar`'s implied arrow vanishes in exactly that case.
+          leading: const BackOrHomeButton(),
+          title: Text(l10n.statsTitle),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              tooltip: l10n.statsExportAction,
+              // Available even while the figures are loading or failed: the
+              // export is a server-side render over the same period and does
+              // not need this screen's payload to succeed. Only the year
+              // PICKER in the sheet leans on it, and it degrades to the two
+              // recent years.
+              onPressed: () => showReportSheet(context),
+            ),
+          ],
         ),
-        data: (data) => _Figures(stats: data, period: period),
+        body: AsyncValueView(
+          value: stats,
+          onRetry: () => ref.invalidate(
+            statisticsProvider(year: period.year, month: period.month),
+          ),
+          data: (data) => _Figures(stats: data, period: period),
+        ),
       ),
     );
   }
