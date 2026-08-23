@@ -2905,6 +2905,106 @@ h.check(
     "rhythm, and by then the remaining egg has hatched",
 )
 
+# ── Authorship is the server's (eiermann-ldi) ───────────────────────────────
+#
+# Measured before the fix: this PATCH answered 200 and stored both values.
+# `author_name` is deliberately a SNAPSHOT — a closed account must not take the
+# Funde it recorded with it — which makes it the only surviving trace of who was
+# there, in a plain text field. `found_at` is what the period report cuts on, so
+# a Fund could be moved into another reporting period, and those reports go to a
+# Behörde.
+#
+# Asserted here as well as through the registry sweep because the two fail for
+# different reasons: the registry catches a field JOINING the writable set, this
+# catches the specific clauses going missing.
+_, _funds = h.req(
+    "GET",
+    f"/api/collections/findings/records?filter=spot='{vhost['id']}'",
+    member_token,
+)
+_fund_id = ((_funds or {}).get("items") or [{}])[0].get("id", "")
+h.check(
+    "the visit transaction recorded a Fund to try this on",
+    bool(_fund_id),
+    "without one the four assertions below would all pass against nothing",
+)
+
+_ldi_status, _ldi_body = h.req(
+    "PATCH", f"/api/collections/findings/records/{_fund_id}", member_token,
+    {"author_name": "GEFAELSCHT", "found_at": "2020-01-01 10:00:00.000Z"},
+)
+h.check(
+    "a Fund's author and date cannot be rewritten",
+    _ldi_status >= 400,
+    f"status {_ldi_status} — the only surviving trace of who found something, "
+    "and the date the period report cuts on",
+)
+_, _fund_now = h.req(
+    "GET", f"/api/collections/findings/records/{_fund_id}", member_token
+)
+h.check(
+    "...and neither value moved",
+    (_fund_now or {}).get("author_name") != "GEFAELSCHT"
+    and not str((_fund_now or {}).get("found_at") or "").startswith("2020"),
+    f"author_name={(_fund_now or {}).get('author_name')!r} "
+    f"found_at={(_fund_now or {}).get('found_at')!r} — a refusal that refuses "
+    "and writes anyway is the worst of both",
+)
+
+# The DESCRIPTION still moves, which is the whole point of keeping the rule at
+# all: pinning the row wholesale would have taken eiermann-8fw's correction
+# sheet with it.
+_ldi_status, _ = h.req(
+    "PATCH", f"/api/collections/findings/records/{_fund_id}", member_token,
+    {"note": "doch eine Dohle", "species_label": "Dohle", "count": 2},
+)
+h.check(
+    "...while the note, the species and the count still can be",
+    h.ok(_ldi_status),
+    f"status {_ldi_status} — \"das war eine Dohle\" is what somebody realises "
+    "afterwards, and eiermann-8fw is the screen that says so",
+)
+
+# `photo` stays writable ON PURPOSE. A file cannot travel in the transactional
+# endpoint's JSON body, so it is reachable only through a second request after
+# the write — which is what eiermann-9oa is scoped to build. Pinning it would
+# have refused a filed feature to close a hole it is not part of.
+_ldi_status, _ = h.req(
+    "PATCH", f"/api/collections/findings/records/{_fund_id}", member_token,
+    {"photo": ""},
+)
+h.check(
+    "...and the photo field is still reachable, because nothing else reaches it",
+    h.ok(_ldi_status),
+    f"status {_ldi_status} — eiermann-9oa has no other way in, and a photo is "
+    "an attachment added afterwards rather than a statement about who was there",
+)
+
+# The same shape one collection over. `visits` pinned `author`, the relation,
+# and left `author_name`, the snapshot beside it, open — which is how a
+# half-guarded rule reads as a guarded one.
+_ldi_status, _ = h.req(
+    "PATCH", f"/api/collections/visits/records/{(body or {}).get('visit', '')}",
+    member_token, {"author_name": "GEFAELSCHT"},
+)
+h.check(
+    "a Besuch's author snapshot cannot be rewritten either",
+    _ldi_status >= 400,
+    f"status {_ldi_status} — the relation was pinned and the snapshot next to "
+    "it was not, which is the shape the registry sweep exists to surface",
+)
+_ldi_status, _ = h.req(
+    "PATCH", f"/api/collections/visits/records/{(body or {}).get('visit', '')}",
+    member_token, {"note": "nachgetragen"},
+)
+h.check(
+    "...while its note still can be",
+    h.ok(_ldi_status),
+    f"status {_ldi_status} — what somebody meant to write down and did not is "
+    "exactly what an update rule on `visits` is for",
+)
+
+
 # ── A Halbgelege follow-up is not the client's to delete (eiermann-9fn) ─────
 #
 # `1700000011` opens the collection to deletion, because a manual reminder that
@@ -5284,9 +5384,6 @@ WRITABLE_AFTER_CREATE = {
     "visits": {
         "note": "what somebody meant to write down and did not",
         "skip_note": "same",
-        "author_name": "BUG:eiermann-ldi — the snapshot that keeps a closed "
-                       "account's visits attributable, and `author` beside it "
-                       "IS pinned",
     },
     "visit_photos": {
         "caption": "a caption is written after the upload",
@@ -5296,9 +5393,11 @@ WRITABLE_AFTER_CREATE = {
         "note": "\"das war eine Dohle\" is what somebody realises afterwards",
         "species_label": "same — this is the field that sentence is about",
         "count": "miscounted in a stairwell",
-        "author": "BUG:eiermann-ldi", "author_name": "BUG:eiermann-ldi",
-        "found_at": "BUG:eiermann-ldi — the period report cuts on this date",
-        "photo": "BUG:eiermann-ldi",
+        "photo": "a file cannot travel in the transactional endpoint's "
+                 "JSON body, so this is reachable only through a second "
+                 "request after the write — which is what eiermann-9oa "
+                 "builds. An attachment added afterwards, like the note, "
+                 "and not a statement about who was there",
     },
     "follow_ups": {
         "due_at": "a reminder is moved",
