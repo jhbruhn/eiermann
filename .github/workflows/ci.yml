@@ -86,9 +86,14 @@ jobs:
         run: flutter test --coverage
         working-directory: apps/eiermann
 
-      # No coverage floor yet, deliberately: there is barely any code to cover
-      # and a number over a skeleton is theatre. The gate goes in with the first
-      # domain screens — see eiermann-h7q.9.
+      # eiermann-uwd.8. Two checks, and the second is the one that matters:
+      # `flutter test --coverage` instruments only the libraries a test actually
+      # LOADED, so a file no test imports does not appear in the report at all.
+      # It is not counted as uncovered — it is not counted, which means adding a
+      # whole untested feature RAISES the percentage. The script fails on both.
+      - name: Coverage gate
+        run: ./tools/check-coverage.sh
+
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
@@ -110,6 +115,26 @@ jobs:
       # privilege escalation.
       - name: Run the PocketBase rule suite
         run: backend/pocketbase/tests/run.sh
+
+      # eiermann-m89. Both of these existed and ran in NO ci job, which is the
+      # same as not existing: a suite nothing runs is a suite that goes green by
+      # rotting.
+      #
+      # The node tests cover the PURE halves — the rhythm ladder and the
+      # settings validation — which the integration suite would need twenty real
+      # visits to walk. They need no server, so they run first and fail fast.
+      - name: Run the hook unit tests
+        run: |
+          for test in backend/pocketbase/tests/unit/*_test.js; do
+            echo "── $test"
+            node "$test"
+          done
+
+      # `cronAdd` jobs are invisible to the rule suite — nothing an HTTP request
+      # can do triggers one — so this boots an instance with the schedules
+      # rewritten and watches a job actually run.
+      - name: Run the cron harness
+        run: backend/pocketbase/tests/run_cron.sh
 
   docker:
     name: docker · full image builds
