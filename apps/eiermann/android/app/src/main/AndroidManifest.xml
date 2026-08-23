@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app is a PocketBase client: without this a RELEASE build has no
+         network at all. It is deliberately absent from the Flutter template's
+         main manifest — src/debug and src/profile declare it for the tool's own
+         hot-reload channel, which is why leaving it out here fails only in the
+         one build a user ever installs. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- "In meiner Nähe" on the map: the camera jumps to the reader's position
          so they can see which buildings are around them. COARSE as well as
          FINE, and both are optional at runtime — the map works without a
