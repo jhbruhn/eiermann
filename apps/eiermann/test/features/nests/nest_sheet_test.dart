@@ -246,6 +246,38 @@ void main() {
     expect(captureUpdate()['species'], NestSpecies.feralPigeon.wire);
   });
 
+  testWidgets('the safe default is stated where the species is decided', (
+    tester,
+  ) async {
+    // eiermann-uwd.9. The protected-species guard rests entirely on a human
+    // getting this right: the server refuses every egg change on a nest marked
+    // `protected`, and refuses nothing at all on one that is not. A jackdaw
+    // recorded as a pigeon is a jackdaw whose clutch this app makes it FASTER
+    // to swap.
+    //
+    // So the field carries the rule and the three decisive marks. The full
+    // sheet lives in docs/feldhandbuch.md — training for beforehand — but
+    // somebody in an attic looking at a pale eye cannot open a document.
+    await pump(tester, pin: (x: 0.5, y: 0.5), suggestedLabel: 'N1');
+
+    expect(find.text(de.nestSpeciesUnsureHint), findsOneWidget);
+  });
+
+  testWidgets('...and gives way to the lock once a nest IS protected', (
+    tester,
+  ) async {
+    // Two sentences about the same thing would be one too many. Once the nest
+    // is marked, the useful line is who can undo it — the advice on how to
+    // decide has already been taken.
+    await pump(
+      tester,
+      nest: _nest.copyWith(species: NestSpecies.protected),
+    );
+
+    expect(find.text(de.nestProtectedLockedHint), findsOneWidget);
+    expect(find.text(de.nestSpeciesUnsureHint), findsNothing);
+  });
+
   testWidgets('the species NAME is asked for unless it is a city pigeon', (
     tester,
   ) async {

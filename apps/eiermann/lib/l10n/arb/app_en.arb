@@ -283,6 +283,7 @@
   "nestSpeciesProtected": "Protected",
   "nestSpeciesUnknown": "Undetermined",
   "nestSpeciesUnreadable": "Species unknown",
+  "nestSpeciesUnsureHint": "Not sure? Then \u201cprotected\u201d \u2014 when in doubt, do not touch. The app does not identify species; it protects only what a person marked. The marks are in the field handbook (jackdaw: pale eye, grey nape, 4\u20136 blotched blue-green eggs; feral pigeon: orange eye, 2 pure white eggs).",
   "nestProtectedLockedHint": "Only the coordination can release a protected nest again.",
   "nestsEmptyInArea": "No nest yet. Tap the photo to mark one — or add one without a pin.",
   "nestsAddAction": "Nest",

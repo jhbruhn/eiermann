@@ -264,6 +264,30 @@ class _NestSheetState extends ConsumerState<NestSheet>
                 color: context.zvColors.critical,
               ),
             ),
+          ] else ...[
+            const SizedBox(height: ZugvogelSpacing.sm),
+            // The safe default, stated at the field where it is decided.
+            //
+            // The whole protected-species guard rests on a human getting this
+            // right: the server refuses every egg change on a nest marked
+            // `protected`, and refuses nothing at all on one that is not. A
+            // jackdaw recorded as a pigeon is a jackdaw whose clutch this app
+            // makes it FASTER to swap — §44 BNatSchG, and the group's access to
+            // the building.
+            //
+            // The three decisive marks are repeated here rather than left only
+            // in `docs/feldhandbuch.md`, and that is a deliberate divergence
+            // from "the identification aid belongs in the onboarding material":
+            // somebody in an attic looking at a pale eye cannot open a
+            // document, and the sheet is training for BEFOREHAND. The handbook
+            // stays the full version — the sheet, the other three confusable
+            // species, and what to do next.
+            Text(
+              l10n.nestSpeciesUnsureHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
           if (_species != NestSpecies.feralPigeon) ...[
             const SizedBox(height: ZugvogelSpacing.md),
