@@ -2819,6 +2819,51 @@ h.check(
     "rhythm, and by then the remaining egg has hatched",
 )
 
+# ── A Halbgelege follow-up is not the client's to delete (eiermann-9fn) ─────
+#
+# `1700000011` opens the collection to deletion, because a manual reminder that
+# turned out to be unnecessary is worth removing. Its comment then says a hook
+# holds the other half — and until now that hook did not exist: measured, a
+# member's DELETE of this row answered 204, and the obligation was gone with no
+# record that it had ever been made. The follow-up rows ARE the record.
+#
+# It matters more than the tidiness of the rule. This is the one deadline in the
+# app that days of delay ruin — out of a half clutch a chick hatches — it is
+# created by the visit transaction rather than by a person, and exactly one thing
+# ends it: a later check on the same nest that observed something. Since
+# eiermann-z3u a delete recomputes immediately, so the Spot would drop straight
+# back to the ladder's rhythm and nothing would look wrong.
+#
+# The manual side of this guard is asserted in [Nachfassen zieht den Spot nach],
+# where deleting one is the last step. Both directions matter: a guard that
+# refused every delete would take away a reminder somebody is entitled to drop.
+# Named apart from the section's `status`/`body`: this file is one long script,
+# the replay assertions below still read the `body` of the visit that created
+# this follow-up, and reusing the names quietly rewrote what they compare against.
+del_status, del_body = h.req(
+    "DELETE", f"/api/collections/follow_ups/records/{open_ups[0]['id']}",
+    member_token,
+)
+h.check(
+    "a half_clutch follow-up cannot be deleted by a member",
+    del_status >= 400 and refused_with(del_body, "follow_up_not_deletable"),
+    f"status {del_status}, {refusal_codes(del_body)} — the rhythm created this "
+    "row, and deleting it drops a Nachkontrolle nobody carried out",
+)
+_, ups_after = h.req(
+    "GET",
+    f"/api/collections/follow_ups/records?filter=nest='{vn2['id']}'",
+    member_token,
+)
+h.check(
+    "...and it is still there, still open",
+    [
+        f for f in (ups_after or {}).get("items") or []
+        if not f.get("resolved_at")
+    ] != [],
+    "a refusal that refuses and deletes anyway is the worst of both",
+)
+
 _, spot_now = h.req(
     "GET", f"/api/collections/spots/records/{vhost['id']}", member_token
 )
@@ -3243,7 +3288,7 @@ status, _ = h.req(
     member_token,
 )
 h.check(
-    "deleting it hands the Spot back to its nests",
+    "a MANUAL follow-up can be deleted, and hands the Spot back to its nests",
     h.ok(status) and due_day_of(fu_spot["id"]) == baseline,
     f"status {status}, next_due_at {due_day_of(fu_spot['id'])!r} against the "
     f"baseline {baseline!r} — a date whose only source is gone must not outlive "

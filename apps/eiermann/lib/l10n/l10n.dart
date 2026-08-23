@@ -138,6 +138,10 @@ class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
     // offers photo removal yet: the day one does, an unmapped code would put
     // generic copy on a refusal whose whole value is naming the way out.
     'area_photo_still_pinned' => _l10n.serverErrorAreaPhotoStillPinned,
+    // Reachable from any list that offers a swipe-to-delete over follow-ups
+    // without checking the reason first, which is every one written from the
+    // manual case outwards.
+    'follow_up_not_deletable' => _l10n.serverErrorFollowUpNotDeletable,
     'visit_nest_foreign_spot' => _l10n.serverErrorVisitNestForeignSpot,
     'visit_nest_duplicate' => _l10n.serverErrorVisitNestDuplicate,
     'visit_eggs_do_not_balance' => _l10n.serverErrorVisitEggsDoNotBalance,

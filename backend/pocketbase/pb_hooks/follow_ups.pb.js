@@ -85,7 +85,11 @@ onRecordUpdateRequest((e) => {
 }, "follow_ups");
 
 onRecordDeleteRequest((e) => {
-  // Read first: after the delete there is no record to ask which Spot this was.
+  // Before anything else, and before `e.next()`: a Halbgelege follow-up is the
+  // rhythm's, not the client's (eiermann-9fn, `app_follow_up.js`). A guard that
+  // ran after the delete would be describing a row that is already gone.
+  require(`${__hooks}/app_follow_up.js`).guardDelete(e.record);
+  // Read second: after the delete there is no record to ask which Spot this was.
   const spotId = e.record.get("spot");
   e.next();
   const rhythm = require(`${__hooks}/app_rhythm.js`);

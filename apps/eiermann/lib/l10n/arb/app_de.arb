@@ -858,6 +858,10 @@
   "@serverErrorNestPinNeedsAreaPhoto": {
     "description": "Shown when a pin is written to an area that has no photo — reachable when somebody else removed the photo while the pin was being placed."
   },
+  "serverErrorFollowUpNotDeletable": "Diese Nachkontrolle hat der Rhythmus angelegt, nicht du — sie lässt sich nicht löschen. Sie erledigt sich, sobald das Nest wieder geprüft wurde.",
+  "@serverErrorFollowUpNotDeletable": {
+    "description": "Shown when deleting a half-clutch follow-up is refused. Says what ends it instead, because the refusal is otherwise a dead end."
+  },
   "serverErrorAreaPhotoStillPinned": "Auf diesem Foto sind Nester eingezeichnet — solange sie dort stehen, lässt sich das Foto nicht entfernen. Tausche es stattdessen aus: die Nester bleiben erhalten und du prüfst anschließend ihre Position gegen das neue Bild.",
   "@serverErrorAreaPhotoStillPinned": {
     "description": "Shown when removing an area photo is refused because nests are pinned on it. Names the replacement path, because that is the one that keeps the pins."

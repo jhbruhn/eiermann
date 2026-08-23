@@ -69,6 +69,9 @@ const CODES = {
   areaReviewFieldNotWritable: "area_review_field_not_writable",
   areaPhotoStillPinned: "area_photo_still_pinned",
 
+  // ── Nachfassen ──
+  followUpNotDeletable: "follow_up_not_deletable",
+
   // ── Nests ──
   nestNeedsArea: "nest_needs_area",
   nestAreaNotFound: "nest_area_not_found",
