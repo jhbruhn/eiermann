@@ -406,11 +406,34 @@ class _Section extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        // A Wrap, not a Row, and the action keeps its WORDS because of it. In
+        // a Row the labelled action takes its natural width and the heading
+        // overflowed by 125 px at 400 logical pixels — the width the app is
+        // actually used at — with "Ansprechpartner hinzufügen". The two ways
+        // out of that are dropping the label to a bare icon or letting the
+        // header break; this takes the second, because a Wrap decides by
+        // measuring rather than by a breakpoint somebody has to keep in step
+        // with the longest German string and the reader's text scale.
+        //
+        // `spaceBetween` is what keeps the wide case unchanged: one run puts
+        // the heading left and the action hard right, exactly as the Row did.
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: ZugvogelSpacing.sm,
           children: [
-            IconChip(icon),
-            const SizedBox(width: ZugvogelSpacing.md),
-            Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
+            // Icon and heading travel together — they are one label, and a
+            // break between them would read as two.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconChip(icon),
+                const SizedBox(width: ZugvogelSpacing.md),
+                Flexible(
+                  child: Text(title, style: theme.textTheme.titleMedium),
+                ),
+              ],
+            ),
             ?action,
           ],
         ),

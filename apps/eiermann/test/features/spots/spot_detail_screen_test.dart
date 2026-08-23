@@ -110,8 +110,12 @@ void main() {
     WidgetTester tester, {
     Spot record = spot,
     List<SpotContact> rows = const [caretaker],
+    // Tall by default so nothing below the fold goes missing, and wide by
+    // default so most tests read the dossier at its roomy shape. The narrow
+    // width the app is actually used at is its own test.
+    Size surface = const Size(800, 1600),
   }) async {
-    tester.useSurface(const Size(800, 1600));
+    tester.useSurface(surface);
     when(() => spots.getOne(any())).thenAnswer((_) async => record);
     when(() => contacts.forSpot(any())).thenAnswer((_) async => rows);
     when(
@@ -183,6 +187,25 @@ void main() {
       // One key. The sheet owns one field and must not rewrite the five it
       // never showed.
       expect(body, {'access_note': 'Seiteneingang, Code 1980'});
+    });
+  });
+
+  group('a section heading', () {
+    testWidgets('keeps its action and its words at PHONE width', (
+      tester,
+    ) async {
+      // 400 logical pixels is the width this app is used at, and the heading
+      // overflowed there by 125 px: a Row gave the labelled action its full
+      // natural width, and "Ansprechpartner hinzufügen" plus the heading plus
+      // the icon do not fit. The rest of the suite pumps at 800 and never saw
+      // it. Asserted as "no overflow AND the label still there", because
+      // shrinking the action to a bare icon would also silence the exception
+      // while taking the words away from the one control that adds a contact.
+      await pumpDetail(tester, surface: const Size(400, 2400));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(de.spotContactsTitle), findsOneWidget);
+      expect(find.text(de.spotContactsAddAction), findsOneWidget);
     });
   });
 
