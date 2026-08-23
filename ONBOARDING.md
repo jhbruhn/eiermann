@@ -109,6 +109,45 @@ public database.
 the app directory analyses only the app — that is how nine findings in a
 federfall package shipped unnoticed.
 
+## Checking the web build for real
+
+The two traps that only appear on a deployed instance — not under
+`flutter run`, not in a widget test — are the font one and the map-origin one.
+Both come down to the CSP, which is a **server header** the dev override does
+not necessarily apply.
+
+So check them against the full image, which is the artefact that ships:
+
+```bash
+docker compose -f docker-compose.yml up -d --build   # → http://localhost:8091
+curl -sD - -o /dev/null http://localhost:8091/ | grep -i content-security-policy
+```
+
+What you should see, and why each part matters:
+
+- `font-src 'self'` — **the app serves every font itself.** zugvogel_ui bundles
+  Roboto plus three Noto families as package assets, and
+  `ZugvogelTheme.fontFamily` / `.fontFallbacks` name them. Verify they are
+  actually served:
+  `curl -o /dev/null -w '%{http_code}\n' http://localhost:8091/assets/packages/zugvogel_ui/assets/fonts/Roboto-Regular.ttf`
+- `img-src` / `connect-src` listing the map origins — **derived from the map
+  config the server prescribes**, so the server cannot block what it told the
+  app to fetch. If you point `MAP_TILE_URL` somewhere new and forget the
+  derivation, the tiles silently do not load.
+
+**The font trap is the one that bites.** Web has no system fonts. A codepoint no
+bundled family covers makes the engine fetch a per-glyph Noto slice from
+`fonts.gstatic.com`, the CSP blocks it, and it retries on *every layout of that
+text* — one arrow in one string produced an endless console error stream on a
+deployed federfall instance. Two guards hold the line now:
+
+- `test/guards/font_family_test.dart` — nothing may name a `fontFamily` the app
+  does not bundle. Written because `'monospace'` got shipped once for a
+  perfectly reasonable readability argument.
+- `test/guards/glyph_coverage_test.dart` — every non-ASCII character in either
+  ARB file is on a list verified against the bundled fonts' `cmap` tables. The
+  file carries the command to re-verify.
+
 ## How the work is tracked
 
 Issues live in **beads** (`bd`), not GitHub, and not in markdown TODO lists.

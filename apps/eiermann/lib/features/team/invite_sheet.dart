@@ -252,13 +252,26 @@ class _InvitationDialog extends StatelessWidget {
                     Expanded(
                       child: SelectableText(
                         invitation.password,
-                        // Monospace, because this string gets read out loud and
-                        // retyped: a proportional font makes a lower-case l and
-                        // an upper-case I the same glyph, which is the support
-                        // call the generator's alphabet already avoids.
+                        // Widely spaced, because this string gets read out loud
+                        // and retyped off a screen.
+                        //
+                        // NOT a named `fontFamily`, which is what this said
+                        // first. Web has no system fonts: naming a family
+                        // the app does not bundle makes the engine download
+                        // Noto slice from fonts.gstatic.com, the CSP's
+                        // `font-src 'self'` blocks it, and it retries on every
+                        // layout of that text — a deployed federfall instance
+                        // produced an endless console error stream from one
+                        // arrow in one string. The bundled families are
+                        // `ZugvogelTheme.fontFamily` and its fallbacks, and
+                        // nothing else exists.
+                        //
+                        // The ambiguity this was reaching for is already gone
+                        // anyway: `generatePassword`'s alphabet has no O/0 and
+                        // no l/1 to confuse. The spacing is what makes the
+                        // characters separable to a reader.
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontFamily: 'monospace',
-                          letterSpacing: 1.5,
+                          letterSpacing: 2,
                         ),
                       ),
                     ),
