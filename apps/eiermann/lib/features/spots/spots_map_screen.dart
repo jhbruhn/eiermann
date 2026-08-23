@@ -9,6 +9,7 @@ import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/router.dart';
 import 'package:eiermann/ui/app_map.dart';
 import 'package:eiermann/ui/device_location.dart';
+import 'package:eiermann/ui/locate_me_button.dart';
 import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -57,7 +58,6 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
   /// Where the reader is, once they asked. Null until then: a map that showed a
   /// position nobody asked for would be tracking somebody.
   LocationFix? _me;
-  bool _locating = false;
 
   /// The camera's current zoom, so the clustering can follow it.
   ///
@@ -95,25 +95,12 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
   /// radius: "in meiner Nähe" is answered by SEEING which buildings are around
   /// you, and a radius filter would hide the one 300 metres away that is the
   /// actual reason to walk. It also has an honest failure — a refused
-  /// permission leaves every pin where it was.
-  Future<void> _locateMe() async {
-    final l10n = context.l10n;
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() => _locating = true);
-    try {
-      final fix = await ref.read(deviceLocationProvider).current();
-      if (!mounted) return;
-      setState(() => _me = fix);
-      // After the setState, so the marker exists by the time the camera
-      // arrives — moving first draws a jump to an empty patch of map.
-      _map.move(LatLng(fix.lat, fix.lon), kMapPinnedZoom - 3);
-    } on LocationUnavailable catch (refusal) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(_locationMessage(l10n, refusal.reason))),
-      );
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
+  /// permission leaves every pin where it was, and [LocateMeButton] says why.
+  void _showMe(LocationFix fix) {
+    setState(() => _me = fix);
+    // After the setState, so the marker exists by the time the camera
+    // arrives — moving first draws a jump to an empty patch of map.
+    _map.move(LatLng(fix.lat, fix.lon), kMapPinnedZoom - 3);
   }
 
   @override
@@ -184,17 +171,7 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          FloatingActionButton.small(
-            heroTag: 'locate',
-            onPressed: _locating ? null : () => unawaited(_locateMe()),
-            tooltip: l10n.spotsMapNearMeAction,
-            child: _locating
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.my_location),
-          ),
+          LocateMeButton(onFix: _showMe),
           const SizedBox(height: ZugvogelSpacing.sm),
           FloatingActionButton.extended(
             heroTag: 'add',
@@ -230,16 +207,6 @@ class _SpotsMapScreenState extends ConsumerState<SpotsMapScreen> {
     // that lies about how much work there is.
     return unpinned > 0 ? l10n.spotsMapUnpinned(unpinned) : null;
   }
-
-  /// The sentence for a refusal. Each case offers a different next move, which
-  /// is the whole reason [LocationRefusal] has cases at all.
-  String _locationMessage(AppLocalizations l10n, LocationRefusal reason) =>
-      switch (reason) {
-        LocationRefusal.serviceOff => l10n.spotsMapLocationServiceOff,
-        LocationRefusal.denied => l10n.spotsMapLocationDenied,
-        LocationRefusal.deniedForever => l10n.spotsMapLocationBlocked,
-        LocationRefusal.unavailable => l10n.spotsMapLocationUnavailable,
-      };
 }
 
 /// The map's controls: a search field, the rank chips, and what is not drawn.

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/ui/app_map.dart';
+import 'package:eiermann/ui/device_location.dart';
+import 'package:eiermann/ui/locate_me_button.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -92,7 +94,66 @@ class _SpotPinPickerState extends ConsumerState<SpotPinPicker> {
       // Resolve what is already under the pin, so a correction starts by saying
       // where the pin currently is rather than showing a blank strip.
       WidgetsBinding.instance.addPostFrameCallback((_) => _resolveCentre());
+    } else {
+      // A NEW Spot is nearly always being recorded from the pavement in front
+      // of it, so start there rather than over the middle of Germany at zoom 5.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => unawaited(_startAtMe()),
+      );
     }
+  }
+
+  /// Opens the map on the device's position — but only if it may.
+  ///
+  /// [DeviceLocation.currentIfPermitted] and never `current()`: opening a
+  /// screen is not asking, and a system permission dialog on top of a map
+  /// somebody merely navigated to is a question they did not pose. Without the
+  /// permission this quietly leaves [kMapFallbackCentre] where it is.
+  ///
+  /// A failure is silent for the same reason — there is no refusal to report to
+  /// somebody who did not ask. Only [LocateMeButton] explains itself.
+  ///
+  /// Correcting an existing pin never gets here (see [initState]): that pin is
+  /// the statement being corrected, and where the phone happens to be standing
+  /// is not an improvement on it.
+  Future<void> _startAtMe() async {
+    final LocationFix? fix;
+    try {
+      fix = await ref.read(deviceLocationProvider).currentIfPermitted();
+    } on Object catch (error, stackTrace) {
+      reportCaughtError(error, stackTrace, context: 'pin picker auto-locate');
+      return;
+    }
+    if (fix == null || !mounted) return;
+    _moveTo(fix);
+  }
+
+  /// Camera to [fix], then resolve what landed under the crosshair.
+  ///
+  /// The resolve is the part that is easy to forget: the fix moves the CAMERA,
+  /// and what gets taken is still whatever sits under the crosshair when
+  /// somebody presses confirm. Without it the address strip would stay on "no
+  /// address" until the first pan — a blank line under a map that is already
+  /// showing the right building.
+  void _moveTo(LocationFix fix) {
+    // The same height the spot map uses for "mein Standort": close enough to
+    // pick out a building, wide enough that a fix off by a few dozen metres
+    // still has the right one on screen.
+    _centreOn(LatLng(fix.lat, fix.lon), kMapPinnedZoom - 3);
+  }
+
+  /// Drives the camera AND the state that describes it.
+  ///
+  /// Both halves, always, because only a gesture reports back: flutter_map
+  /// emits `MapEventMoveEnd` when a drag ends and nothing at all for a
+  /// programmatic [MapController.move], so [_onMapEvent] never sees one. A
+  /// caller that moved the camera and left [_centre] alone would leave the
+  /// picker describing — and on confirm, RETURNING — the place it used to be
+  /// looking at. That is how a tap on the map used to work.
+  void _centreOn(LatLng target, double zoom) {
+    _centre = target;
+    _map.move(target, zoom);
+    unawaited(_resolveCentre());
   }
 
   @override
@@ -217,7 +278,7 @@ class _SpotPinPickerState extends ConsumerState<SpotPinPicker> {
               // A tap centres rather than dropping a pin: the crosshair is the
               // pin, so a second way to place one would be two answers to the
               // same question.
-              onTap: (_, point) => _map.move(point, kMapPinnedZoom),
+              onTap: (_, point) => _centreOn(point, kMapPinnedZoom),
             ),
             children: const [
               AppMapTileLayer(),
@@ -240,14 +301,43 @@ class _SpotPinPickerState extends ConsumerState<SpotPinPicker> {
               onSelect: _goTo,
             ),
           ),
+          // The button and the strip in ONE bottom-anchored column, rather
+          // than the button as the Scaffold's `floatingActionButton`.
+          //
+          // Both of the Scaffold's obvious slots are already occupied on this
+          // screen: the default bottom-right corner is the address strip, whose
+          // confirm button is the one control that ends the screen, and
+          // `endTop` lands the FAB inside the full-width search card — measured
+          // at 336..384 x 80..128 against a card of 8..392 x 64..136, right on
+          // top of the search arrow. A column stacks the two instead of
+          // guessing an offset, so the button rides up when the strip grows a
+          // second line.
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: _AddressStrip(
-              resolved: _resolved,
-              reversing: _reversing,
-              onConfirm: _confirm,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              // The button hugs the right edge; the strip below it still spans
+              // the full width.
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(
+                    right: ZugvogelSpacing.md,
+                    bottom: ZugvogelSpacing.sm,
+                  ),
+                  child: LocateMeButton(
+                    heroTag: 'pin-picker-locate',
+                    onFix: _moveTo,
+                  ),
+                ),
+                _AddressStrip(
+                  resolved: _resolved,
+                  reversing: _reversing,
+                  onConfirm: _confirm,
+                ),
+              ],
             ),
           ),
         ],

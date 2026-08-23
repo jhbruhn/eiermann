@@ -94,6 +94,39 @@ class DeviceLocation {
       throw const LocationUnavailable(LocationRefusal.unavailable);
     }
   }
+
+  /// A fix, but only if the permission is ALREADY there — otherwise null.
+  ///
+  /// The second door exists because [current] asks. A screen that opens onto a
+  /// map wants to start where the reader is standing, and calling [current] for
+  /// that would put a system permission dialog in front of somebody who has
+  /// only opened a screen. Nobody asked, so nobody is asked.
+  ///
+  /// Null rather than a [LocationUnavailable], because there is no refusal to
+  /// report: every caller of this door falls back silently, and a reason nobody
+  /// shows is a reason nobody needs. The explicit button is what asks, and it
+  /// uses [current] so it can say why when the answer is no.
+  Future<LocationFix?> currentIfPermitted({
+    Duration timeLimit = const Duration(seconds: 12),
+  }) async {
+    if (!await Geolocator.isLocationServiceEnabled()) return null;
+    final permission = await Geolocator.checkPermission();
+    // `always` and `whileInUse` are the two that were granted. Everything else
+    // — denied, deniedForever, unableToDetermine — would need a prompt to
+    // become a fix, and prompting is exactly what this door does not do.
+    if (permission != LocationPermission.always &&
+        permission != LocationPermission.whileInUse) {
+      return null;
+    }
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(timeLimit: timeLimit),
+      );
+      return (lat: position.latitude, lon: position.longitude);
+    } on Object {
+      return null;
+    }
+  }
 }
 
 /// The seam. Overridden in tests; never constructed directly by a screen.
