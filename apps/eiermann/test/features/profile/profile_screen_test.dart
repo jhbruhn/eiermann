@@ -81,7 +81,10 @@ void main() {
     // Worth a row of its own: the visit history snapshots the author's NAME
     // when it is written, so an account with none writes its email address into
     // every Spot it touches.
-    await pumpProfile(tester, me: const AppUser(id: 'u2', email: 'x@y.test'));
+    await pumpProfile(
+      tester,
+      me: const AppUser(id: 'u2', email: 'x@y.test'),
+    );
 
     expect(find.text(de.profileNameMissing), findsOneWidget);
   });
