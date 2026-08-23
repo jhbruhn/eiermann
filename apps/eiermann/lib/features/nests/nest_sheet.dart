@@ -275,13 +275,12 @@ class _NestSheetState extends ConsumerState<NestSheet>
             // makes it FASTER to swap — §44 BNatSchG, and the group's access to
             // the building.
             //
-            // The three decisive marks are repeated here rather than left only
-            // in `docs/feldhandbuch.md`, and that is a deliberate divergence
-            // from "the identification aid belongs in the onboarding material":
-            // somebody in an attic looking at a pale eye cannot open a
-            // document, and the sheet is training for BEFOREHAND. The handbook
-            // stays the full version — the sheet, the other three confusable
-            // species, and what to do next.
+            // What this line does NOT do is help identify the bird. It says
+            // what the app does (enforces a mark) and does not do (identify
+            // anything), and which way to err. The identification itself is
+            // material a PERSON writes and is accountable for — getting a
+            // Dohle wrong is an offence, and guidance nobody signs is guidance
+            // nobody can be asked about. See eiermann-uwd.9.
             Text(
               l10n.nestSpeciesUnsureHint,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(

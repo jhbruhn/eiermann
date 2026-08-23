@@ -27,12 +27,6 @@ The full concept is `docs/concept-digest.md`. Read it before designing
 anything; it records decisions *and the alternatives rejected*, which is the
 part you cannot reconstruct from the code.
 
-`docs/feldhandbuch.md` is the other onboarding document — the one for the people
-doing the work rather than writing it. Read section 4 even if you never go into
-an attic: the Dohle-versus-Stadttaube sheet is the reason the protected-species
-guard is shaped the way it is, and it is the one part of this system that no
-line of code can enforce.
-
 ## Running it
 
 You need Docker and Flutter (3.44.3 / Dart 3.12 — the same version as

@@ -255,9 +255,9 @@ void main() {
     // recorded as a pigeon is a jackdaw whose clutch this app makes it FASTER
     // to swap.
     //
-    // So the field carries the rule and the three decisive marks. The full
-    // sheet lives in docs/feldhandbuch.md — training for beforehand — but
-    // somebody in an attic looking at a pale eye cannot open a document.
+    // So the field carries the RULE — which way to err — and nothing that
+    // claims to identify a bird. Identification guidance is material a person
+    // writes and is accountable for; see eiermann-uwd.9.
     await pump(tester, pin: (x: 0.5, y: 0.5), suggestedLabel: 'N1');
 
     expect(find.text(de.nestSpeciesUnsureHint), findsOneWidget);

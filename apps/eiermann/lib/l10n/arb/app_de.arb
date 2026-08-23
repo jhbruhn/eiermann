@@ -599,9 +599,9 @@
   "@nestSpeciesUnreadable": {
     "description": "Shown for a species value this build has no name for — the server gained one. Never rendered as a pigeon."
   },
-  "nestSpeciesUnsureHint": "Unsicher? Dann „Geschützt“ — im Zweifel nicht anfassen. Die App bestimmt keine Arten, sie schützt nur, was ein Mensch markiert hat. Die Merkmale stehen im Feldhandbuch (Dohle: helles Auge, grauer Nacken, 4–6 gefleckte blaugrüne Eier; Stadttaube: oranges Auge, 2 rein weiße Eier).",
+  "nestSpeciesUnsureHint": "Unsicher? Dann \u201eGesch\u00fctzt\u201c \u2014 im Zweifel nicht anfassen. Die App bestimmt keine Arten, sie sperrt nur, was ein Mensch als gesch\u00fctzt markiert hat. Wie die Arten auseinanderzuhalten sind, steht im Material der Gruppe.",
   "@nestSpeciesUnsureHint": {
-    "description": "The whole protected-species guard rests on a human getting this right. §44 BNatSchG makes a mis-swapped jackdaw clutch an offence, and the app makes swapping faster — so the safe default is stated at the field itself, with the three decisive marks. The full sheet is docs/feldhandbuch.md, which is training material rather than something to read in an attic."
+    "description": "The safe default, at the field where it is decided. States what the APP does and does not do \u2014 it enforces a human's mark and identifies nothing \u2014 and points at the group's own material for the identification itself. It deliberately carries NO field marks: getting a Dohle wrong is a \u00a744 BNatSchG offence, and identification guidance has to come from a person who is accountable for it."
   },
   "nestProtectedLockedHint": "Ein geschütztes Nest kann nur die Koordination wieder freigeben.",
   "@nestProtectedLockedHint": {
