@@ -34,6 +34,27 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Where an identity provider redirects back to after sign-in
+             (flutter_web_auth_2). On a phone the app uses the code-exchange
+             flow, because PocketBase's realtime channel — which the all-in-one
+             flow completes over — is dropped the moment Android backgrounds
+             the app for the browser. A deep link arrives either way.
+
+             Pinned to host "oauth-callback" so a later eiermann:// link for
+             something else cannot swallow these URLs, or the other way round.
+             The same URI must be registered as an allowed redirect with the
+             provider; see the OAuth2 block in .env.example. -->
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true"
+            android:taskAffinity="">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="eiermann" android:host="oauth-callback"/>
+            </intent-filter>
+        </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

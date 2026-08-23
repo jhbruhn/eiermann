@@ -78,6 +78,31 @@
   },
   "authErrorInvalidCredentials": "E-Mail oder Passwort stimmt nicht",
   "authErrorDeactivated": "Dieses Konto ist deaktiviert. Wende dich an die Koordination.",
+  "authOrSeparator": "oder",
+  "@authOrSeparator": {
+    "description": "Between the password form and the identity-provider buttons. Shown only when BOTH ways in exist."
+  },
+  "authContinueWith": "Weiter mit {provider}",
+  "@authContinueWith": {
+    "description": "Label of an identity-provider sign-in button. {provider} is the display name the operator configured (EIERMANN_OAUTH2_<NAME>_DISPLAY_NAME), so it may be the group's own wording rather than a product name.",
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "authOauthWaiting": "Warten auf die Anmeldung im Browser…",
+  "@authOauthWaiting": {
+    "description": "Shown while the external flow is open. It comes with a cancel action, because a browser that was simply closed leaves a wait that never completes."
+  },
+  "authOauthFailed": "Die Anmeldung über den Identity Provider hat nicht funktioniert.",
+  "@authOauthFailed": {
+    "description": "Deliberately vague: the reasons are the provider's (a refused registration, a mismatched state, a dropped connection) and none of them is something the reader can act on differently."
+  },
+  "authOauthRefused": "Dieses Konto darf sich hier nicht anmelden. Wende dich an die Koordination.",
+  "@authOauthRefused": {
+    "description": "The provisioning hook's 403 (EIERMANN_OIDC_ALLOWED_GROUPS): the identity provider knows this person, this instance does not want them. Distinct from authOauthFailed because there is nothing to retry."
+  },
   "authVersionClientTooOld": "Diese App ist zu alt für den Server. Bitte aktualisiere die App.",
   "authVersionServerTooOld": "Der Server ist zu alt für diese App. Bitte wende dich an die Person, die den Server betreibt.",
   "@authVersionServerTooOld": {

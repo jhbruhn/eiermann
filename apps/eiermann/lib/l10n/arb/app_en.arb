@@ -52,6 +52,18 @@
   "authResetSentMessage": "If an account belongs to this address, a reset email is on its way.",
   "authErrorInvalidCredentials": "That email or password is not right",
   "authErrorDeactivated": "This account is deactivated. Please contact the coordination.",
+  "authOrSeparator": "or",
+  "authContinueWith": "Continue with {provider}",
+  "@authContinueWith": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "authOauthWaiting": "Waiting for the sign-in in your browser…",
+  "authOauthFailed": "Signing in through the identity provider did not work.",
+  "authOauthRefused": "This account may not sign in here. Please contact the coordination.",
   "authVersionClientTooOld": "This app is too old for the server. Please update the app.",
   "authVersionServerTooOld": "The server is too old for this app. Please contact whoever runs the server.",
   "navDashboard": "Dashboard",

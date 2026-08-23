@@ -54,6 +54,11 @@ ALLOWED_ABSENT=(
   "lib/routing/url_strategy/url_strategy.dart"
   "lib/routing/url_strategy/url_strategy_io.dart"
   "lib/routing/url_strategy/url_strategy_web.dart"
+  # The same shape, for the browser window the identity-provider sign-in opens:
+  # the web half imports `package:web`, which a VM test cannot load. The
+  # interface and the native half ARE in the graph, so what stays untested here
+  # is the two lines that talk to `window`.
+  "lib/features/auth/oauth_popup_web.dart"
 )
 
 cd "$(dirname "$0")/.."
