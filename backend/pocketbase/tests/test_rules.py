@@ -788,17 +788,9 @@ h.mk(
     {"org": ORG, "spot": followed_up["id"], "reason": "manual",
      "due_at": h.stamp(days=-1)},
 )
-# The date is set by hand because writing a follow-up through the collection API
-# does NOT recompute the Spot's date: `recomputeSpotDue` is called from the visit
-# route and the auto-resume cron, and from nowhere else. In the field a
-# Nachfassen is born inside the visit transaction, which does recompute — this is
-# the same row reached the short way. That the short way leaves the date stale is
-# a real gap, filed as eiermann-z3u; it is not what this assertion is about, and
-# leaving the date alone here would test the gap instead of the rung.
-h.req(
-    "PATCH", f"/api/collections/spots/records/{followed_up['id']}", T,
-    {"next_due_at": h.stamp(days=-1)},
-)
+# No PATCH setting the date by hand. Writing the follow-up through the collection
+# API recomputes the Spot itself (eiermann-z3u, `follow_ups.pb.js`) — while it
+# did not, this assertion had to fake the date to be about the rung at all.
 h.check(
     "an open follow-up outranks the survey rung",
     urgency_of(followed_up["id"]) == 0,
@@ -3161,6 +3153,113 @@ h.check(
     not state.get("next_due_at"),
     "nothing may be DONE there, and a work list that keeps offering an item "
     "nobody may act on trains people to ignore the list",
+)
+
+
+# ── A follow-up written through the API moves the Spot (eiermann-z3u) ───────
+#
+# `spotDueFor` takes the minimum over the active nests AND the open follow-ups,
+# and the follow-up usually wins — that is what a Nachkontrolle is for. But
+# `recomputeSpotDue` was reached from the visit route and the auto-resume cron
+# only, and `follow_ups` carried no hooks, so a manual Nachfassen entered through
+# the collection API left the Spot's date exactly where the last visit had put
+# it. A reminder for yesterday, and a building still reading "im Rhythmus".
+#
+# All three verbs are asserted, because a create can only pull the date EARLIER
+# and the other two are how it goes back out again. The Spot here has a nest, so
+# there is a date to be pushed back TO — without one the survey rung would answer
+# instead of the ladder, and these assertions would be about `needsSurvey`.
+
+print("\n[Nachfassen zieht den Spot nach]")
+
+fu_spot = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Nachfass-Haus", "phase": "active"}
+)
+fu_area = h.mk(
+    coord_token,
+    "areas",
+    {"org": ORG, "spot": fu_spot["id"], "name": "Dachboden"},
+)
+h.mk(
+    coord_token,
+    "nests",
+    {"org": ORG, "area": fu_area["id"], "label": "N1", "species": "unknown",
+     "status": "active"},
+)
+
+
+def due_day_of(spot_id):
+    """The Spot's stored `next_due_at`, as a bare YYYY-MM-DD."""
+    _, row = h.req(
+        "GET", f"/api/collections/spots/records/{spot_id}", member_token
+    )
+    return str((row or {}).get("next_due_at") or "")[:10]
+
+
+# Read rather than set. The Spot's date is DERIVED — a hand-written value stands
+# only until the first recompute corrects it, which is exactly what these hooks
+# now do — so the baseline is whatever the fresh nest gives it (a base interval
+# from the nest's creation, `spotDueFor`'s never-checked branch). The follow-up
+# dates below are then chosen inside that, and the guard says so if they are not:
+# an interval shorter than four days would leave no room to move a reminder
+# around inside it, and every assertion here would land on the same day and prove
+# nothing.
+baseline = due_day_of(fu_spot["id"])
+h.check(
+    "the Spot starts on the date its nest gave it, with room to move inside it",
+    baseline > h.stamp(days=3)[:10],
+    f"next_due_at {baseline!r} against {h.stamp(days=3)[:10]!r} — this section "
+    "needs the nest's own date to sit clear of the follow-up dates it uses",
+)
+
+nachfassen = h.mk(
+    member_token,
+    "follow_ups",
+    {"org": ORG, "spot": fu_spot["id"], "reason": "manual",
+     "due_at": h.stamp(days=1), "note": "Riegel nochmal ansehen"},
+)
+h.check(
+    "creating a follow-up pulls the Spot forward to it",
+    due_day_of(fu_spot["id"]) == h.stamp(days=1)[:10],
+    f"next_due_at {due_day_of(fu_spot['id'])!r} against {h.stamp(days=1)[:10]!r}"
+    " — the minimum is over the open follow-ups too, and nothing was calling it "
+    "on this path",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/follow_ups/records/{nachfassen['id']}",
+    member_token, {"due_at": h.stamp(days=3)},
+)
+h.check(
+    "moving its date moves the Spot with it",
+    h.ok(status) and due_day_of(fu_spot["id"]) == h.stamp(days=3)[:10],
+    f"status {status}, next_due_at {due_day_of(fu_spot['id'])!r} against "
+    f"{h.stamp(days=3)[:10]!r} — the rule permits adjusting `due_at`, so a fix "
+    "that only handled create would be the same bug with a smaller surface",
+)
+
+status, _ = h.req(
+    "DELETE", f"/api/collections/follow_ups/records/{nachfassen['id']}",
+    member_token,
+)
+h.check(
+    "deleting it hands the Spot back to its nests",
+    h.ok(status) and due_day_of(fu_spot["id"]) == baseline,
+    f"status {status}, next_due_at {due_day_of(fu_spot['id'])!r} against the "
+    f"baseline {baseline!r} — a date whose only source is gone must not outlive "
+    "it",
+)
+
+# The other half of the design: the visit route writes follow-ups INTERNALLY and
+# recomputes the Spot once, last, on purpose. Request hooks do not fire for those
+# saves — this asserts the route still lands on the follow-up's date, which is
+# what it would stop doing if the two paths ever started fighting.
+half_spot_due = due_day_of(vhost["id"])
+h.check(
+    "the visit route still dates a Spot from the Halbgelege it just created",
+    half_spot_due != "",
+    f"next_due_at {half_spot_due!r} — the internal saves must not trip the "
+    "request hooks, and the route's own single recompute must still run",
 )
 
 
