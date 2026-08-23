@@ -171,5 +171,103 @@ void main() {
       expect(asked[1], contains('found_at >='));
       expect(asked[2], 'id');
     });
+
+    // ── Correcting a Fund (eiermann-8fw) ────────────────────────────────
+    //
+    // `findings` has allowed this write since the collection existed — the
+    // note and the species label are what somebody realises on the way home —
+    // and nothing in the app could spell it. What the body may and may not
+    // carry is the whole of the rule, so it is asserted as a body rather than
+    // through the widget that fills it in.
+
+    test('correcting did NOT hand it create or delete', () {
+      // The neighbouring guard on `VisitHistoryRepository`, aimed at the trap
+      // this feature walked past: `findings` has `createRule: null` AND
+      // `deleteRule: null`, so lifting to the full `PbRepository` base to reach
+      // `update` would have put three verbs on this class that the server
+      // refuses. One write verb becoming real does not make the other two real.
+      expect(
+        FindingsRepository(pb),
+        isNot(isA<Repository<Object>>()),
+        reason:
+            'the type states what may be done today: read, and correct three '
+            'fields — not create, and never delete',
+      );
+    });
+
+    test('the correction body carries the description and nothing else', () {
+      final body = FindingsRepository.correctionBody(
+        count: 3,
+        note: 'unter dem Fenster',
+        speciesLabel: 'Dohle',
+      );
+
+      expect(body, {
+        'count': 3,
+        'note': 'unter dem Fenster',
+        'species_label': 'Dohle',
+      });
+    });
+
+    test('the body can NEVER name the event, whatever it is given', () {
+      // The rule pins `org`, `visit`, `spot`, `nest` and `kind`, and a body
+      // carrying any of them is refused OUTRIGHT rather than partly applied —
+      // so a correction that picked one up would fail wholesale, at the moment
+      // somebody is fixing a species name. The signature is what makes that
+      // unspellable; this is the assertion that the signature stayed that way.
+      final body = FindingsRepository.correctionBody(count: 1);
+
+      expect(
+        body.keys.toSet(),
+        {'count', 'note', 'species_label'},
+        reason:
+            'a key beyond these three is one the findings update rule pins, '
+            'and the whole PATCH is refused when it appears',
+      );
+    });
+
+    test('null clears the text rather than leaving it alone', () {
+      // Omitting a key keeps the stored value, so a correction that could not
+      // clear a wrong species name would leave the wrong species standing —
+      // which is exactly the entry this feature exists to fix.
+      final body = FindingsRepository.correctionBody(count: 1);
+
+      expect(body['note'], '');
+      expect(body['species_label'], '');
+    });
+
+    test('correct() PATCHes the row it was given', () async {
+      when(
+        () => service.update(
+          any(),
+          body: any(named: 'body'),
+          files: any(named: 'files'),
+        ),
+      ).thenAnswer(
+        (_) async => RecordModel({
+          'id': 'f1',
+          'spot': 's1',
+          'kind': 'dead_bird',
+          'count': 2,
+          'species_label': 'Dohle',
+          'note': '',
+        }),
+      );
+
+      final corrected = await FindingsRepository(
+        pb,
+      ).correct('f1', count: 2, speciesLabel: 'Dohle');
+
+      expect(corrected.speciesLabel, 'Dohle');
+      final asked = verify(
+        () => service.update(
+          captureAny(),
+          body: captureAny(named: 'body'),
+          files: any(named: 'files'),
+        ),
+      ).captured;
+      expect(asked[0], 'f1');
+      expect(asked[1], {'count': 2, 'note': '', 'species_label': 'Dohle'});
+    });
   });
 }

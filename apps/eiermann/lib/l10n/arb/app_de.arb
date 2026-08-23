@@ -1240,6 +1240,19 @@
     "description": "Says the empty state is fine. A volunteer who thinks every visit needs a Fund invents one."
   },
   "findingSheetTitleNew": "Fund erfassen",
+  "findingCorrectTitle": "Fund berichtigen",
+  "@findingCorrectTitle": {
+    "description": "Title of the sheet that corrects an already recorded finding. 'Berichtigen' rather than 'bearbeiten': only the description changes, never the event."
+  },
+  "findingCorrectSaveAction": "Berichtigung speichern",
+  "findingCorrectEventFixed": "Art, Nest, Gebäude und Besuch stehen fest — sie sind das Ereignis. Berichtigen lässt sich, was dabei beschrieben wurde.",
+  "@findingCorrectEventFixed": {
+    "description": "Shown above the editable fields, next to the read-only kind. Says which way out exists, because a control that is simply absent reads as an oversight."
+  },
+  "findingCorrectAction": "Berichtigen",
+  "@findingCorrectAction": {
+    "description": "The affordance that opens the correction sheet, from the findings list and the chronology."
+  },
   "findingSheetTitleEdit": "Fund bearbeiten",
   "findingKindQuestion": "Was wurde gefunden?",
   "findingKindMissing": "Wähle, was gefunden wurde.",

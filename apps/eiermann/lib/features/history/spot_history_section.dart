@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:eiermann/features/findings/finding_correction_sheet.dart';
 import 'package:eiermann/features/findings/finding_labels.dart';
 import 'package:eiermann/features/history/history_providers.dart';
 import 'package:eiermann/features/visits/check_labels.dart';
@@ -172,6 +173,12 @@ class _VisitCard extends StatelessWidget {
                   ?check.note,
                 ].join(' · '),
               ),
+            // The Fund lines are the only tappable ones here, and that
+            // asymmetry is the collection's: a `nest_check` has no update rule
+            // at all — the nest's rhythm and its egg counts are derived from
+            // those rows, so an edited check would leave the derived state
+            // describing a visit that did not happen. A Fund's DESCRIPTION was
+            // always meant to be correctable (eiermann-8fw).
             for (final finding in entry.findings)
               _Line(
                 icon: findingKindIcon(finding.kind),
@@ -186,6 +193,11 @@ class _VisitCard extends StatelessWidget {
                   ),
                   ?finding.note,
                 ].join(' · '),
+                onTap: () => showFindingCorrectionSheet(
+                  context,
+                  finding: finding,
+                ),
+                tapHint: l10n.findingCorrectAction,
               ),
             if (visit.note case final note?) ...[
               const SizedBox(height: ZugvogelSpacing.xs),
@@ -216,16 +228,32 @@ class _VisitCard extends StatelessWidget {
 
 /// One indented line under a visit: a check or a Fund.
 class _Line extends StatelessWidget {
-  const _Line({required this.icon, required this.colour, required this.text});
+  const _Line({
+    required this.icon,
+    required this.colour,
+    required this.text,
+    this.onTap,
+    this.tapHint,
+  });
 
   final IconData icon;
   final Color colour;
   final String text;
 
+  /// What tapping this line does, or null for a line that only reports.
+  final VoidCallback? onTap;
+
+  /// What the tap is FOR, for a reader who cannot see the row.
+  ///
+  /// A timeline line is a `Row` of small text, not a control anything
+  /// announces, so without this a screen reader offers "tap to activate" over a
+  /// sentence about a dead bird. Required in practice wherever [onTap] is set.
+  final String? tapHint;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
+    final line = Padding(
       padding: const EdgeInsets.only(
         top: ZugvogelSpacing.xs,
         left: ZugvogelSpacing.lg,
@@ -236,8 +264,25 @@ class _Line extends StatelessWidget {
           Icon(icon, size: 16, color: colour),
           const SizedBox(width: ZugvogelSpacing.sm),
           Expanded(child: Text(text, style: theme.textTheme.bodySmall)),
+          if (onTap != null) ...[
+            const SizedBox(width: ZugvogelSpacing.sm),
+            // A visible affordance and not only a tap target: the line looks
+            // like every other line in the timeline, and nothing else here is
+            // tappable.
+            Icon(
+              Icons.edit_outlined,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
         ],
       ),
+    );
+    if (onTap == null) return line;
+    return Semantics(
+      button: true,
+      hint: tapHint,
+      child: InkWell(onTap: onTap, child: line),
     );
   }
 }

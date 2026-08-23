@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:eiermann/features/findings/finding_correction_sheet.dart';
 import 'package:eiermann/features/findings/finding_labels.dart';
 import 'package:eiermann/features/history/history_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -140,7 +141,25 @@ class FindingTile extends StatelessWidget {
         ].join(' · '),
         style: theme.textTheme.bodySmall,
       ),
-      trailing: const Icon(Icons.chevron_right),
+      // Two destinations, two controls. The ROW still leads to the building —
+      // that is the question this list answers, and taking the tap for the
+      // correction sheet would trade a way in for a way to edit. The pencil is
+      // the second one, named rather than hidden behind a long-press: a
+      // gesture nothing announces is a feature only its author knows about.
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: l10n.findingCorrectAction,
+            onPressed: () => showFindingCorrectionSheet(
+              context,
+              finding: finding,
+            ),
+          ),
+          const Icon(Icons.chevron_right),
+        ],
+      ),
       onTap: () => context.push(Routes.spotDetail(finding.spot)),
     );
   }

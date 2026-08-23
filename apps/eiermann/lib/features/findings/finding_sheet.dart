@@ -70,10 +70,8 @@ class _FindingSheetState extends ConsumerState<FindingSheet>
   /// should not have to look to the bottom of the sheet to find that out.
   bool _kindMissing = false;
 
-  /// The most a stepper offers. Not a limit on reality — a loft with thirty
-  /// dead birds in it is a phone call, not a form — but the point past which
-  /// tapping is the wrong control, and the note is where that belongs.
-  static const _maxCount = 20;
+  /// Named on the stepper, so both sheets offer the same range.
+  static const int _maxCount = FindingCountStepper.max20;
 
   @override
   void dispose() {
@@ -191,7 +189,7 @@ class _FindingSheetState extends ConsumerState<FindingSheet>
             const _SiteChangeHint(),
           ],
           const SizedBox(height: ZugvogelSpacing.lg),
-          _CountStepper(
+          FindingCountStepper(
             count: _count,
             max: _maxCount,
             onChanged: (value) => setState(() {
@@ -270,12 +268,22 @@ class _SiteChangeHint extends StatelessWidget {
 /// A stepper and not a number keyboard: this is tapped in a stairwell, often
 /// one-handed, and the numbers are small. A keyboard would also let somebody
 /// leave the field mid-edit with "1" still showing and a "2" they meant.
-class _CountStepper extends StatelessWidget {
-  const _CountStepper({
+///
+/// Public because the correction sheet asks the same question of an already
+/// recorded Fund (eiermann-8fw). A second copy of the floor, the ceiling and
+/// the reasons for both is a copy that drifts from this one.
+class FindingCountStepper extends StatelessWidget {
+  const FindingCountStepper({
     required this.count,
     required this.max,
     required this.onChanged,
+    super.key,
   });
+
+  /// The most the stepper offers. Not a limit on reality — a loft with thirty
+  /// dead birds in it is a phone call, not a form — but the point past which
+  /// tapping is the wrong control, and the note is where that belongs.
+  static const max20 = 20;
 
   final int count;
   final int max;

@@ -67,15 +67,74 @@ class NestChecksRepository extends PbReadOnlyRepository<NestCheck> {
   }
 }
 
-/// Reads the recorded **Funde**.
+/// Reads the recorded **Funde**, and CORRECTS the three fields the collection
+/// lets a client rewrite.
 ///
-/// Read-only by type, which is narrower than the collection: `findings` has an
-/// update rule, because the note and the species label are the two things
-/// somebody realises afterwards. Nothing offers that yet, so nothing here
-/// spells it — the type states today's capability rather than reserving one.
+/// Still on the read-only base, with one write named on it, and that is the
+/// point rather than an omission. `findings` has `createRule: null` and
+/// `deleteRule: null`: the transactional visit endpoint is the only thing that
+/// may make one, and nothing may unmake one. The full [PbRepository] base would
+/// put `create`, `createWithFiles` and `delete` here — three verbs the server
+/// refuses — which is exactly the argument [VisitHistoryRepository] above makes
+/// for staying narrow. It does not stop applying because ONE write verb became
+/// real.
+///
+/// So the type still states today's capability: read, and correct three fields.
 class FindingsRepository extends PbReadOnlyRepository<Finding> {
   FindingsRepository(PocketBase pb)
     : super(pb: pb, collection: 'findings', fromRecord: Finding.fromRecord);
+
+  /// Rewrites what a Fund SAYS, never what it was.
+  ///
+  /// "Das war eine Dohle, keine Ringeltaube" is what somebody realises on the
+  /// way home, and until this existed a Fund was immutable in the app although
+  /// the server never meant it to be (`1700000011`'s update rule has always
+  /// allowed exactly this).
+  ///
+  /// The three fields here are the description. The `kind`, the `nest`, the
+  /// `spot` and the `visit` are the EVENT, and the collection's update rule
+  /// pins every one of them — a body carrying one is refused outright rather
+  /// than partly applied. Nothing in this signature can name them, which is the
+  /// shape every `body` builder in this package takes: what may be written is a
+  /// parameter list, not a map a caller fills in.
+  ///
+  /// [count] is not nullable — the stepper's floor is 1, and a Fund of nothing
+  /// is not a Fund. The other two are, and null means EMPTY rather than
+  /// unchanged: a correction that could not clear a wrong species name would
+  /// leave the wrong species standing.
+  Future<Finding> correct(
+    String id, {
+    required int count,
+    String? note,
+    String? speciesLabel,
+  }) => guard(
+    () async => fromRecord(
+      await service.update(
+        id,
+        body: correctionBody(
+          count: count,
+          note: note,
+          speciesLabel: speciesLabel,
+        ),
+      ),
+    ),
+    write: true,
+  );
+
+  /// The body [correct] sends — separate so a test can read it without a
+  /// server, exactly as the other repositories' `body` builders are.
+  ///
+  /// Empty strings and not omitted keys: a PATCH that leaves a field out keeps
+  /// the stored value, which would make "clear this note" impossible to spell.
+  static Map<String, dynamic> correctionBody({
+    required int count,
+    String? note,
+    String? speciesLabel,
+  }) => {
+    'count': count,
+    'note': note ?? '',
+    'species_label': speciesLabel ?? '',
+  };
 
   /// The Funde belonging to [visitIds] — one request for a whole page of
   /// visits.
