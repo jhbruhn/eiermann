@@ -7,8 +7,10 @@ onRecordCreateRequest((e) => {
   // The caller's own org, from the auth record — never from the body. The body
   // is what is being checked.
   const callerOrg = e.auth ? String(e.auth.getString("org")) : "";
-  rules.deriveSpot(e.app, e.record, callerOrg);
+  const area = rules.deriveSpot(e.app, e.record, callerOrg);
   rules.clampPins(e.record);
+  // After clamping: the guard judges the coordinates that would be STORED.
+  rules.guardPinNeedsPhoto(e.record, area, e.requestInfo().body);
   // previous = "": nothing to un-protect on create.
   rules.guardSpecies(e.record, "", false);
   e.next();
@@ -19,8 +21,9 @@ onRecordUpdateRequest((e) => {
   // `area` is pinned by the update rule, so re-deriving is a no-op in the happy
   // case — and the one that matters if that rule is ever loosened.
   const callerOrg = e.auth ? String(e.auth.getString("org")) : "";
-  rules.deriveSpot(e.app, e.record, callerOrg);
+  const area = rules.deriveSpot(e.app, e.record, callerOrg);
   rules.clampPins(e.record);
+  rules.guardPinNeedsPhoto(e.record, area, e.requestInfo().body);
   const previous = String(e.record.original().get("species") || "");
   rules.guardSpecies(
     e.record,

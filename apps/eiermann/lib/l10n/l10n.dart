@@ -130,6 +130,10 @@ class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
     'nest_protected_no_egg_changes' =>
       _l10n.serverErrorNestProtectedNoEggChanges,
     'nest_area_not_found' => _l10n.serverErrorNestAreaNotFound,
+    // Reachable only as a race: the editor hides the pin canvas when there
+    // is no photo, so this is somebody removing the photo while somebody
+    // else is placing a nest on it.
+    'nest_pin_needs_area_photo' => _l10n.serverErrorNestPinNeedsAreaPhoto,
     'visit_nest_foreign_spot' => _l10n.serverErrorVisitNestForeignSpot,
     'visit_nest_duplicate' => _l10n.serverErrorVisitNestDuplicate,
     'visit_eggs_do_not_balance' => _l10n.serverErrorVisitEggsDoNotBalance,

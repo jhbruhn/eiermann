@@ -998,6 +998,25 @@ h.check(
 
 print("\n[areas and nests]")
 
+# A real PNG, because PocketBase sniffs the CONTENT against the field's
+# mimeTypes: a text blob named .png is refused and every assertion below would
+# then pass over an upload that never happened.
+import base64
+
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/"
+    "q842iQAAAABJRU5ErkJggg=="
+)
+
+
+def put_photo(area_id, token=None):
+    """Uploads a photo to [area_id]. (status, record)."""
+    return h.upload_file(
+        "PATCH", f"/api/collections/areas/records/{area_id}", token or member_token,
+        "photo", "bereich.png", "image/png", PNG,
+    )
+
+
 host = h.mk(
     coord_token,
     "spots",
@@ -1023,6 +1042,48 @@ h.check(
 
 status, _ = h.req("DELETE", f"/api/collections/areas/records/{area['id']}", member_token)
 h.check("a member cannot delete a Bereich", status >= 400, f"status {status}")
+
+# ── A pin needs a photo under it (eiermann-j2q) ─────────────────────────────
+#
+# A pin is a pair of normalised coordinates and nothing else. On a Bereich with
+# no photo it is not a wrong position but a position on a picture that does not
+# exist: no screen can draw it, so nothing ever shows it is there, and the day
+# somebody uploads the first photo the nest appears at whatever corner those two
+# numbers name. The editor has said so since bmg.3; these assertions are what
+# make it a rule rather than an intention.
+
+hint_only = h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": area["id"], "label": "Ohne Pin", "species": "unknown",
+     "status": "active", "position_hint": "auf dem Balken links"},
+)
+h.check(
+    "a nest with NO pin needs no photo",
+    hint_only.get("id") is not None,
+    "`position_hint` is the whole point — a nest can be described before "
+    "anybody has been up there with a camera",
+)
+
+status, body = h.req(
+    "POST", "/api/collections/nests/records", member_token,
+    {"org": ORG, "area": area["id"], "label": "Verfrüht", "species": "unknown",
+     "status": "active", "pin_x": 0.5, "pin_y": 0.5},
+)
+h.check(
+    "a pin on a Bereich WITHOUT a photo is refused",
+    status >= 400,
+    f"status {status} — stored, it would point at an image that does not "
+    "exist, and reappear at a random corner of the first photo uploaded",
+)
+h.check(
+    "...with the code the client turns into a sentence",
+    refused_with(body, "nest_pin_needs_area_photo"),
+    f"{refusal_codes(body)}",
+)
+
+status, _ = put_photo(area["id"])
+h.check("the Bereich gets its photo", h.ok(status), f"status {status}")
 
 nest = h.mk(
     member_token,
@@ -1067,6 +1128,53 @@ h.check(
     float(far.get("pin_x")) == 1.0 and float(far.get("pin_y")) == 1.0,
     f"pin_x={far.get('pin_x')!r} — stored as 1.7 the nest would sit off the "
     "photo forever, invisible on the only screen that shows it",
+)
+
+# The same rule on the UPDATE path — `movePin` is an update, and it is the one
+# call that places a pin on a nest that already exists.
+bare_area = h.mk(
+    member_token,
+    "areas",
+    {"org": ORG, "spot": host["id"], "name": "Kellerschacht", "sort_index": 2},
+)
+bare_nest = h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": bare_area["id"], "label": "K1", "species": "unknown",
+     "status": "active", "position_hint": "hinter dem Rohr"},
+)
+status, body = h.req(
+    "PATCH", f"/api/collections/nests/records/{bare_nest['id']}", member_token,
+    {"pin_x": 0.5, "pin_y": 0.5},
+)
+h.check(
+    "moving a pin onto a photoless Bereich is refused too",
+    refused_with(body, "nest_pin_needs_area_photo"),
+    f"status {status}, {refusal_codes(body)} — a create-only guard would leave "
+    "the whole `movePin` route open",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/nests/records/{bare_nest['id']}", member_token,
+    {"position_hint": "am zweiten Rohr"},
+)
+h.check(
+    "...but an edit that does not touch the pin still goes through",
+    h.ok(status),
+    f"status {status} — judging a write on a pin it never sent would freeze "
+    "every nest under a Bereich whose photo went away, behind a refusal about "
+    "photos",
+)
+
+status, _ = h.req(
+    "PATCH", f"/api/collections/nests/records/{bare_nest['id']}", member_token,
+    {"pin_x": 0, "pin_y": 0},
+)
+h.check(
+    "...and CLEARING a pin needs no photo",
+    h.ok(status),
+    f"status {status} — (0, 0) is how 'no pin' arrives on the wire; removing "
+    "one is the fix for a Bereich that lost its photo, not another refusal",
 )
 
 status, _ = h.req(
@@ -1242,25 +1350,6 @@ h.check("an unknown species value is refused", status >= 400, f"status {status}"
 
 print("\n[Bereichsfoto: der Prüfdurchlauf]")
 
-# A real PNG, because PocketBase sniffs the CONTENT against the field's
-# mimeTypes: a text blob named .png is refused and every assertion below would
-# then pass over an upload that never happened.
-import base64
-
-PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/"
-    "q842iQAAAABJRU5ErkJggg=="
-)
-
-
-def put_photo(area_id, token=None):
-    """Uploads a photo to [area_id]. (status, record)."""
-    return h.upload_file(
-        "PATCH", f"/api/collections/areas/records/{area_id}", token or member_token,
-        "photo", "bereich.png", "image/png", PNG,
-    )
-
-
 def area_now(area_id):
     _, row = h.req(
         "GET", f"/api/collections/areas/records/{area_id}", coord_token
@@ -1276,13 +1365,6 @@ swap = h.mk(
     "areas",
     {"org": ORG, "spot": swap_host["id"], "name": "Lichtschacht"},
 )
-h.mk(
-    member_token,
-    "nests",
-    {"org": ORG, "area": swap["id"], "label": "N1", "species": "unknown",
-     "status": "active", "pin_x": 0.4, "pin_y": 0.6},
-)
-
 status, first = put_photo(swap["id"])
 h.check("a Bereich photo uploads", h.ok(status), f"status {status}")
 h.check(
@@ -1294,6 +1376,17 @@ h.check(
     "drifted; a flag here would demand a pass over a Bereich nobody changed",
 )
 original_photo = (first or {}).get("photo")
+
+# The pin goes on AFTER that first photo, and it has to: a pin on a photoless
+# Bereich is refused (see the areas-and-nests section). Which is also why
+# `startReview`'s "no pins, no pass" branch is now belt-and-braces rather than
+# the only thing standing between a first upload and a pointless review.
+h.mk(
+    member_token,
+    "nests",
+    {"org": ORG, "area": swap["id"], "label": "N1", "species": "unknown",
+     "status": "active", "pin_x": 0.4, "pin_y": 0.6},
+)
 
 status, second = put_photo(swap["id"])
 h.check("replacing the photo succeeds", h.ok(status), f"status {status}")

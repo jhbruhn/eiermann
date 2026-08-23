@@ -825,6 +825,10 @@
     "description": "Shown when an egg change is attempted on a protected-species nest. §44 BNatSchG."
   },
   "serverErrorNestAreaNotFound": "Der gewählte Bereich existiert nicht mehr. Lade den Spot neu.",
+  "serverErrorNestPinNeedsAreaPhoto": "Dieser Bereich hat kein Foto — ohne Foto lässt sich kein Nest einzeichnen. Lade den Bereich neu und lege zuerst ein Foto an.",
+  "@serverErrorNestPinNeedsAreaPhoto": {
+    "description": "Shown when a pin is written to an area that has no photo — reachable when somebody else removed the photo while the pin was being placed."
+  },
   "serverErrorVisitNestForeignSpot": "Dieses Nest gehört nicht zu diesem Spot. Lade den Spot neu.",
   "serverErrorVisitNestDuplicate": "Dieses Nest wurde in diesem Besuch schon geprüft.",
   "serverErrorVisitEggsDoNotBalance": "Die Eierzahlen gehen nicht auf. Prüfe, wie viele echte Eier entnommen und wie viele Attrappen eingelegt wurden.",

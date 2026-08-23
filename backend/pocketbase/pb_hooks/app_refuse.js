@@ -72,6 +72,7 @@ const CODES = {
   nestNeedsArea: "nest_needs_area",
   nestAreaNotFound: "nest_area_not_found",
   nestPinNotNumeric: "nest_pin_not_numeric",
+  nestPinNeedsAreaPhoto: "nest_pin_needs_area_photo",
   nestProtectedNeedsCoordinator: "nest_protected_needs_coordinator",
   nestProtectedNoEggChanges: "nest_protected_no_egg_changes",
 
