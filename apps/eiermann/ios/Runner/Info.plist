@@ -4,6 +4,18 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- Which languages the bundle claims to hold. Without this key iOS takes
+	     the app for monolingual in its development region (`en`, from the Xcode
+	     project's developmentRegion), filters the preferred-language list it
+	     reports to the app down to that one entry, and localeListResolutionCallback
+	     therefore never sees the German a German device asked for: the app starts
+	     in English although German is the design language and app_de.arb is the
+	     gen-l10n template. Keep in step with AppLocalizations.supportedLocales. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

@@ -14,10 +14,19 @@
          exactly like a user who said no. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- The server is the only source of truth: everything a screen shows is a
+         PocketBase read, and the only things on disk are the auth token
+         (flutter_secure_storage), shared_preferences and the image cache. Auto
+         Backup and device transfer would copy all three onto a device that never
+         authenticated, outside PocketBase's access control — and the token's
+         encryption key lives in the Android Keystore, which is NOT part of the
+         backup, so what arrives is undecryptable anyway. Nothing is lost by
+         switching it off: a fresh install re-fetches everything at login. -->
     <application
         android:label="Eiermann"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
