@@ -2424,6 +2424,297 @@ for who, token in (("an anonymous caller", None), ("a member", member_token),
     )
 
 
+# ── Tier A: what an ordinary collection write leaves behind ────────────────
+#
+# eiermann-30w.4. One generic hook per verb over the vocabulary's registry, so
+# the interesting assertions are not "does spots work" but the properties that
+# hold for every collection at once: the actor is real, the row is filed under
+# its building, a refused write logs nothing, a cascade does not write a row per
+# child, and a member of the public's details never reach the table.
+
+print("\n[the new audit log: what Tier A records]")
+
+
+def events(filter_expr):
+    return h.listf(coord_token, "audit_events", filter_expr)
+
+
+def one_event(filter_expr, label):
+    rows = events(filter_expr)
+    h.check(f"{label} — exactly one row", len(rows) == 1, f"{len(rows)} rows")
+    return rows[0] if len(rows) == 1 else {}
+
+
+tier_a_spot = h.mk(
+    coord_token,
+    "spots",
+    {"org": ORG, "name": "Tier-A-Haus", "phase": "prospect"},
+)
+created = one_event(
+    f"action = 'spot.created' && subject_id = '{tier_a_spot['id']}'",
+    "a create writes one named row",
+)
+h.check(
+    "...naming the actor, not just their id",
+    created.get("actor_label") and created.get("actor_id"),
+    f"actor_label={created.get('actor_label')!r} actor_id={created.get('actor_id')!r}",
+)
+h.check(
+    "...filed under the building, by the app's OWN correlation columns",
+    created.get("spot_id") == tier_a_spot["id"]
+    and created.get("spot_label") == "Tier-A-Haus",
+    f"spot_id={created.get('spot_id')!r} spot_label={created.get('spot_label')!r} — "
+    "before zugvogel 6f5ef44 this landed in case_id whatever the app called "
+    "its centre",
+)
+h.check(
+    "...with the subject labelled as it was called at the time",
+    created.get("subject_collection") == "spots"
+    and created.get("subject_label") == "Tier-A-Haus",
+    f"{created.get('subject_collection')!r}/{created.get('subject_label')!r}",
+)
+
+# The refinement: a phase change is not an ordinary update, because the Spot
+# holds only its CURRENT phase and the record answers nothing about when or who.
+#
+# Activating needs a permitted prospect first (app_spot_phase.js), and THAT is
+# an ordinary edit — which makes it the control for the assertion below: the
+# generic verb still fires for an ordinary field, and does not fire a second
+# time for the phase.
+h.req(
+    "PATCH",
+    f"/api/collections/spots/records/{tier_a_spot['id']}",
+    coord_token,
+    {"prospect_stage": "permitted"},
+)
+ordinary = len(events(f"action = 'spot.updated' && subject_id = '{tier_a_spot['id']}'"))
+h.check(
+    "an ordinary field edit is filed under the generic verb",
+    ordinary == 1,
+    f"{ordinary} spot.updated rows after one ordinary edit",
+)
+h.req(
+    "PATCH",
+    f"/api/collections/spots/records/{tier_a_spot['id']}",
+    coord_token,
+    {"phase": "active"},
+)
+phase = one_event(
+    f"action = 'spot.phase_changed' && subject_id = '{tier_a_spot['id']}'",
+    "a phase change is refined out of the generic update",
+)
+h.check(
+    "...and is not ALSO filed as spot.updated",
+    len(events(f"action = 'spot.updated' && subject_id = '{tier_a_spot['id']}'"))
+    == ordinary,
+    "one human act is one row; a second row under the coarse verb would double "
+    "every phase change in the feed",
+)
+h.check(
+    "...carrying both sides of the move",
+    "prospect" in str(phase.get("changes")) and "active" in str(phase.get("changes")),
+    f"{phase.get('changes')!r}",
+)
+h.check(
+    "...and lifted out of the day-to-day noise",
+    phase.get("severity") == "notice",
+    f"severity {phase.get('severity')!r}",
+)
+
+# A no-op PATCH is not a change. A form that submits every field on every save
+# would otherwise write a row each time somebody opened and closed it.
+before_noop = len(events(f"spot_id = '{tier_a_spot['id']}'"))
+h.req(
+    "PATCH",
+    f"/api/collections/spots/records/{tier_a_spot['id']}",
+    coord_token,
+    {"name": "Tier-A-Haus"},
+)
+h.check(
+    "a save that changed nothing writes nothing",
+    len(events(f"spot_id = '{tier_a_spot['id']}'")) == before_noop,
+    "an audit log that records every save is a log people stop reading",
+)
+
+# ── A member of the public, whose details may not exist in this table ───────
+#
+# spot_contacts is this app's finders. The caretaker did not sign up for
+# anything; the cascade from `spots` IS the retention policy, and a copy of
+# their name in an append-only table would defeat it.
+tier_a_contact = h.mk(
+    coord_token,
+    "spot_contacts",
+    {
+        "org": ORG,
+        "spot": tier_a_spot["id"],
+        "role": "owner",
+        "name": "Frau Hausmeisterin",
+        "phone": "030 1234567",
+        "email": "hausmeisterin@example.org",
+    },
+)
+contact_row = one_event(
+    f"action = 'contact.created' && subject_id = '{tier_a_contact['id']}'",
+    "a contact write is recorded",
+)
+recorded = str(contact_row.get("changes")) + str(contact_row.get("subject_label"))
+h.check(
+    "...with the person's details nowhere in the row",
+    "Hausmeisterin" not in recorded
+    and "1234567" not in recorded
+    and "example.org" not in recorded,
+    f"{recorded!r} — an append-only table outlives every correction and every "
+    "request to be forgotten",
+)
+h.check(
+    "...but the row still says something worth reading",
+    "owner" in str(contact_row.get("changes")),
+    f"{contact_row.get('changes')!r} — the identifying fields are not in this "
+    "collection's CONTENT_FIELDS at all, which is a stronger statement than "
+    "redacting them: there is no path that puts them in a row. What is left is "
+    "the arrangement — which role, and whether they are the first to ring — "
+    "and a create carrying nothing but an id would not be worth a row",
+)
+h.check(
+    "...and no subject label to undo the redaction from the envelope",
+    not contact_row.get("subject_label"),
+    f"subject_label={contact_row.get('subject_label')!r}",
+)
+
+# ── The act that can be illegal ─────────────────────────────────────────────
+tier_a_area = h.mk(
+    coord_token,
+    "areas",
+    {"org": ORG, "spot": tier_a_spot["id"], "name": "Turm"},
+)
+tier_a_nest = h.mk(
+    coord_token,
+    "nests",
+    {
+        "org": ORG,
+        "spot": tier_a_spot["id"],
+        "area": tier_a_area["id"],
+        "label": "T1",
+        "species": "protected",
+        "species_label": "Dohle",
+        "status": "active",
+    },
+)
+h.req(
+    "PATCH",
+    f"/api/collections/nests/records/{tier_a_nest['id']}",
+    coord_token,
+    {"species": "feral_pigeon"},
+)
+released = one_event(
+    f"action = 'nest.unprotected' && subject_id = '{tier_a_nest['id']}'",
+    "releasing a nest from protection is its own action",
+)
+h.check(
+    "...filed as a security event, not as an edit",
+    released.get("severity") == "security",
+    f"severity {released.get('severity')!r} — this is the one act in this app "
+    "that can be illegal",
+)
+h.check(
+    "...and reached its building through the nest's own relation",
+    released.get("spot_id") == tier_a_spot["id"],
+    f"spot_id={released.get('spot_id')!r}",
+)
+
+# ── The hop to a Spot through a parent is NOT asserted here ────────────────
+#
+# `visit_photos`, `nest_checks` and `nest_eggs` are the three collections with
+# no `spot` relation of their own, and the registry gives each a `via` hop. None
+# of them can be reached at this point in the suite: a Besuch is written by one
+# route in one transaction (`visits.createRule` is null, and so are the checks'
+# and the eggs'), so there is no parent here to hang one off. The hops are
+# asserted as DECLARED in tests/unit/app_audit_vocabulary_test.js, and asserted
+# as working in eiermann-30w.6, where a real Besuch exists.
+
+# ── A refused write leaves no trace ────────────────────────────────────────
+#
+# The asymmetry is app_nest_rules.js's and it is deliberate: ANYONE may mark a
+# nest protected — the volunteer standing in front of a jackdaw does not wait
+# for a coordinator — and only RELEASING one is coordinator-only. So the member
+# below succeeds first, which is itself worth recording, and is then refused the
+# direction that can be illegal.
+put_back = len(events(f"action = 'nest.protected' && subject_id = '{tier_a_nest['id']}'"))
+status, _ = h.req(
+    "PATCH",
+    f"/api/collections/nests/records/{tier_a_nest['id']}",
+    member_token,
+    {"species": "protected"},
+)
+h.check("a member may put a nest back under protection", h.ok(status), f"status {status}")
+h.check(
+    "...and that is recorded like any other act",
+    len(events(f"action = 'nest.protected' && subject_id = '{tier_a_nest['id']}'"))
+    == put_back + 1,
+    "the safe direction is still a decision somebody made",
+)
+
+before_refusal = len(events(f"action = 'nest.unprotected' && subject_id = '{tier_a_nest['id']}'"))
+status, _ = h.req(
+    "PATCH",
+    f"/api/collections/nests/records/{tier_a_nest['id']}",
+    member_token,
+    {"species": "feral_pigeon"},
+)
+h.check(
+    "a member cannot release a nest from protection",
+    status >= 400,
+    f"status {status}",
+)
+h.check(
+    "...and the refusal writes no audit row",
+    len(events(f"action = 'nest.unprotected' && subject_id = '{tier_a_nest['id']}'"))
+    == before_refusal,
+    "e.next() throws on a rejected save, which is what skips the emit — a "
+    "phantom row for a write that never happened is a lie in an append-only "
+    "table",
+)
+
+# ── A cascade is ONE row, not one per child ────────────────────────────────
+#
+# Deleting this Spot destroys its area, its contact and its nest — and would
+# take every visit, check, egg, finding, follow-up and tour stop with it too.
+# Cascade deletes fire no request hook, which is the whole reason the feed stays
+# readable: the Spot's own row stands for the subtree.
+doomed_children = [tier_a_area["id"], tier_a_nest["id"], tier_a_contact["id"]]
+status, _ = h.req(
+    "DELETE", f"/api/collections/spots/records/{tier_a_spot['id']}", coord_token
+)
+h.check("the Spot is deleted", h.ok(status), f"status {status}")
+one_event(
+    f"action = 'spot.deleted' && subject_id = '{tier_a_spot['id']}'",
+    "the delete writes a row that outlives its subject",
+)
+child_rows = [
+    r
+    for cid in doomed_children
+    for r in events(f"subject_id = '{cid}' && action ~ '.deleted'")
+]
+h.check(
+    "...and the records it took with it write none",
+    not child_rows,
+    f"{[r.get('action') for r in child_rows]} — a cascade fires no request "
+    "hook, and a feed with a row per child is a feed nobody reads",
+)
+
+# ── Nothing of this reached the OLD log ────────────────────────────────────
+#
+# The two tables overlap on purpose until 30w.7 moves the reader, but they are
+# not the same log: `audit_entries` still gets its seven hand-wired call sites
+# and nothing else. A Tier A row appearing there would mean somebody wired the
+# new emitters into the old table.
+h.check(
+    "the old log did not grow a contact entry it never had",
+    not audit_rows(coord_token, "action = 'contact.created'"),
+    "the two logs are separate writers, not one writer with two sinks",
+)
+
+
 # ── Der Rhythmus: the numbers, and the door they are changed through ───────
 #
 # `organisations.updateRule` is null and stays null, so the settings blob has no
