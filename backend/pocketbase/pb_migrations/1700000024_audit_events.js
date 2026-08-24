@@ -9,13 +9,9 @@
 // zugvogel already owns. It records ten actions across four collections, each
 // hand-wired at a call site, and everything else in the app — a Besuch, a
 // finding, an area, a tour, an export, a sign-in — happens unobserved. The fix
-// is not more call sites: it is zugvogel's shared audit emitter, which federfall
-// drives its whole log from and which gets every ordinary collection write from
-// one generic hook per verb. (Named in prose rather than by filename on
-// purpose: nothing in this repo requires it until eiermann-30w.3 writes the
-// binding, and the rule suite fails a migration that names a vendored hook no
-// hook requires — a design record whose grep finds nothing is the hole that
-// guard exists for. 30w.3 puts the filename here.)
+// is not more call sites: it is `zv_audit.js`, which federfall drives its whole
+// log from and which gets every ordinary collection write from one generic hook
+// per verb. `app_audit_log.js` binds it to this app's vocabulary.
 //
 // That emitter writes a fixed set of columns, and they are not 1700000019's.
 // The disagreement is structural rather than cosmetic — one row per CHANGED
@@ -46,7 +42,7 @@
 // in JS. These three are that, and it is checkable rather than hoped for —
 // nothing in any hook reads them back. The emitter builds each one as a plain
 // JS array or object and sets it; the only hook that ever queries this table is
-// the emitter's own failed-login bucketing, which counts rows by `action` and
+// zv_audit.js's failed-login bucketing, which counts rows by `action` and
 // `created`. Everything else that reads a row is the Flutter client, over the
 // API, where PocketBase serialises JSON correctly and no `types.JSONRaw` ever
 // reaches a `.property`.

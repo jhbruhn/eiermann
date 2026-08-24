@@ -1921,7 +1921,7 @@ h.check(
 #
 # `audit_events.refs`, `.changes` and `.detail` (eiermann-30w.2) are the second
 # kind too, and the argument is checkable rather than asserted: NOTHING IN ANY
-# HOOK READS THEM BACK. The shared emitter builds each one as a plain JS array or
+# HOOK READS THEM BACK. zv_audit.js builds each one as a plain JS array or
 # object and sets it on a fresh record; the only hook that queries this table at
 # all is its failed-login bucketing, which counts rows by `action` and `created`
 # and touches none of the three. Every other reader is the Flutter client, over
