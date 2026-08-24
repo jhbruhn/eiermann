@@ -122,7 +122,7 @@ enum AdminSection {
 ///
 /// Coordination-only, re-checked here so a hand-typed URL degrades into a
 /// plain refusal rather than a screen of dead controls. The real boundary is
-/// the server's: `audit_entries.listRule`, the rhythm route's own check, and
+/// the server's: `audit_events.listRule`, the rhythm route's own check, and
 /// `users.updateRule`.
 class ManagementScreen extends ConsumerWidget {
   const ManagementScreen({this.section, super.key});

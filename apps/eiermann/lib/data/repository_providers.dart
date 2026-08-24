@@ -188,7 +188,7 @@ Future<RhythmRepository> rhythmRepository(Ref ref) async =>
 
 /// The audit trail: who changed what, and what it used to say.
 ///
-/// Read-only, and not by convention — `audit_entries` has no create, update or
+/// Read-only, and not by convention — `audit_events` has no create, update or
 /// delete rule at all, so the only way a row appears is a hook deciding it
 /// should. Reading is the coordination's alone, which the server enforces.
 @Riverpod(keepAlive: true)
