@@ -87,6 +87,22 @@ grep -q 'cronAdd("geocodeCachePurge", "\* \* \* \* \*"' "$HOOKS/geocode.pb.js" |
   exit 1
 }
 
+# The third job: the audit retention purge. This is the case the geocode comment
+# above calls out as the unreachable one — it keys on `created`, an autodate the
+# SERVER owns, so no test can backdate a row into the window. The window itself
+# has to shrink instead.
+#
+# `audit_retention_days` is a float here, so the suite can set a window of about
+# nine seconds (0.0001 days) and watch a row cross it while the test runs. That
+# number is a SETTING rather than a constant, so nothing in the hook needs
+# patching for it — only the schedule does.
+sed -i 's|cronAdd("auditRetention", "30 3 \* \* \*"|cronAdd("auditRetention", "* * * * *"|' \
+  "$HOOKS/audit_retention.pb.js"
+grep -q 'cronAdd("auditRetention", "\* \* \* \* \*"' "$HOOKS/audit_retention.pb.js" || {
+  echo "FATAL: the audit retention schedule was not rewritten — did it change?" >&2
+  exit 1
+}
+
 MOUNTS=(
   -v "$HOOKS:/pb/pb_hooks:ro"
   -v "$DATA:/pb/pb_data"

@@ -80,6 +80,17 @@ const CODES = {
   nestProtectedNeedsCoordinator: "nest_protected_needs_coordinator",
   nestProtectedNoEggChanges: "nest_protected_no_egg_changes",
 
+  // ── The audit log ──
+  //
+  // No ordinary client ever meets these: `audit_events` has no create, update or
+  // delete RULE, so an API caller is refused before a hook runs at all. They
+  // exist because the guard also fires for hook-driven writes, where the access
+  // rules do not reach — and because a refusal in this app carries a code even
+  // when its only reader is a log line.
+  auditAppendOnly: "audit_append_only",
+  auditRetentionDisabled: "audit_retention_disabled",
+  auditWithinRetention: "audit_within_retention",
+
   // ── Touren ──
   tourNotFound: "tour_not_found",
   tourStopNeedsTour: "tour_stop_needs_tour",

@@ -249,4 +249,82 @@ h.check(
     f"{before} -> {spot_now(due['id']).get('updated')}",
 )
 
+# ── The audit retention purge ──────────────────────────────────────────────
+#
+# eiermann-30w.10. The case the geocode comment above calls unreachable: this
+# job keys on `created`, an autodate the SERVER owns, so no fixture can be
+# backdated into the window. The window shrinks instead — and it is a SETTING
+# rather than a constant, so nothing in the hook is patched to make this run.
+#
+# The default is 0, meaning keep forever, so up to this point the job has been
+# running every minute and correctly deleting nothing. That is itself the first
+# assertion.
+
+print("\n[the audit retention purge]")
+
+
+def audit_count(org=ORG):
+    rows = h.listf(coord_token, "audit_events", f"org = '{org}'")
+    return len(rows)
+
+
+kept = audit_count()
+h.check(
+    "with retention off, a job that has run all suite long has purged nothing",
+    kept > 0,
+    f"{kept} rows — the default is 0 = keep forever, and a purge that ran "
+    "anyway would have emptied the table before this line",
+)
+
+# About nine seconds. Small enough that rows written during this suite cross it
+# while the test waits, large enough that the write itself is not racing it.
+h.req(
+    "PATCH",
+    f"/api/collections/organisations/records/{ORG}",
+    T,
+    {"settings": {"audit_retention_days": 0.0001}},
+)
+
+deadline = time.time() + 130
+purged = False
+while time.time() < deadline:
+    if audit_count() == 0:
+        purged = True
+        break
+    time.sleep(3)
+
+h.check(
+    "with a window set, rows past it are purged",
+    purged,
+    f"{audit_count()} rows still there after the wait — the job either did not "
+    "run, or its cutoff does not match. `created` is a server autodate, so a "
+    "window this small is the only way a test can reach it at all",
+)
+
+# The guard, from the one direction the rule suite cannot reach. An API caller
+# is refused by the null deleteRule before a hook runs; this asks whether the
+# HOOK refuses too, which is the path `$app.delete` takes and the reason the
+# guard exists at all.
+h.req(
+    "PATCH",
+    f"/api/collections/organisations/records/{ORG}",
+    T,
+    {"settings": {"audit_retention_days": 0}},
+)
+h.mk(coord_token, "spots", {"org": ORG, "name": "Nach der Frist", "phase": "prospect"})
+fresh = h.listf(coord_token, "audit_events", f"org = '{ORG}'")
+h.check(
+    "the log fills again once retention is off",
+    len(fresh) > 0,
+    "with the window back at 0 the purge must stop, or the table can never "
+    "hold anything",
+)
+time.sleep(70)
+h.check(
+    "...and the next run leaves those rows alone",
+    len(h.listf(coord_token, "audit_events", f"org = '{ORG}'")) >= len(fresh),
+    "0 means keep forever, and a setting that is read but not obeyed is worse "
+    "than one that does not exist",
+)
+
 sys.exit(h.summary())
