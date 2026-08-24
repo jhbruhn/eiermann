@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/features/areas/areas_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
@@ -9,6 +10,7 @@ import 'package:eiermann_models/eiermann_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zugvogel_core/zugvogel_core.dart';
+import 'package:zugvogel_pb_client/zugvogel_pb_client.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The shape the Bereich photo is shown in.
@@ -117,9 +119,17 @@ class AreaPhoto extends ConsumerWidget {
 /// onto it exactly. Inside a box of some other shape `BoxFit.contain`
 /// letterboxes, the bars belong to the box, and every pin sits slightly off.
 ///
+/// Which is also why the height cannot simply be constrained while the picture
+/// is on its way: a minimum height would make the box TALLER than a panorama
+/// shot and drift every pin upwards. So the box is reserved at the card's
+/// shape ([_photoAspect]) and handed over to the picture the moment the
+/// picture can size it. Before that the canvas collapsed to
+/// nothing and jumped open on arrival, which on the visit flow moved the nest
+/// rows under somebody's finger.
+///
 /// Takes a file NAME rather than an [Area], because the review pass draws two
 /// of them from one record — the current photo and the outgoing one.
-class AreaCanvasPhoto extends ConsumerWidget {
+class AreaCanvasPhoto extends ConsumerStatefulWidget {
   const AreaCanvasPhoto({
     required this.areaId,
     required this.file,
@@ -132,19 +142,136 @@ class AreaCanvasPhoto extends ConsumerWidget {
   final String file;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AreaCanvasPhoto> createState() => _AreaCanvasPhotoState();
+}
+
+class _AreaCanvasPhotoState extends ConsumerState<AreaCanvasPhoto> {
+  /// Whether the picture is decoded, and can therefore size its own box.
+  ///
+  /// Until it is, the reserved box stands. It is never set from the stream's
+  /// ERROR path on purpose: a photo that cannot be fetched keeps the reserved
+  /// shape, so the retry and the broken-image tile have a box to sit in
+  /// instead of the layout collapsing a second time.
+  bool _sized = false;
+
+  ImageStream? _stream;
+
+  late final ImageStreamListener _listener = ImageStreamListener(
+    (_, _) => _onSized(),
+    // Swallowed rather than left to the default handler, which would report it
+    // as an unhandled framework error. The failure itself is not lost: the
+    // image widget below is on the same stream and owns the retry and the
+    // placeholder.
+    onError: (_, _) {},
+  );
+
+  void _onSized() {
+    if (_sized || !mounted) return;
+    setState(() => _sized = true);
+  }
+
+  @override
+  void didUpdateWidget(AreaCanvasPhoto old) {
+    super.didUpdateWidget(old);
+    // A different picture is a different shape, so the reservation starts over.
+    if (old.file != widget.file || old.areaId != widget.areaId) {
+      _stream?.removeListener(_listener);
+      _stream = null;
+      _sized = false;
+    }
+  }
+
+  /// Attaches to [provider]'s stream, unless it is the one already attached.
+  ///
+  /// Called from a post-frame callback, never from `build`: for a picture
+  /// already in the image cache the listener fires SYNCHRONOUSLY, and that is
+  /// the good case — a `setState` in the middle of a build is not.
+  void _watch(ImageProvider<Object> provider) {
+    final stream = provider.resolve(createLocalImageConfiguration(context));
+    if (stream.key == _stream?.key) return;
+    _stream?.removeListener(_listener);
+    _stream = stream..addListener(_listener);
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final repo = ref.watch(areasRepositoryProvider).value;
-    if (repo == null) return const LoadingView();
+    // The reserved shape holds here too: the repository is one await behind the
+    // first frame, and a zero-height spinner would move everything under it
+    // twice instead of once.
+    if (repo == null) {
+      return const _ReservedBox(child: LoadingView());
+    }
+    final url = repo.fileUrl(widget.areaId, widget.file, thumb: _photoThumb);
+
     // `double.infinity` is NOT an option for the width: it also sizes the
     // decode, and `Infinity.round()` throws — measured, as a red test.
     return LayoutBuilder(
-      builder: (context, constraints) => CachedFileImage(
-        url: repo.fileUrl(areaId, file, thumb: _photoThumb),
-        width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
-        fit: BoxFit.fitWidth,
+      builder: (context, constraints) {
+        final width = constraints.hasBoundedWidth ? constraints.maxWidth : null;
+        if (!_sized && width != null) {
+          final provider = _provider(context, url, width);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _watch(provider);
+          });
+        }
+        final image = CachedFileImage(
+          url: url,
+          width: width,
+          fit: BoxFit.fitWidth,
+        );
+        return _sized ? image : _ReservedBox(child: image);
+      },
+    );
+  }
+
+  /// The image as [CachedFileImage] will ask for it — same cache key, same
+  /// decode width.
+  ///
+  /// Deliberately identical, because then this is not a second load at all:
+  /// the widget below resolves first, this joins the entry it created, and the
+  /// frame that flips [_sized] is the frame that can already paint. If the
+  /// shared widget ever changes how it sizes its decode, the two drift into two
+  /// entries — which costs a decode and a frame, and gets no pin wrong.
+  ImageProvider<Object> _provider(BuildContext context, Uri url, double width) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return ResizeImage.resizeIfNeeded(
+      (width * dpr).round(),
+      null,
+      CachedNetworkImageProvider(
+        url.toString(),
+        cacheKey: fileCacheKey(url),
+        cacheManager: ref.read(protectedFileCacheManagerProvider),
       ),
     );
   }
+}
+
+/// The space a Bereich photo takes before it can take its own.
+///
+/// The card's shape rather than a guess of its own: an overview shot of a room
+/// is wider than tall, so this is the smallest jump available without knowing
+/// the picture. Knowing it would mean storing the ratio on the Bereich at
+/// upload — worth doing, and not needed to stop the collapse.
+class _ReservedBox extends StatelessWidget {
+  const _ReservedBox({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AspectRatio(
+    aspectRatio: _photoAspect,
+    child: ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: child,
+    ),
+  );
 }
 
 /// The no-photo state: the whole box is the way to fix it.

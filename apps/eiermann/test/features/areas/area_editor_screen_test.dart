@@ -64,6 +64,11 @@ void main() {
     current = area;
     when(() => areas.getOne(any())).thenAnswer((_) async => current);
     when(() => nests.forArea(any())).thenAnswer((_) async => rows);
+    // Tall, because the canvas now RESERVES its box instead of collapsing to
+    // nothing while the photo loads: on the default 600-pixel surface the lines
+    // under the photo fall below the fold, a ListView does not build them, and
+    // every assertion about them reads as "the text is missing".
+    tester.useSurface(const Size(800, 1600));
     await tester.pumpApp(
       const AreaEditorScreen(areaId: 'a1'),
       overrides: [
