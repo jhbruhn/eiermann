@@ -2704,6 +2704,55 @@ h.check(
     "table",
 )
 
+# ── Append-only, against a row that exists ─────────────────────────────────
+#
+# eiermann-30w.8. The door test earlier in this suite runs before anything has
+# written a row, so it can only assert that a CREATE is refused. Editing and
+# deleting need a real id, and this is the first point in the suite that has
+# one. Both matter more than the create: a log somebody can quietly correct is
+# not a log, and the coordination — whose own acts this table records — is
+# exactly who would want to.
+edit_target = created.get("id", "")
+h.check(
+    "there is a real row to try this against",
+    bool(edit_target),
+    "without an id every PATCH and DELETE below hits /records/ and answers "
+    "404 — four refusals that assert nothing, which is how a guard passes "
+    "for an afternoon while proving nothing at all",
+)
+for who, token in (("a member", member_token), ("the coordination", coord_token)):
+    status, _ = h.req(
+        "PATCH",
+        f"/api/collections/audit_events/records/{edit_target}",
+        token,
+        {"actor_label": "Jemand anders"},
+    )
+    h.check(
+        f"{who} cannot edit a recorded act",
+        status >= 400,
+        f"status {status} — updateRule is null, and the hooks that write here "
+        "go through app.save, which does not consult the rules at all",
+    )
+    status, _ = h.req(
+        "DELETE",
+        f"/api/collections/audit_events/records/{edit_target}",
+        token,
+    )
+    h.check(
+        f"...nor delete one ({who})",
+        status >= 400,
+        f"status {status} — a DELETE answers 204 when it succeeds, so this is "
+        "one of the two places a status check has to be written the right way "
+        "round",
+    )
+
+h.check(
+    "...and the row is still there afterwards",
+    len(events(f"action = 'spot.created' && subject_id = '{tier_a_spot['id']}'")) == 1,
+    "four refusals that nonetheless removed the row would pass every "
+    "assertion above",
+)
+
 # ── A cascade is ONE row, not one per child ────────────────────────────────
 #
 # Deleting this Spot destroys its area, its contact and its nest — and would
@@ -2790,13 +2839,22 @@ h.check("a wrong password is recorded", len(failed) == 1, f"{len(failed)} rows")
 # Bucketed per account into five-minute windows by zv_audit.js. Without it a
 # brute-force writes a row per attempt into a table with no delete rule — the
 # log becomes the amplifier.
+#
+# FEWER than the attempts, not exactly one. The window is an absolute
+# wall-clock slot — `floor(now / 5min) * 5min` — and not "five minutes since
+# the first failure", so a burst that straddles a boundary legitimately writes
+# a second row. Asserting `== 1` made this suite fail whenever it happened to
+# run across a multiple of five minutes, which is a test that fails for a
+# reason having nothing to do with what it is testing. Removing the bucketing
+# still fails it: three attempts would write three rows.
 h.login("anmeldung@example.org", "auch-nicht")
 h.login("anmeldung@example.org", "immer-noch-nicht")
+burst = events(f"action = 'auth.login_failed' && actor_id = '{auth_user['id']}'")
 h.check(
-    "...but a burst of them is still one row",
-    len(events(f"action = 'auth.login_failed' && actor_id = '{auth_user['id']}'")) == 1,
-    "an append-only table that a stranger can grow at will is a denial of "
-    "service against its own readers",
+    "...but a burst of them does not write a row per attempt",
+    len(burst) < 3,
+    f"{len(burst)} rows for three attempts — an append-only table that a "
+    "stranger can grow at will is a denial of service against its own readers",
 )
 
 # A SEPARATE account, and that is the whole point of it: the five-minute bucket
@@ -6190,6 +6248,172 @@ def org_is_pinned(col):
 
 
 sweep_collections(h, cols, "every org-scoped update rule pins org", org_is_pinned)
+
+# ── The audit registry, swept both ways against the live schema ────────────
+#
+# eiermann-30w.8. Two registries drive the whole log, and both fail SILENTLY:
+# `emitRecordChange` returns early for a collection it has no entry for, and a
+# redaction naming a field that does not exist withholds nothing. Neither shows
+# up as an error anywhere — the first is a collection quietly unaudited, the
+# second a caretaker's phone number quietly in an append-only table.
+#
+# So the tables are parsed out of the SOURCE and compared with the schema the
+# server actually reports. A sweep is the only test that covers a collection
+# nobody has written yet, which is exactly the case both of these are for.
+
+print("\n[the audit registry]")
+
+AUDIT_VOCABULARY = os.path.join(HOOKS, "app_audit_vocabulary.js")
+with open(AUDIT_VOCABULARY, encoding="utf-8") as handle:
+    # Comment lines dropped first, so a collection or field named in prose
+    # cannot become a registry entry.
+    _vocab = "\n".join(
+        line
+        for line in handle.read().split("\n")
+        if not line.lstrip().startswith("//")
+    )
+
+
+def vocab_block(name):
+    """The body of one `const <name> = {…}` in the vocabulary."""
+    start = _vocab.find(f"const {name} = ")
+    h.check(
+        f"the vocabulary still declares {name}",
+        start != -1,
+        f"no `const {name}` in app_audit_vocabulary.js — it was renamed or "
+        "moved, and this sweep has been reading nothing ever since",
+    )
+    if start == -1:
+        return ""
+    end = _vocab.find("\n};", start)
+    return _vocab[start:end] if end != -1 else _vocab[start:]
+
+
+def vocab_keys(name):
+    """The `  key: {` or `  key: [` entries of one table."""
+    return set(_re.findall(r"^  ([a-z_][a-z0-9_]*):\s*[\[{]", vocab_block(name), _re.M))
+
+
+def vocab_list(name, key=None):
+    """A flat array of quoted strings — the whole table, or one key's array."""
+    body = vocab_block(name)
+    if key is not None:
+        start = body.find(f"\n  {key}: [")
+        if start == -1:
+            return []
+        end = body.find("]", start)
+        body = body[start:end]
+    return _re.findall(r'"([a-z0-9_]+)"', body)
+
+
+audited = vocab_keys("COLLECTION_ACTIONS")
+h.check(
+    "the sweep parsed a registry at all",
+    len(audited) >= 10,
+    f"{sorted(audited)} — a sweep over nothing passes over anything",
+)
+
+# Collections deliberately outside Tier A, each with the reason. An entry here
+# is a decision; a collection missing from BOTH lists is an oversight, and the
+# two read identically from the call site.
+AUDIT_EXEMPT = {
+    "geocode_cache": "an address lookup somebody's typing triggered is "
+                     "infrastructure, not a decision anybody made",
+    "idempotency_keys": "a recorded answer to a request that is itself "
+                        "already audited; logging it would double every "
+                        "Besuch",
+    "audit_events": "it would record itself, once per row, forever",
+}
+
+all_names = {c["name"] for c in cols}
+writable = {c["name"] for c in base_collections(cols)}
+
+unaudited = sorted(writable - audited - set(AUDIT_EXEMPT))
+h.check(
+    "every client-writable collection is either audited or exempt with a reason",
+    not unaudited,
+    f"{unaudited} — Tier A looks the collection up in COLLECTION_ACTIONS and "
+    "returns early when it is not there, so a collection added next month is "
+    "unaudited in complete silence. Add an entry, or an AUDIT_EXEMPT reason",
+)
+
+fictional = sorted(audited - all_names)
+h.check(
+    "every audited collection exists",
+    not fictional,
+    f"{fictional} — the registry claims to audit something the schema does "
+    "not have, which reads as coverage and is none",
+)
+
+stale_exempt = sorted(set(AUDIT_EXEMPT) & audited)
+h.check(
+    "nothing is both exempt and audited",
+    not stale_exempt,
+    f"{stale_exempt} — the exemption says why it is not audited and the "
+    "registry audits it; one of the two is a leftover",
+)
+
+# ── No PII, asserted against the columns that actually exist ───────────────
+#
+# The rule most easily broken, and the reason it needs a sweep rather than a
+# reading: `spot_contacts` holds people who never signed up for anything — a
+# Hausmeister, an owner — and the cascade from `spots` IS their retention
+# policy. A copy of their details in a table with no delete rule outlives it.
+#
+# CONTENT_FIELDS is an allowlist, so a NEW column is not recorded on a create.
+# The hole is the UPDATE diff, which walks whatever changed: a `mobile` column
+# added to spot_contacts next year would carry its value into the log unless it
+# is withheld. Hence this, keyed on the live schema rather than on the table.
+by_name = {c["name"]: c for c in cols}
+
+# A field the log names but the schema does not have withholds nothing, and
+# nothing says so.
+phantom = []
+for collection in sorted(vocab_keys("SENSITIVE")):
+    if collection.startswith("_"):
+        continue  # PocketBase's own; its columns are not ours to assert
+    known = {f["name"] for f in fields_of(by_name.get(collection, {}))}
+    for field in vocab_list("SENSITIVE", collection):
+        if field not in known and collection in by_name:
+            phantom.append(f"{collection}.{field}")
+h.check(
+    "every withheld field is a field that exists",
+    not phantom,
+    f"{phantom} — a redaction naming a column the schema does not have is a "
+    "redaction that never fires, and reads in the registry as protection",
+)
+
+# The substantive half. Every text-shaped column on a members-of-the-public
+# collection has to be accounted for: withheld outright, withheld as prose, or
+# deliberately allowlisted as part of the ARRANGEMENT rather than the person.
+free_text = set(vocab_list("FREE_TEXT"))
+leaky = []
+for collection in vocab_list("NEVER_LABELLED"):
+    if collection not in by_name:
+        continue
+    withheld = set(vocab_list("SENSITIVE", collection))
+    allowed = set(vocab_list("CONTENT_FIELDS", collection))
+    for field in fields_of(by_name[collection]):
+        if field.get("type") not in ("text", "email", "url", "editor"):
+            continue
+        name = field["name"]
+        # The primary key. A diff reports what MOVED, and an id cannot — so it
+        # can neither carry a value into the log nor be a decision about one.
+        # Excluded here rather than added to SENSITIVE, which would claim a
+        # redaction that never fires.
+        if name == "id":
+            continue
+        if name in withheld or name in free_text or name in allowed:
+            continue
+        leaky.append(f"{collection}.{name}")
+h.check(
+    "no unaccounted text column on a members-of-the-public collection",
+    not leaky,
+    f"{leaky} — this collection is NEVER_LABELLED because the people in it "
+    "did not sign up for anything. CONTENT_FIELDS keeps a new column out of a "
+    "create, but an update diff walks whatever changed: without SENSITIVE or "
+    "FREE_TEXT the value reaches a table with no delete rule",
+)
 
 print(
     f"\n({len(base_collections(cols))} client-writable base collections swept; "
