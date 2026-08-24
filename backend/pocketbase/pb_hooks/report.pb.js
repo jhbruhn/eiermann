@@ -275,6 +275,19 @@ routerAdd(
         }
       }
 
+      // An export is data LEAVING the system, and the one READ in this app
+      // worth a row — everything else in the log is a write. eiermann-30w.6,
+      // closing eiermann-ycd.
+      //
+      // Both successful paths emit, because both hand somebody a file: this
+      // one and the PDF below, which `format=summary` shares. Emitted at the
+      // END of each, so a request that failed to render does not claim a
+      // report went out the door — the two 500s above return before here.
+      require(`${__hooks}/app_audit_log.js`).emit(
+        e,
+        require(`${__hooks}/app_audit_log.js`).ACTIONS.REPORT_EXPORTED,
+        { org: org, detail: { format: format, period: periodSlug } },
+      );
       e.response
         .header()
         .set(
@@ -438,13 +451,15 @@ routerAdd(
       }
     }
 
+    // The second of the two export paths. See the CSV one above for why.
+    require(`${__hooks}/app_audit_log.js`).emit(
+      e,
+      require(`${__hooks}/app_audit_log.js`).ACTIONS.REPORT_EXPORTED,
+      { org: org, detail: { format: format, period: periodSlug } },
+    );
     e.response
       .header()
       .set("Content-Disposition", 'attachment; filename="' + baseName + '.pdf"');
-    // NOT audited, because there is nothing to audit into yet: this app has no
-    // audit_events collection until Phase 08. An export is data LEAVING the
-    // system and is exactly the kind of read that belongs in such a log, so the
-    // emit goes in when the log does — eiermann-ycd.
     return e.blob(200, "application/pdf", bytes);
   },
   $apis.requireAuth(),

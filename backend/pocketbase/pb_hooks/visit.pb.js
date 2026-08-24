@@ -37,6 +37,56 @@ routerAdd(
     // indistinguishable from three nests somebody chose not to touch.
     e.app.runInTransaction((txApp) => {
       result = lib.writeVisit(txApp, auth, body);
+
+      // ONE row for the whole Besuch (eiermann-30w.6). A visit writes a visit,
+      // a check per nest, eggs, findings and photos, and none of it fires a
+      // request hook, so Tier A sees none of it — which is the right outcome
+      // twice over: those records are the consequences of ONE human act, and a
+      // feed with a row per nest would bury the act in its own detail. The
+      // children go in `detail` instead, as counts and states.
+      //
+      // Inside the transaction and with `txApp`, so the row commits with the
+      // writes it describes and rolls back with them. And below the `replay`
+      // branch above, which returns before ever reaching here: a retried
+      // request is the same Besuch, and a second row would say it happened
+      // twice.
+      const audit = require(`${__hooks}/app_audit_log.js`);
+      const states = {};
+      for (const c of result.checks || []) {
+        states[c.state] = (states[c.state] || 0) + 1;
+      }
+      const kinds = {};
+      for (const f of result.findings || []) {
+        kinds[f.kind] = (kinds[f.kind] || 0) + 1;
+      }
+      let visitRecord = null;
+      try {
+        // Read back rather than assembled by hand: the record carries the org,
+        // the author and the `spot` the registry files this row under, and one
+        // indexed read is cheaper than four ways to get them slightly wrong.
+        visitRecord = txApp.findRecordById("visits", result.visit);
+      } catch (_) {
+        visitRecord = null;
+      }
+      audit.emit(e, audit.ACTIONS.VISIT_RECORDED, {
+        app: txApp,
+        record: visitRecord,
+        org: String(auth.getString("org") || ""),
+        correlationId: String(body.spot || ""),
+        subject: {
+          collection: "visits",
+          id: String(result.visit || ""),
+          label: visitRecord ? audit.subjectLabel(visitRecord, txApp) : "",
+        },
+        detail: {
+          outcome: String(body.outcome || ""),
+          checks: (result.checks || []).length,
+          states: states,
+          findings: (result.findings || []).length,
+          kinds: kinds,
+        },
+      });
+
       // Stored INSIDE the transaction. Outside it, a crash between the two would
       // leave a visit that no retry can recognise — and the retry would write a
       // second one.

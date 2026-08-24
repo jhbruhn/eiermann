@@ -178,6 +178,20 @@ const ACTION_LIST = Object.keys(ACTIONS).map((k) => ACTIONS[k]);
 // A CASCADING DELETE fires no request hook, which is what keeps deleting a Spot
 // from writing a row per area, nest, visit, check, egg, finding and follow-up it
 // took with it. The Spot's own `spot.deleted` stands for the whole subtree.
+//
+// ── Which of these verbs Tier A can actually reach ─────────────────────────
+//
+// Four collections here are written only by the Besuch route, which fires no
+// request hook either (eiermann-30w.6): `visits` and `findings` have a null
+// createRule, and `nest_checks` and `nest_eggs` have create, update AND delete
+// all null — nothing reaches those two through the collection API at any verb.
+//
+// Their entries stay anyway, and not as decoration. `visit.recorded` is used by
+// the route's own emit, and the day one of those rules is opened — a
+// coordinator correcting a typo in a check note — the generic hook covers it
+// that afternoon rather than being remembered. What must NOT be read into this
+// table is that every verb in it is exercised today; the rule suite says which
+// are, beside the assertions that exercise them.
 const COLLECTION_ACTIONS = {
   spots: {
     created: ACTIONS.SPOT_CREATED,

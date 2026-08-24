@@ -2368,6 +2368,35 @@ h.check(
     "saving unchanged numbers writes nothing",
     len(audit_rows(coord_token, "action = 'rhythm_changed'")) == len(rhythm_rows),
 )
+
+# The same act in the NEW log (eiermann-30w.6), and the shapes genuinely differ:
+# one row per changed number there, ONE row carrying a `changes` array here. The
+# filtering survives the change of shape because the reason for it does — the
+# screen submits all five numbers on every save, so an unfiltered row would say
+# five moved every time somebody nudged one.
+new_rhythm = h.listf(coord_token, "audit_events", "action = 'rhythm.changed'")
+h.check(
+    "the new log files one rhythm save as ONE row",
+    len(new_rhythm) == 1,
+    f"{len(new_rhythm)} rows — two saves happened above and only one changed "
+    "anything; the second must write nothing at all",
+)
+h.check(
+    "...carrying the number that moved, and both its values",
+    new_rhythm
+    and "half_clutch_return_days" in str(new_rhythm[0].get("changes"))
+    and "9" in str(new_rhythm[0].get("changes")),
+    f"{new_rhythm[0].get('changes')!r}" if new_rhythm else "no row",
+)
+h.check(
+    "...and not the four that did not",
+    new_rhythm and str(new_rhythm[0].get("changes")).count("field") == 1,
+    f"{new_rhythm[0].get('changes')!r} — burying the one number somebody chose "
+    "under four they did not is exactly what the old log's per-field rows were "
+    "avoiding, and the array shape must not lose it"
+    if new_rhythm
+    else "no row",
+)
 h.req("PATCH", f"/api/collections/organisations/records/{ORG}", T, {"settings": {}})
 
 h.check(
@@ -3653,6 +3682,102 @@ h.check(
     f"status {status} — the fingerprint has to be canonical, or a client that "
     "re-serialises its body between attempts cannot retry at all",
 )
+
+
+# ── One Besuch is one row ──────────────────────────────────────────────────
+#
+# eiermann-30w.6. The route writes a visit, a check per nest, eggs, findings and
+# photos in one transaction, and none of it fires a request hook — so Tier A
+# sees none of it. That is the right outcome twice over: those records are the
+# consequences of ONE human act, and a feed with a row per nest would bury the
+# act in its own detail.
+
+print("\n[the new audit log: one Besuch, one row]")
+
+status, one_row = post_visit(
+    coord_token,
+    {
+        "spot": vhost["id"],
+        "outcome": "checked",
+        "note": "Auditrunde",
+        "checks": [
+            {"nest": vn1["id"], "state": "empty", "real_before": 0, "dummy_before": 0},
+        ],
+    },
+    key="suite-audit-one-row",
+)
+h.check("the Besuch is written", status == 200, f"status {status}")
+visit_id = (one_row or {}).get("visit", "")
+
+recorded = events(f"action = 'visit.recorded' && subject_id = '{visit_id}'")
+h.check("a Besuch writes exactly one row", len(recorded) == 1, f"{len(recorded)} rows")
+row = recorded[0] if recorded else {}
+h.check(
+    "...filed under the building it happened in",
+    row.get("spot_id") == vhost["id"],
+    f"spot_id={row.get('spot_id')!r}",
+)
+h.check(
+    "...counting the children rather than listing them as events",
+    '"checks": 1' in str(row.get("detail")).replace("'", '"')
+    or row.get("detail", {}).get("checks") == 1,
+    f"{row.get('detail')!r}",
+)
+h.check(
+    "...and the check it wrote is NOT an event of its own",
+    not events("action = 'check.created'"),
+    "nest_checks has createRule, updateRule and deleteRule all null — the "
+    "route is the only writer, and the Besuch's own row stands for what it did",
+)
+
+# The retry button's whole purpose, in the log: the same key returns the same
+# answer, and must not claim the Besuch happened twice.
+# Counted over the whole action, NOT filtered by subject_id: a doubled emit is
+# a bug, and a buggy emit is exactly the one likely to leave the subject blank.
+# Keyed on the subject, this assertion passed while a second row WAS being
+# written on every replay — measured by moving the emit above the replay branch,
+# not supposed.
+before_replay = len(events("action = 'visit.recorded'"))
+status, replayed = post_visit(
+    coord_token,
+    {
+        "spot": vhost["id"],
+        "outcome": "checked",
+        "note": "Auditrunde",
+        "checks": [
+            {"nest": vn1["id"], "state": "empty", "real_before": 0, "dummy_before": 0},
+        ],
+    },
+    key="suite-audit-one-row",
+)
+h.check(
+    "a replay returns the same Besuch",
+    status == 200 and (replayed or {}).get("visit") == visit_id,
+    f"status {status}",
+)
+h.check(
+    "...and writes no second row",
+    len(events("action = 'visit.recorded'")) == before_replay,
+    "the emit sits below the replay branch, which returns before reaching it — "
+    "an audit trail that doubles a Besuch on a flaky connection is worse than "
+    "one that misses it",
+)
+
+# ── What is NOT asserted here, and why ─────────────────────────────────────
+#
+# The registry gives `visit_photos`, `nest_checks` and `nest_eggs` a `via` hop
+# to their Spot, and none of the three is exercised at runtime by this suite:
+#
+#   * nest_checks and nest_eggs have createRule, updateRule AND deleteRule all
+#     null. No client path reaches them at all, so Tier A can never fire for
+#     them and their hops are unreachable today. They are kept because the day
+#     one of those rules is opened — a coordinator correcting a typo in a check
+#     note — the hop is what keeps that row attached to its building instead of
+#     filed under nothing.
+#   * visit_photos IS fully client-writable, so its hop is live. Creating one
+#     needs a multipart upload of a real image, and this suite speaks JSON.
+#
+# Said plainly rather than left as three lines in a registry that look tested.
 
 
 # ── The ladder, through the endpoint ───────────────────────────────────────
@@ -5306,6 +5431,28 @@ h.check(
     f"status {status}: {csv_text[:400]} — the report filters on an instant "
     "range while the screen buckets on a local year; if those disagree the two "
     "documents cannot be added up",
+)
+# ── An export is the one READ this log records ─────────────────────────────
+#
+# eiermann-30w.6, closing eiermann-ycd. Everything else in the table is a write;
+# this is data LEAVING the system, which is exactly the read worth a row. Both
+# successful paths emit — the CSV above and the PDF, which format=summary
+# shares — and both emit at the END, so a request that failed to render does not
+# claim a report went out the door.
+exported = events("action = 'report.exported'")
+h.check(
+    "an export leaves a row behind",
+    len(exported) >= 1,
+    "an export is the one read in this app that belongs in an audit trail",
+)
+h.check(
+    "...saying which format and which period, and by whom",
+    exported
+    and "csv" in str(exported[-1].get("detail"))
+    and exported[-1].get("actor_label"),
+    f"{exported[-1].get('detail')!r} / {exported[-1].get('actor_label')!r}"
+    if exported
+    else "no row",
 )
 status, empty_csv, _ = h.req_bytes(
     "GET",

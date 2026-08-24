@@ -78,6 +78,29 @@ cronAdd("spotAutoResume", "20 4 * * *", () => {
       phase.apply(spot, "paused");
       $app.save(spot);
       rhythm.recomputeSpotDue($app, spot.id);
+
+      // eiermann-30w.6. A Spot leaving a pause with NOBODY anywhere near the
+      // decision is exactly what `actor_kind` exists to say. Without a row, a
+      // building reappearing on the due list has no explanation at all: the
+      // record keeps only its current phase, and the coordinator who paused it
+      // did not do this.
+      //
+      // `e` is null — there is no request, no caller and no request id. The
+      // emitter takes that: it is the difference between a row that says
+      // "system" and one that says nothing.
+      const audit = require(`${__hooks}/app_audit_log.js`);
+      audit.emit(null, audit.ACTIONS.SPOT_AUTO_RESUMED, {
+        app: $app,
+        record: spot,
+        org: orgId,
+        actorKind: "cron",
+        subject: {
+          collection: "spots",
+          id: spot.id,
+          label: audit.subjectLabel(spot, $app),
+        },
+        detail: { from: "paused", to: "active" },
+      });
       resumed += 1;
     } catch (err) {
       // One Spot's failure must not end the round. A malformed row would

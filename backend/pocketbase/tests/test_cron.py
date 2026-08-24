@@ -127,6 +127,49 @@ h.check(
     "outcome as still being paused",
 )
 
+# ── The audit row, which is the only explanation there will ever be ────────
+#
+# eiermann-30w.6. A Spot leaving a pause with NOBODY near the decision is what
+# `actor_kind` exists to say. Without the row a building simply reappears on the
+# due list: the record keeps only its current phase, and the coordinator who
+# paused it did not do this.
+auto = h.listf(
+    coord_token,
+    "audit_events",
+    f"action = 'spot.auto_resumed' && subject_id = '{due['id']}'",
+)
+h.check(
+    "the auto-resume explains itself in the log",
+    len(auto) == 1,
+    f"{len(auto)} rows",
+)
+h.check(
+    "...as the cron, not as a person and not as a bare 'system'",
+    auto and auto[0].get("actor_kind") == "cron",
+    f"actor_kind={auto[0].get('actor_kind')!r} — there is no request here, no "
+    "caller and no request id, and a row that cannot say so is a row that "
+    "implicates whoever looks like the last actor"
+    if auto
+    else "no row",
+)
+h.check(
+    "...naming the building and the move it made",
+    auto
+    and auto[0].get("spot_id") == due["id"]
+    and "paused" in str(auto[0].get("detail")),
+    f"{auto[0].get('detail')!r}" if auto else "no row",
+)
+h.check(
+    "a pause that was left alone leaves no row either",
+    not h.listf(
+        coord_token,
+        "audit_events",
+        f"action = 'spot.auto_resumed' && subject_id = '{still_waiting['id']}'",
+    ),
+    "the job skipped it, and a log that recorded the skip would grow a row per "
+    "paused Spot per night",
+)
+
 h.check(
     "a pause that has NOT expired is left alone",
     spot_now(still_waiting["id"]).get("phase") == "paused",

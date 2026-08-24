@@ -148,6 +148,31 @@ routerAdd(
       ],
     );
 
+    // The same act, in the new log (eiermann-30w.6). ONE row with a `changes`
+    // array rather than one per number — which is the shape difference between
+    // the two tables, and the reason this is not a copy of the call above.
+    //
+    // The filtering survives the change of shape, because the reason for it
+    // does: the screen submits all five numbers on every save, deliberately,
+    // since all five are what the reader was looking at. An unfiltered row
+    // would say five numbers moved every time somebody nudged one. Nothing
+    // moved at all means no row.
+    const log = require(`${__hooks}/app_audit_log.js`);
+    const moved = [
+      { field: "base_interval_days", from: current.baseIntervalDays, to: now.baseIntervalDays },
+      { field: "empty_checks_per_step", from: current.emptyChecksPerStep, to: now.emptyChecksPerStep },
+      { field: "interval_steps", from: current.intervalSteps, to: now.intervalSteps },
+      { field: "half_clutch_return_days", from: current.halfClutchReturnDays, to: now.halfClutchReturnDays },
+      { field: "pause_auto_resume", from: current.pauseAutoResume, to: now.pauseAutoResume },
+    ].filter((c) => String(c.from) !== String(c.to));
+    if (moved.length) {
+      log.emit(e, log.ACTIONS.RHYTHM_CHANGED, {
+        org: org,
+        subject: { collection: "organisations", id: org, label: orgName },
+        changes: moved,
+      });
+    }
+
     return e.json(200, now);
   },
 );
