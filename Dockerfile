@@ -22,7 +22,7 @@
 # Bumping it is a deliberate step, exactly like bumping the pubspec pin — and the
 # two are independent: a change to zugvogel's Dart packages does not move this,
 # and a change to the shared hooks does not move the pubspec.
-ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-d7ea6d1971c52be3f550e395b5cd5bb3a6f8a06a
+ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-6f5ef44dc0e393f9a90c1ec9f831fe00d3201a9c
 
 # ── Flutter web build ──────────────────────────────────────────────────────────
 FROM debian:bookworm-slim AS flutterbuild
