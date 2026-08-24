@@ -15,10 +15,11 @@ import 'sweep_sources.dart';
 /// eiermann-30w.3/.7 — no recorded field may render as its raw column name.
 ///
 /// **Why this is a guard and not a per-action test.** The audit registry lives
-/// in `app_audit_vocabulary.js`, the words live in the ARB files, and nothing in either
-/// language's compiler connects the two. Adding an action is one line of
-/// JavaScript; forgetting its label is nothing at all, and the failure is a log
-/// row reading `base_interval_days: 7 → 10` — perfectly functional, and written
+/// in `app_audit_vocabulary.js`, the words live in the ARB files, and nothing
+/// in either language's compiler connects the two. Adding an action is one
+/// line of JavaScript; forgetting its label is nothing at all, and the failure
+/// is a log row reading `base_interval_days: 7 → 10` — perfectly functional,
+/// and written
 /// for whoever wrote the schema rather than for whoever has to read it. A
 /// per-action test would only ever cover the actions somebody remembered to
 /// write a test for, which is the same set that gets a label.
@@ -103,7 +104,7 @@ void main() {
   List<String> fieldRegistry() {
     final values = [
       for (final match in RegExp(
-        r'"([a-z0-9_]+)"',
+        '"([a-z0-9_]+)"',
       ).allMatches(vocabularyBody('CONTENT_FIELDS')))
         match.group(1)!,
     ];
