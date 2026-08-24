@@ -1908,7 +1908,7 @@ h.check(
 # left to get it wrong. zv_org.js is that reader, and it lives in the base image
 # so both apps share it.
 #
-# The list is spelled out rather than counted, so that a fourth JSON field
+# The list is spelled out rather than counted, so that a new JSON field
 # fails here and its author has to say which of the two kinds it is: a
 # SETTINGS field, which something will eventually want to read and which
 # therefore belongs inside zv_org.js's one field — or an OPAQUE payload, stored
@@ -1918,6 +1918,16 @@ h.check(
 # Passing a JSONRaw straight back to Go marshals correctly; only property
 # access in JS is broken, which is why those two are safe and a third settings
 # field would not be.
+#
+# `audit_events.refs`, `.changes` and `.detail` (eiermann-30w.2) are the second
+# kind too, and the argument is checkable rather than asserted: NOTHING IN ANY
+# HOOK READS THEM BACK. The shared emitter builds each one as a plain JS array or
+# object and sets it on a fresh record; the only hook that queries this table at
+# all is its failed-login bucketing, which counts rows by `action` and `created`
+# and touches none of the three. Every other reader is the Flutter client, over
+# the API, where PocketBase serialises JSON properly and no JSONRaw ever reaches
+# a `.property`. If a hook is ever written that reads one of these, this entry
+# is the thing it has to come back and change.
 json_fields = sorted(
     f"{col['name']}.{field['name']}"
     for col in base_collections(h.collections(T), writable_only=False)
@@ -1927,6 +1937,9 @@ h.check(
     "the schema holds exactly one settings JSON field, and two opaque ones",
     json_fields
     == [
+        "audit_events.changes",
+        "audit_events.detail",
+        "audit_events.refs",
         "geocode_cache.response",
         "idempotency_keys.response",
         "organisations.settings",
@@ -2361,6 +2374,54 @@ h.check(
     "the log is org-scoped like everything else",
     all(r.get("org") == ORG for r in audit_rows(coord_token)),
 )
+
+
+# ── The new log's door, before anything writes through it ──────────────────
+#
+# eiermann-30w.2. `audit_events` is created empty: the emitters that fill it
+# land in 30w.3/.4, and the rows it will carry are asserted there. What is
+# assertable NOW is the only thing about it that is a security boundary — who
+# may open it, and that nobody may write through it — and asserting that before
+# the first row exists is the right order. A table that turns out to be readable
+# after it has a year of history in it is not a bug you get to fix quietly.
+#
+# `reads_nothing` rather than a status check, for the reason it exists: an
+# anonymous LIST against a fully private collection answers 200 with an empty
+# `items`, so `status >= 400` would pass against a completely open table.
+
+print("\n[the new audit log's door]")
+
+h.check(
+    "the new audit log is invisible to an anonymous caller",
+    h.reads_nothing("audit_events"),
+    "a 200 with rows in it is the leak — a list is FILTERED, not refused",
+)
+h.check(
+    "a member cannot read the new audit log",
+    not h.listf(member_token, "audit_events", "id != ''"),
+    "read is the coordination's alone; a member seeing who demoted whom is a "
+    "different product",
+)
+status, _ = h.req("GET", "/api/collections/audit_events/records", coord_token)
+h.check(
+    "the coordination can open it",
+    h.ok(status),
+    f"status {status} — empty is expected here, refused is not",
+)
+for who, token in (("an anonymous caller", None), ("a member", member_token),
+                   ("the coordination", coord_token)):
+    status, _ = h.req(
+        "POST",
+        "/api/collections/audit_events/records",
+        token,
+        {"org": ORG, "action": "spot.deleted", "actor_label": "Erfunden"},
+    )
+    h.check(
+        f"...but {who} cannot write a row into it",
+        status >= 400,
+        f"status {status} — createRule is null, so the only writer is a hook "
+        f"going through app.save, which does not consult the rules at all",
+    )
 
 
 # ── Der Rhythmus: the numbers, and the door they are changed through ───────
@@ -5099,6 +5160,10 @@ NO_CASCADE = {
                                      "check that caused it",
     "follow_ups.resolved_by_check": "same",
     "audit_entries.org": "same",
+    # eiermann-30w.2. The new log's ONLY relation: `actor_id` and `subject_id`
+    # are plain text beside their label snapshots, so no cascade can reach a row
+    # here — the property audit_entries.actor needed an entry to promise.
+    "audit_events.org": "same",
     # The one relation in this database where a cascade would be actively
     # perverse: deleting an account would erase the record of what that account
     # DID. `users` cannot be deleted through the API at all (deleteRule is
