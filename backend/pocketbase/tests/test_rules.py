@@ -2083,291 +2083,22 @@ h.check(
     "know which language the reader speaks.",
 )
 
-# ── The audit trail ────────────────────────────────────────────────────────
+# ── Der Rhythmus in the log ────────────────────────────────────────────────
 #
-# A handful of acts in this app are hard to undo and easy to do quietly, and
-# none of them leaves a trace in the record it changes: a Spot holds its CURRENT
-# phase, a user their CURRENT role. This table is the only place that says
-# "since when, and who decided".
+# What stood here was the OLD log's whole section — `audit_entries`, its door,
+# and one assertion per act it recorded. eiermann-30w.9 retired that table, and
+# every act it covered is asserted against `audit_events` further down: the
+# phase change, the delete, both directions across the protected line, the
+# invitation, the promotion, the end of somebody's access, the cascade, and the
+# refusals that must leave no trace.
 #
-# Two properties are load-bearing and both are asserted rather than trusted:
-# nothing with a token can WRITE it, and only the coordination can READ it.
+# The two rhythm saves survive here because the assertion below needs them: one
+# that moves a number and one that moves nothing.
 
-print("\n[the audit trail]")
+print("\n[the rhythm numbers in the log]")
 
-AUDIT = "/api/collections/audit_entries/records"
-
-
-def audit_rows(token, filter_expr="id != ''"):
-    return h.listf(token, "audit_entries", filter_expr)
-
-
-h.check(
-    "the audit log is invisible to an anonymous caller",
-    h.reads_nothing("audit_entries"),
-    "a 200 with rows in it is the leak — a list is FILTERED, not refused, so a "
-    "status check alone would pass against a completely public table",
-)
-h.check(
-    "a member cannot read the audit log",
-    not audit_rows(member_token),
-    "accountability points upwards; a member seeing who demoted whom is a "
-    "different product",
-)
-h.check("a guest cannot either", not audit_rows(guest_token))
-
-# The append-only guarantee. createRule, updateRule and deleteRule are all null
-# — superuser-only, the strongest statement PocketBase offers — so the ONLY way
-# a row appears is a hook deciding it should. The coordination's own acts are
-# what this records, which is exactly why the coordination cannot write here.
-status, _ = h.req(
-    "POST",
-    AUDIT,
-    coord_token,
-    {"org": ORG, "action": "spot_phase_changed", "actor_label": "Erfunden"},
-)
-h.check(
-    "NOBODY writes an audit row through the API, not even the coordination",
-    status >= 400,
-    f"status {status} — a log anybody can add to is a log nobody can cite",
-)
-
-# Now make the log say something, by doing the thing it exists to record.
-audited_spot = h.mk(
-    coord_token,
-    "spots",
-    {"org": ORG, "name": "Protokollhaus", "phase": "active"},
-)
-h.req(
-    "PATCH",
-    f"/api/collections/spots/records/{audited_spot['id']}",
-    coord_token,
-    {"phase": "closed", "closed_reason": "no_pigeons"},
-)
-entries = audit_rows(coord_token, f"target = '{audited_spot['id']}'")
-h.check(
-    "closing a Spot writes exactly one audit row",
-    len(entries) == 1,
-    f"{len(entries)} rows — the Spot record keeps only its CURRENT phase, so "
-    f"without this row 'since when, and who decided' has no answer anywhere",
-)
-
-entry = entries[0] if entries else {}
-h.check(
-    "...naming the act, the field, and both sides of it",
-    entry.get("action") == "spot_phase_changed"
-    and entry.get("field") == "phase"
-    and entry.get("from_value") == "active"
-    and entry.get("to_value") == "closed",
-    str(entry),
-)
-h.check(
-    "...with the actor as an id AND a text snapshot beside it",
-    entry.get("actor") == coord["id"] and entry.get("actor_label"),
-    f"{entry.get('actor')!r}/{entry.get('actor_label')!r} — an account can be "
-    f"renamed, and an id with no label beside it describes the past wrongly",
-)
-h.check(
-    "...and the target likewise",
-    entry.get("target_type") == "spot"
-    and entry.get("target") == audited_spot["id"]
-    and entry.get("target_label") == "Protokollhaus",
-    str(entry),
-)
-h.check(
-    "...carrying the reason a human typed",
-    entry.get("detail") == "no_pigeons",
-    f"{entry.get('detail')!r}",
-)
-
-# The snapshot is the whole reason the labels exist. Rename the building and the
-# row must go on describing what was closed, not what it is called now.
-h.req(
-    "PATCH",
-    f"/api/collections/spots/records/{audited_spot['id']}",
-    coord_token,
-    {"name": "Ganz anders"},
-)
-renamed = audit_rows(coord_token, f"target = '{audited_spot['id']}'")
-h.check(
-    "a renamed target does not rewrite the past",
-    len(renamed) == 1 and renamed[0].get("target_label") == "Protokollhaus",
-    f"{[r.get('target_label') for r in renamed]} — a live lookup would say "
-    f"somebody closed a building that did not have that name that day",
-)
-
-status, _ = h.req(
-    "PATCH",
-    f"/api/collections/audit_entries/records/{entry.get('id')}",
-    coord_token,
-    {"to_value": "active"},
-)
-h.check("an audit row cannot be edited", status >= 400, f"status {status}")
-status, _ = h.req(
-    "DELETE",
-    f"/api/collections/audit_entries/records/{entry.get('id')}",
-    coord_token,
-)
-h.check(
-    "...nor deleted",
-    status >= 400,
-    f"status {status} — append-only is the schema here, not a convention",
-)
-
-# A rename is not a phase change, and a log that recorded every save is a log
-# nobody reads.
-h.check(
-    "an ordinary edit writes nothing at all",
-    len(audit_rows(coord_token, f"target = '{audited_spot['id']}'")) == 1,
-)
-
-# Deleting the building destroys its entire memory in one 200. The row saying so
-# has to be written from the record while it still exists — and has to SURVIVE
-# the deletion, which is why `target` is TEXT and not a relation.
-doomed = h.mk(
-    coord_token,
-    "spots",
-    {"org": ORG, "name": "Wird geloescht", "phase": "prospect"},
-)
-status, _ = h.req(
-    "DELETE", f"/api/collections/spots/records/{doomed['id']}", coord_token
-)
-h.check("...and the delete itself succeeds", h.ok(status), f"status {status}")
-gone = audit_rows(coord_token, f"target = '{doomed['id']}'")
-h.check(
-    "a deleted Spot leaves a row behind that still names it",
-    len(gone) == 1
-    and gone[0].get("action") == "spot_deleted"
-    and gone[0].get("target_label") == "Wird geloescht",
-    f"{gone} — a relation here would have had to choose between cascading "
-    f"(the deletion erasing the record of itself) and dangling",
-)
-
-# The act this table is most for: releasing a nest re-enables egg removal on one
-# somebody marked as a protected species.
-audit_area = h.mk(
-    coord_token,
-    "areas",
-    {"org": ORG, "spot": audited_spot["id"], "name": "Dachboden"},
-)
-audit_nest = h.mk(
-    coord_token,
-    "nests",
-    {
-        "org": ORG,
-        "spot": audited_spot["id"],
-        "area": audit_area["id"],
-        "label": "N9",
-        "species": "protected",
-        "species_label": "Dohle",
-        "status": "active",
-    },
-)
-h.req(
-    "PATCH",
-    f"/api/collections/nests/records/{audit_nest['id']}",
-    coord_token,
-    {"species": "feral_pigeon"},
-)
-released = audit_rows(coord_token, f"target = '{audit_nest['id']}'")
-h.check(
-    "releasing a protected nest is recorded",
-    any(r.get("action") == "nest_unprotected" for r in released),
-    f"{[r.get('action') for r in released]} — the one action in this app that "
-    f"can be illegal, and the nest afterwards looks like one that was never "
-    f"protected at all",
-)
-h.check(
-    "...keeping the species somebody actually typed",
-    any(r.get("detail") == "Dohle" for r in released),
-    f"{[r.get('detail') for r in released]} — the fact the decision rested on, "
-    f"on a field the very next edit can overwrite",
-)
-
-# Granting the coordination, and the numbers behind every due date.
-audited_user = h.mk(
-    coord_token,
-    "users",
-    {
-        "email": "protokoll@eiermann.test",
-        "password": h.user_pass,
-        "passwordConfirm": h.user_pass,
-        "org": ORG,
-        "role": "member",
-        "name": "Protokoll",
-    },
-)
-h.check(
-    "an invite is recorded",
-    any(
-        r.get("action") == "user_invited"
-        for r in audit_rows(coord_token, f"target = '{audited_user['id']}'")
-    ),
-)
-h.req(
-    "PATCH",
-    f"/api/collections/users/records/{audited_user['id']}",
-    coord_token,
-    {"role": "coordinator"},
-)
-promoted = audit_rows(coord_token, f"target = '{audited_user['id']}'")
-h.check(
-    "granting the coordination is recorded, with both sides",
-    any(
-        r.get("action") == "user_role_changed"
-        and r.get("from_value") == "member"
-        and r.get("to_value") == "coordinator"
-        for r in promoted
-    ),
-    f"{promoted} — a user record holds its CURRENT role and nothing else",
-)
-
-# A REFUSED privilege change must leave no trace. The log says what happened,
-# never what was attempted.
-#
-# Counted before and after rather than asserted absolutely: `member` has
-# LEGITIMATE role-change rows by now, from the promotion and demotion property 5
-# performs. Asserting "no rows at all" would fail on those and prove nothing
-# about the refusal.
-attempt_filter = (
-    f"target = '{member['id']}' && action = 'user_role_changed'"
-)
-before_attempt = len(audit_rows(coord_token, attempt_filter))
-h.req(
-    "PATCH",
-    f"/api/collections/users/records/{member['id']}",
-    member_token,
-    {"role": "coordinator"},
-)
-h.check(
-    "a refused escalation writes nothing",
-    len(audit_rows(coord_token, attempt_filter)) == before_attempt,
-    "the log records what happened, never what was tried — otherwise it reads "
-    "as a list of successful escalations",
-)
-
-before_rhythm = len(audit_rows(coord_token, "action = 'rhythm_changed'"))
 h.req("PATCH", "/api/eiermann/rhythm", coord_token, {"halfClutchReturnDays": 9})
-rhythm_rows = audit_rows(coord_token, "action = 'rhythm_changed'")
-h.check(
-    "changing ONE rhythm number writes ONE row, not five",
-    len(rhythm_rows) == before_rhythm + 1,
-    f"{len(rhythm_rows) - before_rhythm} rows — the screen submits all five on "
-    f"every save, so without the comparison the one that moved would be buried",
-)
-h.check(
-    "...naming the number and both values",
-    any(
-        r.get("field") == "half_clutch_return_days" and r.get("to_value") == "9"
-        for r in rhythm_rows
-    ),
-    str(rhythm_rows),
-)
 h.req("PATCH", "/api/eiermann/rhythm", coord_token, {"halfClutchReturnDays": 9})
-h.check(
-    "saving unchanged numbers writes nothing",
-    len(audit_rows(coord_token, "action = 'rhythm_changed'")) == len(rhythm_rows),
-)
 
 # The same act in the NEW log (eiermann-30w.6), and the shapes genuinely differ:
 # one row per changed number there, ONE row carrying a `changes` array here. The
@@ -2401,7 +2132,12 @@ h.req("PATCH", f"/api/collections/organisations/records/{ORG}", T, {"settings": 
 
 h.check(
     "the log is org-scoped like everything else",
-    all(r.get("org") == ORG for r in audit_rows(coord_token)),
+    all(
+        r.get("org") == ORG
+        for r in h.listf(coord_token, "audit_events", "id != ''")
+    ),
+    "the listRule compares against the STORED row, so this is the server's "
+    "scoping and not the query's",
 )
 
 
@@ -2563,6 +2299,65 @@ h.check(
     "a save that changed nothing writes nothing",
     len(events(f"spot_id = '{tier_a_spot['id']}'")) == before_noop,
     "an audit log that records every save is a log people stop reading",
+)
+
+# ── Membership, which is the other half of what this table is for ──────────
+#
+# eiermann-30w.9 moved these off the old log's hand-wired call sites, so they
+# are asserted HERE before those come out: an invitation and a promotion ride
+# the generic `users` hooks and are refined into their own actions. Trading a
+# tested path for an untested one is how coverage disappears in a refactor.
+invited = h.mk(
+    coord_token,
+    "users",
+    {
+        "email": "neuzugang@eiermann.test",
+        "password": h.user_pass,
+        "passwordConfirm": h.user_pass,
+        "org": ORG,
+        "role": "member",
+        "name": "Neuzugang",
+    },
+)
+invite_row = one_event(
+    f"action = 'user.invited' && subject_id = '{invited['id']}'",
+    "an invitation is recorded",
+)
+h.check(
+    "...naming who let this person in, in a table nothing can edit",
+    invite_row.get("actor_label") and invite_row.get("subject_label") == "Neuzugang",
+    f"actor={invite_row.get('actor_label')!r} subject="
+    f"{invite_row.get('subject_label')!r} — `users.invited_by` carries the same "
+    "fact on the account, and that one can be changed",
+)
+h.check(
+    "...with no credential anywhere in the row",
+    "password" not in str(invite_row.get("changes"))
+    or "redacted" in str(invite_row.get("changes")),
+    f"{invite_row.get('changes')!r}",
+)
+
+h.req(
+    "PATCH",
+    f"/api/collections/users/records/{invited['id']}",
+    coord_token,
+    {"role": "coordinator"},
+)
+promoted = one_event(
+    f"action = 'user.role_changed' && subject_id = '{invited['id']}'",
+    "granting the coordination is its own action",
+)
+h.check(
+    "...carrying both sides of the move",
+    "member" in str(promoted.get("changes"))
+    and "coordinator" in str(promoted.get("changes")),
+    f"{promoted.get('changes')!r} — the account keeps only its CURRENT role, "
+    "so this row is the only answer to 'since when, and who decided'",
+)
+h.check(
+    "...and filed as a security event",
+    promoted.get("severity") == "security",
+    f"severity {promoted.get('severity')!r}",
 )
 
 # ── A member of the public, whose details may not exist in this table ───────
@@ -2780,17 +2575,6 @@ h.check(
     "hook, and a feed with a row per child is a feed nobody reads",
 )
 
-# ── Nothing of this reached the OLD log ────────────────────────────────────
-#
-# The two tables overlap on purpose until 30w.7 moves the reader, but they are
-# not the same log: `audit_entries` still gets its seven hand-wired call sites
-# and nothing else. A Tier A row appearing there would mean somebody wired the
-# new emitters into the old table.
-h.check(
-    "the old log did not grow a contact entry it never had",
-    not audit_rows(coord_token, "action = 'contact.created'"),
-    "the two logs are separate writers, not one writer with two sinks",
-)
 
 
 # ── Getting in, and failing to ─────────────────────────────────────────────
@@ -5747,19 +5531,11 @@ NO_CASCADE = {
     "follow_ups.created_from_check": "same — the Nachkontrolle outlives the "
                                      "check that caused it",
     "follow_ups.resolved_by_check": "same",
-    "audit_entries.org": "same",
-    # eiermann-30w.2. The new log's ONLY relation: `actor_id` and `subject_id`
-    # are plain text beside their label snapshots, so no cascade can reach a row
-    # here — the property audit_entries.actor needed an entry to promise.
+    # eiermann-30w.2. The log's ONLY relation. `actor_id` and `subject_id` are
+    # plain text beside their label snapshots, so no cascade can reach a row
+    # here at all — which is the property the retired `audit_entries.actor`
+    # needed a registry entry to promise, and this schema simply has.
     "audit_events.org": "same",
-    # The one relation in this database where a cascade would be actively
-    # perverse: deleting an account would erase the record of what that account
-    # DID. `users` cannot be deleted through the API at all (deleteRule is
-    # null), and `actor_label` carries the name regardless — the id is only
-    # there so a reader can still navigate while the account exists.
-    "audit_entries.actor": "an audit row must outlive its actor; deleting an "
-                           "account may never erase what it did, which is the "
-                           "entire point of the table",
     "tours.org": "same",
     "tour_spots.org": "same",
     "tour_runs.org": "same",
@@ -6335,6 +6111,16 @@ h.check(
     f"{unaudited} — Tier A looks the collection up in COLLECTION_ACTIONS and "
     "returns early when it is not there, so a collection added next month is "
     "unaudited in complete silence. Add an entry, or an AUDIT_EXEMPT reason",
+)
+
+# eiermann-30w.9. A DROP migration that silently did not run leaves a table
+# nothing reads, nothing writes and no sweep covers — the one shape of dead
+# schema this suite would otherwise never notice.
+h.check(
+    "the retired log is actually gone",
+    "audit_entries" not in all_names,
+    "1700000025 drops it; a collection still standing here means the migration "
+    "did not apply, and every reason it was retired is still true of it",
 )
 
 fictional = sorted(audited - all_names)

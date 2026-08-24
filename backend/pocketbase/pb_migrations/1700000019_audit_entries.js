@@ -95,9 +95,16 @@ migrate(
           collectionId: organisations.id,
           cascadeDelete: false,
         },
-        // The wire value from `app_audit.js`'s ACTIONS registry, e.g.
+        // The wire value from this log's own ACTIONS registry, e.g.
         // `spot_phase_changed`. Renaming one is a wire change: the client maps
         // it to an ARB key, and the rows already written keep the old spelling.
+        //
+        // The registry lived in a hook that eiermann-30w.9 deleted along with
+        // this collection. The filename is out of the comment rather than the
+        // comment out of the file, because a migration is a historical fact and
+        // its BEHAVIOUR is what may not change — but a design record whose grep
+        // finds nothing is the hole the rule suite's dangling-pointer sweep
+        // exists for, and it reads migrations.
         { name: "action", type: "text", required: true, max: 64 },
         {
           name: "actor",

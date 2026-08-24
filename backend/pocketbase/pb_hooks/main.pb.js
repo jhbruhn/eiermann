@@ -64,10 +64,6 @@ onRecordUpdateRequest((e) => {
   }
   const isSelf = !!e.auth && String(e.auth.id) === String(e.record.id);
 
-  // Privilege changes worth an audit row, gathered while the stored record is
-  // still readable and written once the request has actually succeeded.
-  const changed = [];
-
   for (const field of PRIVILEGE_FIELDS) {
     if (!(field in body)) continue;
 
@@ -82,30 +78,16 @@ onRecordUpdateRequest((e) => {
     // permanent one.
     const allowed = isCoordinator && !isSelf && field !== "org";
     if (allowed) {
-      // The legitimate ones are exactly the ones worth recording. A user record
-      // holds its CURRENT role and nothing else, so "who granted the
-      // coordination, and when" has no answer anywhere else — and granting it,
-      // or ending somebody's access mid-request, is among the handful of acts
-      // in this app that are hard to undo and easy to do quietly.
+      // The legitimate ones are exactly the ones worth recording, and
+      // `audit_domain.pb.js` records them: a `role` change is refined into
+      // `user.role_changed` and an `is_active` change into
+      // `user.activated`/`user.deactivated`, off the same diff every other
+      // collection gets (eiermann-30w.9 moved that out of this handler).
       //
-      // Only `role` and `is_active`: `verified` is bookkeeping, and `org` never
-      // reaches this branch at all.
-      //
-      // COLLECTED here and emitted after `e.next()`. The "before" only exists
-      // while the stored record does, and the change only counts once the write
-      // has gone through — so the read has to happen here and the row there.
-      if (field === "role" || field === "is_active") {
-        let before = "";
-        try {
-          before = String(e.record.original().get(field));
-        } catch (_) {
-          before = "";
-        }
-        const after = String(body[field]);
-        if (before !== after) {
-          changed.push({ field: field, from: before, to: after });
-        }
-      }
+      // A user record holds its CURRENT role and nothing else, so "who granted
+      // the coordination, and when" has no answer anywhere else — and granting
+      // it, or ending somebody's access mid-request, is among the handful of
+      // acts in this app that are hard to undo and easy to do quietly.
       continue;
     }
 
@@ -131,39 +113,7 @@ onRecordUpdateRequest((e) => {
     }
   }
 
-  // Read before the write, for the reason every snapshot in this app exists:
-  // an account can be renamed, and an id with no label beside it describes the
-  // past wrongly.
-  const org = e.record.get("org");
-  const targetId = e.record.id;
-  const targetLabel =
-    e.record.getString("name") || e.record.getString("email");
-
   e.next();
-
-  // After the write. A PATCH refused further down the chain that had already
-  // logged itself would claim somebody was demoted while they still hold the
-  // role — into a table nothing can correct.
-  if (changed.length) {
-    const audit = require(`${__hooks}/app_audit.js`);
-    const actor = audit.actorOf(e);
-    for (const change of changed) {
-      audit.emit(e.app, {
-        org: org,
-        action: change.field === "role"
-          ? audit.ACTIONS.userRoleChanged
-          : audit.ACTIONS.userAccessChanged,
-        actorId: actor.id,
-        actorLabel: actor.label,
-        targetType: audit.TARGETS.user,
-        target: targetId,
-        targetLabel: targetLabel,
-        field: change.field,
-        fromValue: change.from,
-        toValue: change.to,
-      });
-    }
-  }
 }, "users");
 
 // ── A new account is walled off until somebody lets it in ──────────────────
@@ -241,32 +191,15 @@ onRecordCreateRequest((e) => {
   // for the identical reason.
   e.record.set("emailVisibility", true);
 
-  e.next();
-
-  // AFTER the write, and here that is not only about failure. A create that is
-  // refused — a duplicate address is the common one — must not leave a row
-  // saying somebody was invited; and before `e.next()` the account has no id
-  // yet, so the row would point at nothing even when it worked.
+  // The invitation itself is recorded by `audit_domain.pb.js` as
+  // `user.invited` — `users` is an ordinary collection, so its create rides the
+  // generic hook (eiermann-30w.9 moved that out of this handler).
   //
-  // Who let this person in is recorded twice over: `users.invited_by` carries
-  // it on the account itself, and this row carries it in a table nothing with a
-  // token can edit. The first can be changed and the second cannot, which is
-  // the whole difference between a field and an audit trail.
-  const audit = require(`${__hooks}/app_audit.js`);
-  const actor = audit.actorOf(e);
-  audit.emit(e.app, {
-    org: e.record.get("org"),
-    action: audit.ACTIONS.userInvited,
-    actorId: actor.id,
-    actorLabel: actor.label,
-    targetType: audit.TARGETS.user,
-    target: e.record.id,
-    targetLabel: e.record.getString("name") || e.record.getString("email"),
-    field: audit.FIELDS.role,
-    // No `from`: the account did not exist a moment ago. An empty `from_value`
-    // is that fact, and the client renders it as such.
-    toValue: e.record.getString("role"),
-  });
+  // Who let this person in is therefore recorded twice over: `users.invited_by`
+  // carries it on the account itself, and the audit row carries it in a table
+  // nothing with a token can edit. The first can be changed and the second
+  // cannot, which is the whole difference between a field and an audit trail.
+  e.next();
 }, "users");
 
 // ── Bootstrap the first coordinator ────────────────────────────────────────

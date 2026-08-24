@@ -87,77 +87,25 @@ routerAdd(
     // actually use, which is the only number worth showing on a settings screen.
     const now = settings.read(e.app, org);
 
-    // One audit row per number that actually MOVED.
+    // ONE row carrying a `changes` array, not one per number.
     //
-    // The screen submits all five on every save — deliberately, because all
-    // five are what the reader looked at — so without the comparison a save
-    // that nudged one number would write five rows and bury it. `emitChanges`
-    // drops the unchanged ones and returns nothing when nothing moved.
+    // Filtered to what actually MOVED, because the screen submits all five on
+    // every save — deliberately, since all five are what the reader was looking
+    // at. Without the comparison a save that nudged one number would report
+    // five, and bury it. Nothing moved at all means no row.
     //
-    // Recorded at all because these numbers decide every due date in the app:
+    // Recorded because these numbers decide every due date in the app:
     // stretching the base interval quietly makes a month of work disappear off
     // the lists, and the organisation record keeps only the CURRENT value.
-    const audit = require(`${__hooks}/app_audit.js`);
-    const actor = audit.actorOf(e);
+    const log = require(`${__hooks}/app_audit_log.js`);
     let orgName = "";
     try {
       orgName = e.app.findRecordById("organisations", org).getString("name");
     } catch (_) {
+      // The label is a snapshot, not a lookup key; an unnamed org still gets
+      // a row.
       orgName = "";
     }
-    audit.emitChanges(
-      e.app,
-      {
-        org: org,
-        action: audit.ACTIONS.rhythmChanged,
-        actorId: actor.id,
-        actorLabel: actor.label,
-        targetType: audit.TARGETS.org,
-        target: org,
-        targetLabel: orgName,
-      },
-      [
-        {
-          field: audit.FIELDS.baseIntervalDays,
-          from: current.baseIntervalDays,
-          to: now.baseIntervalDays,
-        },
-        {
-          field: audit.FIELDS.emptyChecksPerStep,
-          from: current.emptyChecksPerStep,
-          to: now.emptyChecksPerStep,
-        },
-        {
-          // A list, stored as the text a reader sees: "7, 14, 28". The client
-          // does not have to parse it back — the row is a statement about what
-          // changed, not a value anything computes with.
-          field: audit.FIELDS.intervalSteps,
-          from: (current.intervalSteps || []).join(", "),
-          to: (now.intervalSteps || []).join(", "),
-        },
-        {
-          field: audit.FIELDS.halfClutchReturnDays,
-          from: current.halfClutchReturnDays,
-          to: now.halfClutchReturnDays,
-        },
-        {
-          field: audit.FIELDS.pauseAutoResume,
-          from: current.pauseAutoResume,
-          to: now.pauseAutoResume,
-        },
-      ],
-    );
-
-    // The same act, in the new log (eiermann-30w.6). ONE row with a `changes`
-    // array rather than one per number — which is the shape difference between
-    // the two tables, and the reason this is not a copy of the call above.
-    //
-    // The filtering survives the change of shape, because the reason for it
-    // does: the screen submits all five numbers on every save, deliberately,
-    // since all five are what the reader was looking at. An unfiltered row
-    // would say five numbers moved every time somebody nudged one. Nothing
-    // moved at all means no row.
-    const log = require(`${__hooks}/app_audit_log.js`);
     const moved = [
       { field: "base_interval_days", from: current.baseIntervalDays, to: now.baseIntervalDays },
       { field: "empty_checks_per_step", from: current.emptyChecksPerStep, to: now.emptyChecksPerStep },

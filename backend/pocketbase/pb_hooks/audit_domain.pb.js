@@ -71,11 +71,7 @@
 // The custom routes (the Besuch, the tours, the rhythm numbers) never fire
 // request hooks at all, and neither do the export, the auto-resume cron or the
 // auth flows. Those are eiermann-30w.5 and 30w.6.
-//
-// `app_audit.js` also still writes the OLD `audit_entries` table from its seven
-// hand-wired call sites, and still feeds the audit screen. The two logs overlap
-// on purpose until 30w.7 moves the reader: the alternative is a coordination
-// staring at a screen that stopped updating for the length of the epic.
+
 
 onRecordCreateRequest(
   (e) => {

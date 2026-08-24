@@ -34,13 +34,11 @@
 // `emitRecordChange`, which picks an action out of COLLECTION_ACTIONS, and
 // `contentOf`, which is a CONTENT_FIELDS lookup top to bottom.
 //
-// ── This is not yet the only log ───────────────────────────────────────────
+// ── This is the only log ──────────────────────────────────────────────────
 //
-// `app_audit.js` still writes `audit_entries` from seven hand-wired call sites,
-// and still feeds the audit screen. It stays until eiermann-30w.4 moves the
-// writers and 30w.7 the reader; dropping it sooner would leave the coordination
-// with a blank screen for the length of the epic. The two logs overlap in the
-// meantime, deliberately, and `audit_entries` goes in 30w.9.
+// It was not, for the length of eiermann-30w: `app_audit.js` kept writing the
+// old `audit_entries` from seven hand-wired call sites so the coordination did
+// not stare at a screen that had stopped updating. 30w.9 retired both.
 
 const zv = require(`${__hooks}/zv_audit.js`);
 const vocab = require(`${__hooks}/app_audit_vocabulary.js`);
