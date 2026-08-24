@@ -62,7 +62,7 @@ void main() {
     when(rhythm.fetch).thenAnswer((_) async => _rhythm);
     when(
       () => audit.pageOfLog(after: any(named: 'after')),
-    ).thenAnswer((_) async => const PbPage<AuditEntry>(items: []));
+    ).thenAnswer((_) async => const PbPage<AuditEvent>(items: []));
     when(users.team).thenAnswer((_) async => [_coordinator, _member]);
   });
 

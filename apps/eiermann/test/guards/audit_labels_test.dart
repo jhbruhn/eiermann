@@ -12,10 +12,10 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/harness.dart';
 import 'sweep_sources.dart';
 
-/// eiermann-uwd.4 — no recorded field may render as its raw column name.
+/// eiermann-30w.3/.7 — no recorded field may render as its raw column name.
 ///
 /// **Why this is a guard and not a per-action test.** The audit registry lives
-/// in `app_audit.js`, the words live in the ARB files, and nothing in either
+/// in `app_audit_vocabulary.js`, the words live in the ARB files, and nothing in either
 /// language's compiler connects the two. Adding an action is one line of
 /// JavaScript; forgetting its label is nothing at all, and the failure is a log
 /// row reading `base_interval_days: 7 → 10` — perfectly functional, and written
@@ -41,14 +41,15 @@ void main() {
     en = await AppLocalizations.delegate.load(const Locale('en'));
   });
 
-  /// The wire values of one registry object in `app_audit.js`.
+  /// The vocabulary's source, with comment lines stripped.
   ///
-  /// Parsed out of the source rather than hand-copied here, which is the whole
-  /// point: a hand-copied list is a second registry, and it drifts silently in
-  /// exactly the direction this test exists to prevent.
-  List<String> registry(String name) {
+  /// Parsed rather than hand-copied here, which is the whole point: a
+  /// hand-copied list is a second registry, and it drifts silently in exactly
+  /// the direction this test exists to prevent. The file requires nothing, so
+  /// there is nothing to load and nothing to stub — it is tables.
+  String vocabularyBody(String name) {
     final source = File(
-      '${repoRoot.path}/backend/pocketbase/pb_hooks/app_audit.js',
+      '${repoRoot.path}/backend/pocketbase/pb_hooks/app_audit_vocabulary.js',
     ).readAsStringSync();
 
     final start = source.indexOf('const $name = {');
@@ -56,39 +57,68 @@ void main() {
       start,
       isNot(-1),
       reason:
-          'no `const $name = {` in app_audit.js — the registry was renamed or '
-          'moved, and this guard has been reading nothing ever since',
+          'no `const $name = {` in app_audit_vocabulary.js — the registry was '
+          'renamed or moved, and this guard has been reading nothing ever '
+          'since',
     );
     final end = source.indexOf('\n};', start);
     expect(end, isNot(-1), reason: '`const $name` is never closed');
-    final body = source.substring(start, end);
-
-    // `key: "wire_value",` — with the comment lines stripped first, so a wire
-    // value quoted inside a comment does not become a registry entry.
-    final withoutComments = body
+    // Comment lines stripped, so a wire value quoted inside one does not become
+    // a registry entry.
+    return source
+        .substring(start, end)
         .split('\n')
         .where((line) => !line.trimLeft().startsWith('//'))
         .join('\n');
+  }
+
+  /// Every action string. `KEY: "domain.verb",` — note the dot: these are not
+  /// the old log's `spot_phase_changed` spellings, and a pattern that still
+  /// assumed snake_case would parse nothing and pass over everything.
+  List<String> actionRegistry() {
     final values = [
       for (final match in RegExp(
-        r'^\s*\w+:\s*"([a-z0-9_]+)"',
+        r'^\s*\w+:\s*"([a-z0-9_.]+)"',
         multiLine: true,
-      ).allMatches(withoutComments))
+      ).allMatches(vocabularyBody('ACTIONS')))
         match.group(1)!,
     ];
-
     expect(
       values,
       isNotEmpty,
       reason:
-          'parsed no entries out of `$name` — a sweep over nothing passes over '
-          'anything',
+          'parsed no entries out of `ACTIONS` — a sweep over nothing passes '
+          'over anything',
     );
     return values;
   }
 
+  /// Every field the log can record on a create or a delete.
+  ///
+  /// `CONTENT_FIELDS` rather than a flat list, because that IS the flat list
+  /// now: the collection keys are unquoted, so every quoted string inside the
+  /// block is a field name. An update's diff can in principle name any column,
+  /// but this allowlist is what the log actually writes and therefore what a
+  /// reader actually meets.
+  List<String> fieldRegistry() {
+    final values = [
+      for (final match in RegExp(
+        r'"([a-z0-9_]+)"',
+      ).allMatches(vocabularyBody('CONTENT_FIELDS')))
+        match.group(1)!,
+    ];
+    expect(
+      values,
+      isNotEmpty,
+      reason:
+          'parsed no entries out of `CONTENT_FIELDS` — a sweep over nothing '
+          'passes over anything',
+    );
+    return values.toSet().toList();
+  }
+
   test('every recorded ACTION has a word in both languages', () {
-    final actions = registry('ACTIONS');
+    final actions = actionRegistry();
     // The registry is the contract, so its size is worth stating: if this drops
     // the day somebody reformats the hook, the test above has stopped reading.
     expect(actions.length, greaterThanOrEqualTo(10));
@@ -102,7 +132,7 @@ void main() {
           reason:
               '`$action` renders as its own wire value in $language. '
               'Add it to auditActionLabel and to both ARB files — a log row '
-              'that says "spot_phase_changed" is a row written for the schema, '
+              'that says "spot.phase_changed" is a row written for the schema, '
               'not for the coordinator reading it.',
         );
         expect(
@@ -115,7 +145,7 @@ void main() {
   });
 
   test('every recorded FIELD has a word in both languages', () {
-    final fields = registry('FIELDS');
+    final fields = fieldRegistry();
     expect(fields.length, greaterThanOrEqualTo(10));
 
     for (final field in fields) {
@@ -127,7 +157,7 @@ void main() {
           reason:
               '`$field` renders as its own column name in $language. '
               'Add it to auditFieldLabel and to both ARB files — this is the '
-              'exact failure eiermann-uwd.4 exists for.',
+              'exact failure this guard exists for.',
         );
         expect(
           label.trim(),

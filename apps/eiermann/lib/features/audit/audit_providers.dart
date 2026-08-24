@@ -16,7 +16,7 @@ class AuditLogState {
     this.pageError,
   });
 
-  final List<AuditEntry> entries;
+  final List<AuditEvent> entries;
 
   /// Where the next page resumes from, or null once the log is exhausted.
   final PbCursor? cursor;
@@ -45,10 +45,12 @@ class AuditLogState {
       );
 }
 
-/// The org's log, newest first, or one target's slice of it.
+/// The org's log, newest first, or one building's slice of it.
 ///
-/// Pass a target id to narrow it — which still answers for a Spot that has been
-/// deleted, because `target` is a stored TEXT id rather than a relation.
+/// Pass a Spot id to narrow it to everything that happened THERE — its own acts
+/// and its nests', areas', Besuche's and findings'. That still answers for a
+/// Spot which has since been deleted, because `spot_id` is a stored TEXT id
+/// rather than a relation, and a deletion is the act most worth looking up.
 ///
 /// KEYSET paged, never `?page=`. This table only ever grows, and it grows at
 /// exactly the end being read from: an offset page would skip rows as new ones
@@ -57,7 +59,7 @@ class AuditLogState {
 @riverpod
 class AuditLog extends _$AuditLog {
   @override
-  Future<AuditLogState> build(String? targetId) async {
+  Future<AuditLogState> build(String? spotId) async {
     final page = await _fetch();
     return AuditLogState(entries: page.items, cursor: page.cursor);
   }
@@ -99,11 +101,11 @@ class AuditLog extends _$AuditLog {
     }
   }
 
-  Future<PbPage<AuditEntry>> _fetch({PbCursor? after}) async {
+  Future<PbPage<AuditEvent>> _fetch({PbCursor? after}) async {
     final repo = await ref.read(auditRepositoryProvider.future);
-    final target = targetId;
-    return target == null
+    final spot = spotId;
+    return spot == null
         ? repo.pageOfLog(after: after)
-        : repo.pageForTarget(target, after: after);
+        : repo.pageForSpot(spot, after: after);
   }
 }

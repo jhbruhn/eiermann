@@ -11,27 +11,31 @@ import '../../support/harness.dart';
 
 class _MockAudit extends Mock implements AuditRepository {}
 
-AuditEntry entry({
+AuditEvent event({
   String id = 'a1',
-  String action = 'spot_phase_changed',
+  String action = 'spot.phase_changed',
   String actorLabel = 'Rita',
-  String? targetType = 'spot',
-  String? target = 's1',
-  String? targetLabel = 'Bahnhofstraße 12',
-  String? field = 'phase',
-  String? fromValue = 'active',
-  String? toValue = 'closed',
-  String? detail,
-}) => AuditEntry(
+  String? actorKind = 'user',
+  String? subjectCollection = 'spots',
+  String? subjectId = 's1',
+  String? subjectLabel = 'Bahnhofstraße 12',
+  String? spotId = 's1',
+  String? spotLabel = 'Bahnhofstraße 12',
+  List<AuditChange> changes = const [
+    AuditChange(field: 'phase', from: 'active', to: 'closed'),
+  ],
+  Map<String, dynamic> detail = const <String, dynamic>{},
+}) => AuditEvent(
   id: id,
   action: action,
   actorLabel: actorLabel,
-  targetType: targetType,
-  target: target,
-  targetLabel: targetLabel,
-  field: field,
-  fromValue: fromValue,
-  toValue: toValue,
+  actorKind: actorKind,
+  subjectCollection: subjectCollection,
+  subjectId: subjectId,
+  subjectLabel: subjectLabel,
+  spotId: spotId,
+  spotLabel: spotLabel,
+  changes: changes,
   detail: detail,
   createdAt: DateTime.utc(2026, 8, 20, 14, 30),
 );
@@ -50,31 +54,29 @@ void main() {
 
   Future<void> pumpLog(
     WidgetTester tester,
-    List<AuditEntry> entries, {
-    String? targetId,
+    List<AuditEvent> events, {
+    String? spotId,
   }) async {
     tester.useSurface(const Size(900, 1600));
     when(
       () => audit.pageOfLog(after: any(named: 'after')),
-    ).thenAnswer((_) async => PbPage(items: entries));
+    ).thenAnswer((_) async => PbPage(items: events));
     when(
-      () => audit.pageForTarget(any(), after: any(named: 'after')),
-    ).thenAnswer((_) async => PbPage(items: entries));
+      () => audit.pageForSpot(any(), after: any(named: 'after')),
+    ).thenAnswer((_) async => PbPage(items: events));
     await tester.pumpApp(
-      AuditScreen(targetId: targetId),
-      overrides: [
-        auditRepositoryProvider.overrideWith((ref) async => audit),
-      ],
+      AuditScreen(spotId: spotId),
+      overrides: [auditRepositoryProvider.overrideWith((ref) async => audit)],
     );
     await tester.pumpAndSettle();
   }
 
   testWidgets('an act reads as words, never as column names', (tester) async {
-    // The whole point of eiermann-uwd.4, seen from the screen: the server sends
-    // `spot_phase_changed` / `phase` / `active` / `closed` because it does not
-    // know which language the reader speaks, and every one of those has to
+    // The whole point of the vocabulary guard, seen from the screen: the server
+    // sends `spot.phase_changed` / `phase` / `active` / `closed` because it does
+    // not know which language the reader speaks, and every one of those has to
     // arrive as German here.
-    await pumpLog(tester, [entry()]);
+    await pumpLog(tester, [event()]);
 
     expect(find.text(de.auditActionSpotPhaseChanged), findsOneWidget);
     expect(find.text('Bahnhofstraße 12'), findsOneWidget);
@@ -89,23 +91,69 @@ void main() {
       findsOneWidget,
     );
     // Nothing raw anywhere on the tile.
-    expect(find.textContaining('spot_phase_changed'), findsNothing);
+    expect(find.textContaining('spot.phase_changed'), findsNothing);
     expect(find.textContaining('closed'), findsNothing);
+  });
+
+  testWidgets('several fields moving read as several lines', (tester) async {
+    // The shape difference from the old log, seen from the screen: one row now
+    // carries every field that moved, and each still gets its own sentence.
+    // Collapsing them into one line would bury the number somebody changed.
+    await pumpLog(tester, [
+      event(
+        action: 'nest.updated',
+        subjectCollection: 'nests',
+        subjectLabel: 'N3',
+        changes: const [
+          AuditChange(field: 'label', from: 'N2', to: 'N3'),
+          AuditChange(field: 'interval_days', from: '14', to: '21'),
+        ],
+      ),
+    ]);
+
+    expect(
+      find.text(de.auditChange(de.auditFieldLabel, 'N2', 'N3')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(de.auditChange(de.auditFieldIntervalDays, '14', '21')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a withheld value is not rendered as an empty one', (
+    tester,
+  ) async {
+    // A caretaker's phone number, a password, prose somebody can still correct.
+    // The log kept the FACT of the change and dropped the value on purpose, and
+    // a blank line would tell the reader nothing happened.
+    await pumpLog(tester, [
+      event(
+        action: 'contact.updated',
+        subjectCollection: 'spot_contacts',
+        subjectLabel: '',
+        changes: const [AuditChange(field: 'phone', redacted: true)],
+      ),
+    ]);
+
+    expect(find.text(de.auditRedacted(de.auditFieldPhone)), findsOneWidget);
+    // And no arrow, which is what a change with two empty sides would draw.
+    expect(find.textContaining('→'), findsNothing);
   });
 
   testWidgets('a value with no predecessor is not shown as a blanked one', (
     tester,
   ) async {
-    // An invite has no `from`: the account did not exist a moment ago.
+    // An invitation has no `from`: the account did not exist a moment ago.
     // Rendering "Rolle:  → Mitglied" would read as a value somebody cleared.
     await pumpLog(tester, [
-      entry(
-        action: 'user_invited',
-        targetType: 'user',
-        targetLabel: 'Neu',
-        field: 'role',
-        fromValue: '',
-        toValue: 'member',
+      event(
+        action: 'user.invited',
+        subjectCollection: 'users',
+        subjectLabel: 'Neu',
+        spotId: '',
+        spotLabel: '',
+        changes: const [AuditChange(field: 'role', to: 'member')],
       ),
     ]);
 
@@ -115,19 +163,35 @@ void main() {
     );
   });
 
-  testWidgets('a deleted target still reads as the name it had', (
+  testWidgets('a cleared value says what it used to be', (tester) async {
+    // The delete half of the shared `changes` shape: one renderer serves all
+    // three verbs, and "cleared, was X" is the right sentence for something
+    // that no longer exists.
+    await pumpLog(tester, [
+      event(
+        action: 'spot.updated',
+        changes: const [AuditChange(field: 'city', from: 'Berlin')],
+      ),
+    ]);
+
+    expect(
+      find.text(de.auditChangeCleared(de.auditFieldCity, 'Berlin')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a deleted subject still reads as the name it had', (
     tester,
   ) async {
-    // The reason `target` is a stored TEXT id and every label is a snapshot: a
-    // relation would have had to choose between cascading — the deletion
-    // erasing the record of itself — and dangling.
+    // The reason `subject_id` is a stored TEXT id and every label is a
+    // snapshot: a relation would have had to choose between cascading — the
+    // deletion erasing the record of itself — and dangling.
     await pumpLog(tester, [
-      entry(
-        action: 'spot_deleted',
-        targetLabel: 'Alter Speicher',
-        field: null,
-        fromValue: null,
-        toValue: null,
+      event(
+        action: 'spot.deleted',
+        subjectLabel: 'Alter Speicher',
+        spotLabel: 'Alter Speicher',
+        changes: const [],
       ),
     ]);
 
@@ -137,45 +201,53 @@ void main() {
     expect(find.textContaining('→'), findsNothing);
   });
 
-  testWidgets('the release of a protected nest carries the species typed', (
+  testWidgets('a Besuch names its building and counts its children', (
     tester,
   ) async {
-    // The act this whole table is most for. The species somebody wrote down is
-    // the fact the decision rested on, and it sits on a field the very next
-    // edit can overwrite.
+    // One human act, one row. The checks and findings it wrote are in `detail`
+    // as counts rather than as events of their own, and the nested state maps
+    // are deliberately not rendered — they belong in the Besuch itself.
     await pumpLog(tester, [
-      entry(
-        action: 'nest_unprotected',
-        targetType: 'nest',
-        targetLabel: 'N3',
-        field: 'species',
-        fromValue: 'protected',
-        toValue: 'feral_pigeon',
-        detail: 'Dohle',
+      event(
+        action: 'visit.recorded',
+        subjectCollection: 'visits',
+        detail: const {
+          'outcome': 'checked',
+          'checks': 3,
+          'states': {'empty': 3},
+        },
       ),
     ]);
 
-    expect(find.text(de.auditActionNestUnprotected), findsOneWidget);
-    expect(find.text('Dohle'), findsOneWidget);
-    expect(
-      find.text(
-        de.auditChange(
-          de.auditFieldSpecies,
-          de.auditValueSpeciesProtected,
-          de.auditValueSpeciesFeralPigeon,
-        ),
+    expect(find.text(de.auditActionVisitRecorded), findsOneWidget);
+    expect(find.textContaining('${de.auditFieldChecks}: 3'), findsOneWidget);
+    // The nested map is not printed as a Dart Map literal.
+    expect(find.textContaining('{'), findsNothing);
+  });
+
+  testWidgets('an act nobody performed says which schedule did', (
+    tester,
+  ) async {
+    // A Spot leaving a pause was decided by a cron. Attributing it to the
+    // coordinator who paused it would be a false statement about a person, and
+    // a bare "System" leaves the reader guessing.
+    await pumpLog(tester, [
+      event(
+        action: 'spot.auto_resumed',
+        actorLabel: '',
+        actorKind: 'cron',
+        changes: const [],
       ),
-      findsOneWidget,
-    );
+    ]);
+
+    expect(find.textContaining(de.auditActorKindCron), findsOneWidget);
   });
 
   testWidgets('an actorless entry is attributed, not left blank', (
     tester,
   ) async {
-    // The server writes `system` when there is no account to name — a cron,
-    // a bootstrap. An entry with no author answers half the question it
-    // exists for.
-    await pumpLog(tester, [entry(actorLabel: '')]);
+    // An entry with no author answers half the question it exists for.
+    await pumpLog(tester, [event(actorLabel: '', actorKind: null)]);
 
     expect(find.textContaining(de.auditActorSystem), findsOneWidget);
   });
@@ -187,12 +259,13 @@ void main() {
     expect(find.text(de.auditEmptyMessage), findsOneWidget);
   });
 
-  testWidgets('a target id narrows the read to that target', (tester) async {
-    // And through `pageForTarget`, which filters on the stored TEXT id — so it
-    // still answers for a Spot that has since been deleted.
-    await pumpLog(tester, [entry()], targetId: 's1');
+  testWidgets('a Spot id narrows the read to that building', (tester) async {
+    // Through `pageForSpot`, which filters on the stored TEXT id — so it still
+    // answers for a Spot that has since been deleted, and returns everything
+    // that happened THERE rather than only the Spot record's own edits.
+    await pumpLog(tester, [event()], spotId: 's1');
 
-    verify(() => audit.pageForTarget('s1')).called(1);
+    verify(() => audit.pageForSpot('s1')).called(1);
     verifyNever(() => audit.pageOfLog(after: any(named: 'after')));
   });
 }
