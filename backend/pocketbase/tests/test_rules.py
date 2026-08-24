@@ -2715,6 +2715,98 @@ h.check(
 )
 
 
+# ── Getting in, and failing to ─────────────────────────────────────────────
+#
+# eiermann-30w.5. The auth flows are not record writes, so Tier A cannot see
+# them; these hang off the specific auth methods rather than onRecordAuthRequest,
+# which also fires on the token refresh every running client does on a timer.
+#
+# The assertion that earns this section is the LAST one: a deactivated account
+# signing in with the RIGHT password is refused, and that is not somebody
+# guessing. Filing it as a failed login would put every departed member's stale
+# client retry in the security feed, which is how a security feed stops being
+# read.
+
+print("\n[the new audit log: getting in]")
+
+# Made with the superuser token, not the coordinator's: `verified` is a
+# protected system field and only a superuser may set it.
+auth_user = h.mkuser(T, "anmeldung@example.org", "member", ORG, active=True)
+
+status, auth_token = h.login("anmeldung@example.org")
+h.check("a member can sign in", status == 200 and auth_token, f"status {status}")
+login_rows = events(f"action = 'auth.login' && actor_id = '{auth_user['id']}'")
+h.check(
+    "a sign-in is recorded",
+    len(login_rows) == 1,
+    f"{len(login_rows)} rows",
+)
+h.check(
+    "...naming the person, although there was no e.auth to read it from",
+    login_rows and login_rows[0].get("actor_label"),
+    f"{login_rows[0].get('actor_label')!r} if the actor is not passed "
+    "explicitly every one of these rows says 'system'",
+)
+h.check(
+    "...and filed as a security event",
+    login_rows and login_rows[0].get("severity") == "security",
+    f"{login_rows[0].get('severity')!r}" if login_rows else "no row",
+)
+
+status, _ = h.login("anmeldung@example.org", "das-ist-es-nicht")
+h.check("a wrong password is refused", status >= 400, f"status {status}")
+failed = events(f"action = 'auth.login_failed' && actor_id = '{auth_user['id']}'")
+h.check("a wrong password is recorded", len(failed) == 1, f"{len(failed)} rows")
+
+# Bucketed per account into five-minute windows by zv_audit.js. Without it a
+# brute-force writes a row per attempt into a table with no delete rule — the
+# log becomes the amplifier.
+h.login("anmeldung@example.org", "auch-nicht")
+h.login("anmeldung@example.org", "immer-noch-nicht")
+h.check(
+    "...but a burst of them is still one row",
+    len(events(f"action = 'auth.login_failed' && actor_id = '{auth_user['id']}'")) == 1,
+    "an append-only table that a stranger can grow at will is a denial of "
+    "service against its own readers",
+)
+
+# A SEPARATE account, and that is the whole point of it: the five-minute bucket
+# above would swallow the row this assertion is looking for. Testing the
+# distinction on `auth_user` passes whether the pre-check exists or not — a
+# guard that cannot fail proves nothing, and this one was written that way
+# first.
+quiet_user = h.mkuser(T, "ausgeschieden@example.org", "member", ORG, active=True)
+h.req(
+    "PATCH",
+    f"/api/collections/users/records/{quiet_user['id']}",
+    coord_token,
+    {"is_active": False},
+)
+one_event(
+    f"action = 'user.deactivated' && subject_id = '{quiet_user['id']}'",
+    "ending somebody's access is refined out of the generic user update",
+)
+h.check(
+    "...and is not ALSO filed as an ordinary user edit",
+    not events(f"action = 'user.updated' && subject_id = '{quiet_user['id']}'"),
+    "one act, one row",
+)
+
+status, _ = h.login("ausgeschieden@example.org")
+h.check(
+    "a deactivated account cannot sign in even with the right password",
+    status >= 400,
+    f"status {status}",
+)
+h.check(
+    "...and that is NOT recorded as a failed login",
+    not events(f"action = 'auth.login_failed' && actor_id = '{quiet_user['id']}'"),
+    "the password was right; nobody was guessing. The pre-check before "
+    "e.next() is the only place these two can still be told apart, and this "
+    "account has an empty bucket so nothing else can hide a spurious row",
+)
+
+
 # ── Der Rhythmus: the numbers, and the door they are changed through ───────
 #
 # `organisations.updateRule` is null and stays null, so the settings blob has no

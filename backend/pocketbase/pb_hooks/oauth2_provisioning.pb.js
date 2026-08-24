@@ -64,10 +64,16 @@ onRecordAuthWithOAuth2Request((e) =>
     // which language the person in front of the screen speaks. The client turns
     // the 403 into its own sentence.
     forbiddenMessage: "This account is not permitted to register.",
-    // No audit entry, and that is a gap rather than a decision: an account
-    // appearing with a role chosen by configuration instead of by a person is
-    // exactly a membership decision worth recording. eiermann has no audit
-    // collection yet (Phase 08) — when it gains one, this call site is where
-    // the `audit`/`auditAction` pair belongs. Tracked as eiermann-0oi.
+    // An account appearing with a role chosen by a CONFIGURATION instead of by
+    // a person is exactly a membership decision, and it belongs in the log next
+    // to the invitations a coordinator sent by hand. eiermann-30w.5.
+    //
+    // The library emits LAST, after the concurrent-bootstrap race is settled, so
+    // the role in the row is the one that survived rather than the one this
+    // request hoped for. And it emits only when an account was actually
+    // created: an ordinary returning sign-in is a login, which
+    // `audit_auth.pb.js` records as one.
+    audit: require(`${__hooks}/app_audit_log.js`),
+    auditAction: require(`${__hooks}/app_audit_log.js`).ACTIONS.USER_PROVISIONED,
   }),
 );

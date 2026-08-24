@@ -148,6 +148,9 @@ const ACTIONS = {
   AUTH_LOGIN_FAILED: "auth.login_failed",
   AUTH_OAUTH2_LOGIN: "auth.oauth2_login",
   AUTH_PASSWORD_CHANGED: "auth.password_changed",
+  // The CONFIRM of a reset, not the request for one: anybody can ask for the
+  // mail, only the holder of the token can spend it.
+  AUTH_PASSWORD_RESET: "auth.password_reset",
 
   // ── The organisation's own numbers ──
   RHYTHM_CHANGED: "rhythm.changed",
@@ -399,6 +402,7 @@ const DEFAULT_SEVERITY = {
   "auth.login_failed": SEVERITY.SECURITY,
   "auth.oauth2_login": SEVERITY.SECURITY,
   "auth.password_changed": SEVERITY.SECURITY,
+  "auth.password_reset": SEVERITY.SECURITY,
   "user.invited": SEVERITY.SECURITY,
   "user.role_changed": SEVERITY.SECURITY,
   "user.activated": SEVERITY.SECURITY,
