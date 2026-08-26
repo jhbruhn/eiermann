@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.0.0](https://github.com/jhbruhn/eiermann/compare/v1.1.1...v2.0.0) (2026-08-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **audit:** retire audit_entries and its seven call sites
+* `urgency` is an integer wire contract in three places at once — `spot_overview` computes it, the server sorts on it (`urgency,name,id`, with keyset paging riding on that order), and it travels in `/spots?urgency=N` links readers keep. The rung could not be appended at 7, which would sort it below the closed Spots, so prospect, paused and closed move to 5, 6 and 7. An old client against a new server labels the Erkundungen "Erfassung ausstehend".
+
+### Features
+
+* **audit:** a retention window, off by default, and the guard it needs ([a97072b](https://github.com/jhbruhn/eiermann/commit/a97072be770fcaaecbce01a2fe3cad6bc9d68bde))
+* **audit:** audit_events, the log in the shape the shared emitter writes ([191f3af](https://github.com/jhbruhn/eiermann/commit/191f3afc83d1761f4fffe2e60ce60272324ef73d))
+* **audit:** retire audit_entries and its seven call sites ([afb77c0](https://github.com/jhbruhn/eiermann/commit/afb77c060088f4842017284bcce8a770f700ed9d))
+* **audit:** sign-ins, failed attempts and OAuth2 provisioning ([7ab689c](https://github.com/jhbruhn/eiermann/commit/7ab689c9d3a7ca24b01052686d788c64118c3fef))
+* **audit:** the routes, the export and the cron ([e853809](https://github.com/jhbruhn/eiermann/commit/e853809cba3e76a28e6149e7b942d186de28e035))
+* **audit:** the screen reads the new row shape ([8b7e5f0](https://github.com/jhbruhn/eiermann/commit/8b7e5f048869e3656714a3416c8719d7f00b41cd))
+* **audit:** the vocabulary and the binding onto zugvogel's machinery ([854a44a](https://github.com/jhbruhn/eiermann/commit/854a44a0b3d4d0ebb00df0468f8bdb1809fd80ff))
+* **audit:** Tier A — one generic hook per verb over the registry ([6b8cc6d](https://github.com/jhbruhn/eiermann/commit/6b8cc6d98f8de97844d4c9149de47d7f037f65e8))
+* **findings:** correct a Fund's description after the fact ([0f006e7](https://github.com/jhbruhn/eiermann/commit/0f006e7910fed0eb6b03dc44a4557869441524f7))
+* give "noch nicht erfasst" a rung instead of a borrowed due rank ([bea931f](https://github.com/jhbruhn/eiermann/commit/bea931fc0dad39cb82737d1fd45851f7033638db))
+
+
+### Bug Fixes
+
+* **areas:** refuse removing a Bereich photo out from under its pins ([9cb17b6](https://github.com/jhbruhn/eiermann/commit/9cb17b638157413caa75c305fbad2c60f077a1b8))
+* **areas:** the pin canvas reserves its box while the photo loads ([fc696cd](https://github.com/jhbruhn/eiermann/commit/fc696cd95e7ec36ddf04e7155b75187318faaf5d))
+* **platform:** let a German iPhone speak German, and keep Android's backup out ([2e7b1fc](https://github.com/jhbruhn/eiermann/commit/2e7b1fcdbca4635d61a46d0c41f23c29c88067cf))
+* **rhythm:** a Halbgelege follow-up is not the client's to delete ([dc5fc16](https://github.com/jhbruhn/eiermann/commit/dc5fc1682afbedd7721d983d6e6f0de0a6a977e2))
+* **rhythm:** recompute the Spot when a follow-up is written through the API ([f06a7a6](https://github.com/jhbruhn/eiermann/commit/f06a7a6236103de48b20170e1e13ca2812f37df3))
+* **rules:** a closing date is the server's, on both write paths ([a38d4c9](https://github.com/jhbruhn/eiermann/commit/a38d4c9a91cccfeb35e95be403cf8aa253678ef8))
+* **rules:** who recorded a fact, and when, stop being client-writable ([ccf18ff](https://github.com/jhbruhn/eiermann/commit/ccf18ffe7af92924b70ba47ce43b42b76c5fccbd))
+* **spots:** a dossier section heading breaks instead of overflowing ([0fa1704](https://github.com/jhbruhn/eiermann/commit/0fa17046d5002013495c3f35edf6d185b7bba1ed))
+* **spots:** name the survey rung for both ways of arriving on it ([84bb321](https://github.com/jhbruhn/eiermann/commit/84bb32135846b4d899c7e0b20994e38ce46e5abc))
+* **spots:** the pin picker's search text sits on the icons' centre line ([427474c](https://github.com/jhbruhn/eiermann/commit/427474c4cd3f763b77e0537aacbfcd13ede1dfa7))
+
 ## [1.1.1](https://github.com/jhbruhn/eiermann/compare/v1.1.0...v1.1.1) (2026-08-23)
 
 
