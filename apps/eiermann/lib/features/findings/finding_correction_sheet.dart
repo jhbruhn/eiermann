@@ -52,8 +52,7 @@ class FindingCorrectionSheet extends ConsumerStatefulWidget {
       _FindingCorrectionSheetState();
 }
 
-class _FindingCorrectionSheetState
-    extends ConsumerState<FindingCorrectionSheet>
+class _FindingCorrectionSheetState extends ConsumerState<FindingCorrectionSheet>
     with DiscardGuard, FormSheetState {
   late final _species = TextEditingController(
     text: widget.finding.speciesLabel ?? '',

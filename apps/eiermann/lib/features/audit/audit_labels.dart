@@ -188,7 +188,10 @@ String auditValueLabel(AppLocalizations l10n, String field, String value) {
     'role' => userRoleLabel(l10n, UserRole.fromWire(value)),
     // A bool arrives as the string SQLite stored. Rendered as a word, because
     // "is_active: false → true" is a row that makes the reader do the mapping.
-    'is_active' || 'pause_auto_resume' || 'is_primary' || 'geo_confirmed' ||
+    'is_active' ||
+    'pause_auto_resume' ||
+    'is_primary' ||
+    'geo_confirmed' ||
     'pins_need_review' =>
       value == 'true' ? l10n.auditValueYes : l10n.auditValueNo,
     'species' => _speciesLabel(l10n, value),

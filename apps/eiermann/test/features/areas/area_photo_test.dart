@@ -53,8 +53,7 @@ void main() {
           alignment: Alignment.topLeft,
           child: SizedBox(
             width: _width,
-            child:
-                around ?? const AreaPhoto(area: area, showAsCanvas: true),
+            child: around ?? const AreaPhoto(area: area, showAsCanvas: true),
           ),
         ),
       ),
