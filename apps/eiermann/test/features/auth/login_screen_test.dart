@@ -63,17 +63,26 @@ void main() {
       serverInfoProvider.overrideWith((ref) async => serverInfo ?? info()),
       serverCompatibilityProvider.overrideWith((ref) async => compatibility),
       oauthProvidersProvider.overrideWith((ref) async => providers),
+      appVersionProvider.overrideWith((ref) async => '2.0.0'),
     ],
   );
 
   const oidc = OAuthProvider(name: 'oidc', displayName: 'Anmeldung der Gruppe');
 
-  testWidgets('shows the instance name the server reported', (tester) async {
-    // Not the app's own name: a team should see which server they are signing
+  testWidgets('heads the screen with the app, then the instance', (
+    tester,
+  ) async {
+    // The app's own name leads, as on federfall's sign-in screen; the instance
+    // follows, because a team should still see which server they are signing
     // in to, especially when an organisation runs more than one.
     await pump(tester);
     await tester.pumpAndSettle();
-    expect(find.text('Wildvogelhilfe Ost'), findsOneWidget);
+    expect(find.text(de.appTitle), findsOneWidget);
+    expect(find.text(de.authTagline), findsOneWidget);
+    expect(
+      find.text(de.authSignInToServer('Wildvogelhilfe Ost')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('an empty form is refused before any request', (tester) async {
@@ -161,7 +170,11 @@ void main() {
     testWidgets('an old app tells the user to update the app', (tester) async {
       await pump(tester, compatibility: ServerCompatibility.clientTooOld);
       await tester.pumpAndSettle();
-      expect(find.text(de.authVersionClientTooOld), findsOneWidget);
+      expect(find.text(de.authUpdateRequiredTitle), findsOneWidget);
+      expect(
+        find.text(de.authUpdateClientMessage('2.0.0', '1.0.0')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('an old SERVER points at the operator', (tester) async {
@@ -170,15 +183,36 @@ void main() {
       // the common case.
       await pump(tester, compatibility: ServerCompatibility.serverTooOld);
       await tester.pumpAndSettle();
-      expect(find.text(de.authVersionServerTooOld), findsOneWidget);
-      expect(find.text(de.authVersionClientTooOld), findsNothing);
+      expect(
+        find.text(de.authUpdateServerMessage('2.0.0', '1.0.0')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(de.authUpdateClientMessage('2.0.0', '1.0.0')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('the notice REPLACES the form rather than sitting above it', (
+      tester,
+    ) async {
+      // Against a server that speaks another protocol, signing in would only
+      // fail further in — so the controls are gone, not merely warned about.
+      // The instance still heads the screen.
+      await pump(tester, compatibility: ServerCompatibility.serverTooOld);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.text(de.authSignInAction), findsNothing);
+      expect(
+        find.text(de.authSignInToServer('Wildvogelhilfe Ost')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a compatible pair shows no notice at all', (tester) async {
       await pump(tester);
       await tester.pumpAndSettle();
-      expect(find.text(de.authVersionClientTooOld), findsNothing);
-      expect(find.text(de.authVersionServerTooOld), findsNothing);
+      expect(find.text(de.authUpdateRequiredTitle), findsNothing);
     });
   });
 

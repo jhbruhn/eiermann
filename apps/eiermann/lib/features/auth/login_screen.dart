@@ -19,9 +19,12 @@ import 'package:zugvogel_ui/zugvogel_ui.dart';
 ///
 /// * the server's `/info` is read, so the instance name can be shown and the
 ///   sign-in options match what the server actually has;
-/// * the app/server version pair is checked, and a mismatch shows a notice
-///   naming WHICH SIDE is behind. Telling a user to update their app when the
-///   server is the old one is a dead end they cannot act on.
+/// * the app/server version pair is checked, and a mismatch replaces the form
+///   with a notice naming WHICH SIDE is behind. Telling a user to update their
+///   app when the server is the old one is a dead end they cannot act on.
+///
+/// The layout is federfall's — brand head, then the instance, then the form —
+/// so the two apps' front doors read as siblings.
 ///
 /// Both fail OPEN. An unreachable `/info` must not block sign-in — the request
 /// itself will report the real problem, and a login screen that refuses to draw
@@ -253,130 +256,134 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Read, never awaited: this screen must draw whatever /info says, including
     // nothing at all.
     final info = ref.watch(serverInfoProvider).value;
-    final compatibility = ref.watch(serverCompatibilityProvider).value;
     final options = info?.auth ?? const ServerAuthOptions();
-
-    final versionNotice = switch (compatibility) {
-      ServerCompatibility.clientTooOld => l10n.authVersionClientTooOld,
-      ServerCompatibility.serverTooOld => l10n.authVersionServerTooOld,
-      _ => null,
-    };
+    // Unresolved counts as compatible: the check must never be what keeps
+    // somebody out.
+    final compatibility =
+        ref.watch(serverCompatibilityProvider).value ??
+        ServerCompatibility.compatible;
 
     return Scaffold(
-      appBar: AppBar(title: Text(info?.name ?? l10n.authSignInTitle)),
-      body: ContentBounds(
-        maxWidth: 480,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(ZugvogelSpacing.lg),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (versionNotice != null) ...[
-                  Card(
-                    color: theme.colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(ZugvogelSpacing.md),
-                      child: Text(
-                        versionNotice,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onErrorContainer,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(ZugvogelSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _LoginHeader(serverName: info?.name),
+                    // A pair that cannot talk gets the notice INSTEAD of the
+                    // form: signing in would only fail further in, against a
+                    // protocol the other side no longer speaks.
+                    if (compatibility != ServerCompatibility.compatible)
+                      _UpdateRequiredNotice(
+                        compatibility: compatibility,
+                        serverVersion: info?.version ?? '',
+                      )
+                    else ...[
+                      if (options.password) ...[
+                        AppTextField(
+                          label: l10n.authEmailLabel,
+                          controller: _email,
+                          prefixIcon: Icons.alternate_email,
+                          enabled: !_busy,
+                          autofocus: true,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          validator: Validators.compose([
+                            Validators.required(strings),
+                            Validators.email(strings),
+                          ]),
                         ),
+                        const SizedBox(height: ZugvogelSpacing.md),
+                        AppTextField(
+                          label: l10n.authPasswordLabel,
+                          controller: _password,
+                          prefixIcon: Icons.lock_outline,
+                          enabled: !_busy,
+                          obscureText: true,
+                          textInputAction: TextInputAction.go,
+                          onSubmitted: (_) => _signIn(),
+                          validator: Validators.required(strings),
+                        ),
+                      ],
+                      if (_error != null) ...[
+                        const SizedBox(height: ZugvogelSpacing.sm),
+                        Text(
+                          _error!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ],
+                      if (options.password) ...[
+                        const SizedBox(height: ZugvogelSpacing.lg),
+                        PrimaryButton(
+                          label: l10n.authSignInAction,
+                          isLoading: _busy,
+                          onPressed: _signIn,
+                        ),
+                        // Only offered when the server can actually send the
+                        // mail — otherwise it is a button that silently does
+                        // nothing.
+                        if (options.passwordReset) ...[
+                          const SizedBox(height: ZugvogelSpacing.xs),
+                          TextButton(
+                            onPressed: _busy ? null : _resetPassword,
+                            child: Text(l10n.authForgotPasswordAction),
+                          ),
+                        ],
+                      ],
+                      // One button per provider the server has. The separator
+                      // appears only when there is something to separate them
+                      // FROM; on an instance with the password off these are
+                      // the whole screen.
+                      if (options.oauth2.isNotEmpty) ...[
+                        if (options.password) ...[
+                          const SizedBox(height: ZugvogelSpacing.md),
+                          _OrSeparator(label: l10n.authOrSeparator),
+                        ],
+                        ..._providerButtons(),
+                        if (_oauthPending) ...[
+                          const SizedBox(height: ZugvogelSpacing.md),
+                          Text(
+                            l10n.authOauthWaiting,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          TextButton(
+                            onPressed: _cancelOAuth,
+                            child: Text(l10n.actionCancel),
+                          ),
+                        ],
+                      ],
+                    ],
+                    // Native only: on web the server IS the serving origin, so
+                    // there is nothing to change. Stays under the update
+                    // notice too, so nobody is stranded on a server they can
+                    // no longer use.
+                    if (ref.watch(serverConfigControllerProvider).value
+                        case ServerConfigured() when !kIsWebPlatform) ...[
+                      const SizedBox(height: ZugvogelSpacing.sm),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => ref
+                                  .read(serverConfigControllerProvider.notifier)
+                                  .clearServerUrl(),
+                        child: Text(l10n.setupChangeServerAction),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: ZugvogelSpacing.lg),
-                ],
-                if (options.password) ...[
-                  AppTextField(
-                    label: l10n.authEmailLabel,
-                    controller: _email,
-                    enabled: !_busy,
-                    autofocus: true,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    validator: Validators.compose([
-                      Validators.required(strings),
-                      Validators.email(strings),
-                    ]),
-                  ),
-                  const SizedBox(height: ZugvogelSpacing.md),
-                  AppTextField(
-                    label: l10n.authPasswordLabel,
-                    controller: _password,
-                    enabled: !_busy,
-                    obscureText: true,
-                    textInputAction: TextInputAction.go,
-                    onSubmitted: (_) => _signIn(),
-                    validator: Validators.required(strings),
-                  ),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: ZugvogelSpacing.md),
-                  Text(
-                    _error!,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                ],
-                if (options.password) ...[
-                  const SizedBox(height: ZugvogelSpacing.lg),
-                  PrimaryButton(
-                    label: l10n.authSignInAction,
-                    isLoading: _busy,
-                    onPressed: _signIn,
-                  ),
-                  // Only offered when the server can actually send the mail —
-                  // otherwise it is a button that silently does nothing.
-                  if (options.passwordReset) ...[
-                    const SizedBox(height: ZugvogelSpacing.sm),
-                    TextButton(
-                      onPressed: _busy ? null : _resetPassword,
-                      child: Text(l10n.authForgotPasswordAction),
-                    ),
+                    ],
                   ],
-                ],
-                // One button per provider the server has. The separator appears
-                // only when there is something to separate them FROM; on an
-                // instance with the password off these are the whole screen.
-                if (options.oauth2.isNotEmpty) ...[
-                  const SizedBox(height: ZugvogelSpacing.lg),
-                  if (options.password) ...[
-                    _OrSeparator(label: l10n.authOrSeparator),
-                    const SizedBox(height: ZugvogelSpacing.sm),
-                  ],
-                  ..._providerButtons(),
-                  if (_oauthPending) ...[
-                    const SizedBox(height: ZugvogelSpacing.md),
-                    Text(
-                      l10n.authOauthWaiting,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    TextButton(
-                      onPressed: _cancelOAuth,
-                      child: Text(l10n.actionCancel),
-                    ),
-                  ],
-                ],
-                const SizedBox(height: ZugvogelSpacing.lg),
-                // Native only: on web the server IS the serving origin, so
-                // there is nothing to change.
-                if (ref.watch(serverConfigControllerProvider).value
-                    case ServerConfigured() when !kIsWebPlatform)
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => ref
-                              .read(serverConfigControllerProvider.notifier)
-                              .clearServerUrl(),
-                    child: Text(l10n.setupChangeServerAction),
-                  ),
-              ],
+                ),
+              ),
             ),
           ),
         ),
@@ -396,14 +403,133 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final providers = ref.watch(oauthProvidersProvider).value ?? const [];
     return [
       for (final p in providers) ...[
+        const SizedBox(height: ZugvogelSpacing.sm),
         OutlinedButton.icon(
           onPressed: _busy ? null : () => _signInWithProvider(p),
           icon: const Icon(Icons.login),
           label: Text(l10n.authContinueWith(p.displayName)),
         ),
-        const SizedBox(height: ZugvogelSpacing.sm),
       ],
     ];
+  }
+}
+
+/// The app's name and tagline, then which instance this is.
+///
+/// The same head as federfall's sign-in screen, so the two apps read as
+/// siblings. The instance name is a line under the brand rather than the
+/// title: a team running more than one instance still needs to see which one
+/// it is signing in to, but it is not what the screen is.
+///
+/// Shared by the form and the update notice that replaces it, so the screen
+/// keeps its identity when the versions do not line up.
+class _LoginHeader extends StatelessWidget {
+  const _LoginHeader({required this.serverName});
+
+  final String? serverName;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final name = serverName;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          l10n.appTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.5,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: ZugvogelSpacing.sm),
+        Text(
+          l10n.authTagline,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: ZugvogelSpacing.xl),
+        if (name != null && name.isNotEmpty) ...[
+          Text(
+            l10n.authSignInToServer(name),
+            style: theme.textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: ZugvogelSpacing.lg),
+        ],
+      ],
+    );
+  }
+}
+
+/// Stands in for the sign-in controls when app and server majors disagree.
+///
+/// Which side has to move decides the whole message: an app that auto-updated
+/// ahead of its backend is the likelier case on a self-hosted instance, and
+/// telling that user to update the app would send them nowhere. Both versions
+/// are named, because "too old" without a number is something the operator
+/// then has to ask about.
+class _UpdateRequiredNotice extends ConsumerWidget {
+  const _UpdateRequiredNotice({
+    required this.compatibility,
+    required this.serverVersion,
+  });
+
+  final ServerCompatibility compatibility;
+  final String serverVersion;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    final appVersion = ref.watch(appVersionProvider).value ?? '';
+    final message = switch (compatibility) {
+      ServerCompatibility.serverTooOld => l10n.authUpdateServerMessage(
+        appVersion,
+        serverVersion,
+      ),
+      // `compatible` never gets here — the caller draws the form instead — but
+      // the app-side message is the safe default for an exhaustive switch.
+      _ => l10n.authUpdateClientMessage(appVersion, serverVersion),
+    };
+
+    return Card(
+      color: theme.colorScheme.errorContainer,
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(ZugvogelSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.system_update_outlined,
+              color: theme.colorScheme.onErrorContainer,
+            ),
+            const SizedBox(height: ZugvogelSpacing.sm),
+            Text(
+              l10n.authUpdateRequiredTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: ZugvogelSpacing.sm),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -64,7 +64,19 @@
     "description": "Shown when an explicit http:// URL is given for a non-loopback host."
   },
   "setupChangeServerAction": "Anderen Server verwenden",
-  "authSignInTitle": "Anmelden",
+  "authTagline": "Jedes Gelege im Blick.",
+  "@authTagline": {
+    "description": "Line under the app name at the head of the sign-in screen. The sibling of federfall's, which reads \"Jeder Fall in guten Händen.\""
+  },
+  "authSignInToServer": "Bei {server} anmelden",
+  "@authSignInToServer": {
+    "description": "Heads the sign-in form. {server} is the instance name /info reports, so a team running more than one instance sees which one this is.",
+    "placeholders": {
+      "server": {
+        "type": "String"
+      }
+    }
+  },
   "authEmailLabel": "E-Mail",
   "authPasswordLabel": "Passwort",
   "authSignInAction": "Anmelden",
@@ -103,10 +115,29 @@
   "@authOauthRefused": {
     "description": "The provisioning hook's 403 (EIERMANN_OIDC_ALLOWED_GROUPS): the identity provider knows this person, this instance does not want them. Distinct from authOauthFailed because there is nothing to retry."
   },
-  "authVersionClientTooOld": "Diese App ist zu alt für den Server. Bitte aktualisiere die App.",
-  "authVersionServerTooOld": "Der Server ist zu alt für diese App. Bitte wende dich an die Person, die den Server betreibt.",
-  "@authVersionServerTooOld": {
-    "description": "Names the OPERATOR, not the user: telling this user to update their app would be a dead end, because their app is already the newer of the two."
+  "authUpdateRequiredTitle": "Update erforderlich",
+  "authUpdateClientMessage": "Diese App (Version {app}) ist zu alt für diesen Server (Version {server}). Aktualisiere die App, um dich anzumelden.",
+  "@authUpdateClientMessage": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      },
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "authUpdateServerMessage": "Diese App (Version {app}) ist neuer als dieser Server (Version {server}). Der Server muss aktualisiert werden, bevor du dich anmelden kannst — wende dich an die Person, die ihn betreibt.",
+  "@authUpdateServerMessage": {
+    "description": "Names the OPERATOR, not the user: telling this user to update their app would be a dead end, because their app is already the newer of the two.",
+    "placeholders": {
+      "app": {
+        "type": "String"
+      },
+      "server": {
+        "type": "String"
+      }
+    }
   },
   "navDashboard": "Dashboard",
   "@navDashboard": {
