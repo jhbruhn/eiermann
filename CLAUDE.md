@@ -402,9 +402,10 @@ Also: `scp`/`ssh` with `-o BatchMode=yes`, `apt-get -y`,
 
 **Pushing is deliberately NOT part of session completion in this repo.** Push
 only when asked. This mirrors federfall's convention
-(`federfall-commit-directly-on-main`) and reflects that **this repo has no git
-remote at all yet** — a push would fail, and beads' generic "push to remote"
-step does not apply. Do not reintroduce it without being asked.
+(`federfall-commit-directly-on-main`): `origin` is
+`github.com/jhbruhn/eiermann`, and a push to `main` is what release-please
+reads, so it is the user's call when work goes out. Beads' generic "push to
+remote" step does not apply. Do not reintroduce it without being asked.
 
 **Never merge a pull request** unless explicitly asked — least of all a
 release PR.
