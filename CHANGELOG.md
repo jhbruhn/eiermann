@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/jhbruhn/eiermann/compare/v2.0.0...v2.1.0) (2026-11-02)
+
+
+### Features
+
+* **auth:** the sign-in screen takes federfall's shape ([a97ec4d](https://github.com/jhbruhn/eiermann/commit/a97ec4d2681381a7ab9da5309de03091dd36081a))
+
+
+### Bug Fixes
+
+* **deps:** zugvogel f4f0f2e, go_router 18, pocketbase 0.25 ([8b5be9e](https://github.com/jhbruhn/eiermann/commit/8b5be9ec3d4292052748161dde17103051af64bc))
+
 ## [2.0.0](https://github.com/jhbruhn/eiermann/compare/v1.1.1...v2.0.0) (2026-08-26)
 
 
