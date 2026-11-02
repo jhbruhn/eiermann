@@ -32,8 +32,13 @@ FROM debian:bookworm-slim AS flutterbuild
 # toolchain.
 ARG FLUTTER_VERSION=3.44.3
 
+# TAR_OPTIONS: the SDK's cached archives carry their builder's uid (397546 for
+# the gradle wrapper), and tar-as-root restores it. Rootless podman maps only a
+# 65536-uid range into the build, so that chown fails and `flutter precache`
+# dies; nothing here needs the original owner.
 ENV DEBIAN_FRONTEND=noninteractive \
     PUB_CACHE=/pub-cache \
+    TAR_OPTIONS=--no-same-owner \
     PATH="/flutter/bin:/flutter/bin/cache/dart-sdk/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
