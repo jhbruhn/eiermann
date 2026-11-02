@@ -13,11 +13,11 @@ resolution: workspace
 
 dependencies:
   freezed_annotation: ^3.1.0
-  pocketbase: ^0.24.0
+  pocketbase: ^0.25.3
   zugvogel_core:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 030c35addc1622daf167212ec5c87c16fdff4696
+      ref: f4f0f2e20cbe739c09401f06fca1a177f12b5641
       path: packages/zugvogel_core
 
 dev_dependencies:

@@ -16,7 +16,7 @@ dependencies:
     path: ../eiermann_models
   http: ^1.3.0
   meta: ^1.16.0
-  pocketbase: ^0.24.0
+  pocketbase: ^0.25.3
   # Direct, not borrowed through eiermann_models: GeoPoint appears in this
   # package's own public API (GeoResult.point, and the geo the Spot body writes).
   # tools/bump-zugvogel.sh picks this file up by grep, so the pin moves with the
@@ -24,12 +24,12 @@ dependencies:
   zugvogel_core:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 030c35addc1622daf167212ec5c87c16fdff4696
+      ref: f4f0f2e20cbe739c09401f06fca1a177f12b5641
       path: packages/zugvogel_core
   zugvogel_data:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 030c35addc1622daf167212ec5c87c16fdff4696
+      ref: f4f0f2e20cbe739c09401f06fca1a177f12b5641
       path: packages/zugvogel_data
 
 dev_dependencies:
