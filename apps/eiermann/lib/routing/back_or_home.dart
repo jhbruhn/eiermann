@@ -1,6 +1,6 @@
 import 'package:eiermann/routing/router.dart';
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Leaves a screen that sits OVER the nav shell — the profile, the management
 /// hub, the Erkundung funnel, the figures.

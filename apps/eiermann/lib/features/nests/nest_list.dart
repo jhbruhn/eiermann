@@ -5,8 +5,8 @@ import 'package:eiermann/features/nests/nests_providers.dart';
 import 'package:eiermann/features/rhythm/due_explanation.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The nests of one Bereich as LINES — what the photo cannot say.

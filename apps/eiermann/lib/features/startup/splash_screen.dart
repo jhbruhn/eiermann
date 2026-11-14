@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// What the router shows while it does not yet know where to send you.

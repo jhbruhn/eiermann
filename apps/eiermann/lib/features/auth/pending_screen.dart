@@ -1,8 +1,8 @@
 import 'package:eiermann/core/auth/session.dart';
 import 'package:eiermann/features/home/sign_out_action.dart';
 import 'package:eiermann/l10n/l10n.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// What an account sees that is signed in and not let in.

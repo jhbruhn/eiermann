@@ -4,7 +4,7 @@ version: 2.1.0
 publish_to: none
 environment:
   sdk: ^3.12.0
-  flutter: ^3.44.0
+  flutter: ^3.50.0
 resolution: workspace
 dependencies:
   cached_network_image: ^4.0.3
@@ -34,6 +34,7 @@ dependencies:
   intl: ^0.20.2
   json_annotation: ^4.12.0
   latlong2: ^0.10.1
+  material_ui: ^1.11.0
   package_info_plus: ^10.2.0
   pocketbase: ^0.25.3
   riverpod_annotation: ^4.0.3
@@ -44,33 +45,33 @@ dependencies:
   zugvogel_core:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 2adb744950b4780a0ddc8aecc238992501a915b5
+      ref: bbdc89d8593cf0f6c8d7868023e4b94842df03d5
       path: packages/zugvogel_core
   zugvogel_data:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 2adb744950b4780a0ddc8aecc238992501a915b5
+      ref: bbdc89d8593cf0f6c8d7868023e4b94842df03d5
       path: packages/zugvogel_data
   zugvogel_pb_client:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 2adb744950b4780a0ddc8aecc238992501a915b5
+      ref: bbdc89d8593cf0f6c8d7868023e4b94842df03d5
       path: packages/zugvogel_pb_client
   zugvogel_ui:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: 2adb744950b4780a0ddc8aecc238992501a915b5
+      ref: bbdc89d8593cf0f6c8d7868023e4b94842df03d5
       path: packages/zugvogel_ui
 dev_dependencies:
   build_runner: ^2.15.0
   flutter_test:
     sdk: flutter
-  freezed: ^3.2.6-dev.1
+  freezed: ^4.0.3
   image: ^4.9.1
   json_serializable: ^6.14.0
   mocktail: ^1.0.5
-  riverpod_generator: ^4.0.4
-  riverpod_lint: ^3.1.4
+  riverpod_generator: ^4.0.10
+  riverpod_lint: ^3.2.0
   very_good_analysis: ^10.3.0
 flutter:
   generate: true

@@ -1,7 +1,7 @@
 import 'package:eiermann/data/repository_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Signing out, as an app-bar action — for the screens with no app behind them.
 ///

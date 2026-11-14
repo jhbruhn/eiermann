@@ -2,7 +2,7 @@ import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/team/team_labels.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The client half of the audit registry: every wire value, as a word.
 ///

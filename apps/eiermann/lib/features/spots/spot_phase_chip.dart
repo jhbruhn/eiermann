@@ -2,7 +2,7 @@ import 'package:eiermann/features/spots/spot_labels.dart';
 import 'package:eiermann/features/spots/spot_phase_sheet.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_models/eiermann_models.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The Spot's phase, and the way to change it — one control, because they are

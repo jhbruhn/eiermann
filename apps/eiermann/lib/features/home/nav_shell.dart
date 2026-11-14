@@ -1,7 +1,7 @@
 import 'package:eiermann/features/home/account_menu.dart';
 import 'package:eiermann/l10n/l10n.dart';
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The app's top-level navigation: a [NavigationBar] along the bottom on a

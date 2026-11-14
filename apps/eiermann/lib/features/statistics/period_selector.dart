@@ -1,7 +1,7 @@
 import 'package:eiermann/features/statistics/statistics_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The years offered behind the "frühere Jahre" picker: every year with a

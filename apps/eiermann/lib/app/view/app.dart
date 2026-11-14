@@ -2,8 +2,8 @@ import 'package:eiermann/config/app_environment.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/router.dart';
 import 'package:eiermann/theme/app_theme.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 class App extends ConsumerWidget {
@@ -24,7 +24,7 @@ class App extends ConsumerWidget {
       // and stays the fallback for anything we do not ship — see
       // `resolveAppLocale`.
       localeListResolutionCallback: (locales, _) => resolveAppLocale(locales),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: ref.watch(routerProvider),
       // Above the router, so the offline strip is ONE instance for the whole

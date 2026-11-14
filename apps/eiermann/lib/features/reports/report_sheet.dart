@@ -5,8 +5,8 @@ import 'package:eiermann/features/statistics/period_selector.dart';
 import 'package:eiermann/features/statistics/statistics_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_data/eiermann_data.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
@@ -94,7 +94,7 @@ class _ReportSheetState extends ConsumerState<ReportSheet> {
       );
       // The sheet has done its job; leaving it up over the share result reads
       // as if the export were still pending.
-      if (navigator.mounted) unawaited(navigator.maybePop());
+      if (navigator.mounted) navigator.maybePop();
     } on Object catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(errorMessage(strings, e))));

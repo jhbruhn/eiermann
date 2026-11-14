@@ -11,11 +11,11 @@ import 'package:eiermann/ui/app_map.dart';
 import 'package:eiermann/ui/device_location.dart';
 import 'package:eiermann/ui/locate_me_button.dart';
 import 'package:eiermann_models/eiermann_models.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The map: every Spot as a pin, coloured by how overdue it is.

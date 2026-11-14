@@ -92,7 +92,7 @@ jobs:
     permissions:
       contents: write
     env:
-      FLUTTER_VERSION: "3.44.3"
+      FLUTTER_VERSION: "3.50.0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

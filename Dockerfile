@@ -37,10 +37,10 @@ ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-2adb744950b4780a0ddc8a
 # ── Flutter web build ──────────────────────────────────────────────────────────
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS flutterbuild
 
-# Keep in sync with the repo's pinned Flutter (apps/eiermann: flutter ^3.44.0)
+# Keep in sync with the repo's pinned Flutter (apps/eiermann: flutter ^3.50.0)
 # AND with zugvogel's CI, which compiles the shared library with the same
 # toolchain.
-ARG FLUTTER_VERSION=3.44.3
+ARG FLUTTER_VERSION=3.50.0
 
 # TAR_OPTIONS: the SDK's cached archives carry their builder's uid (397546 for
 # the gradle wrapper), and tar-as-root restores it. Rootless podman maps only a

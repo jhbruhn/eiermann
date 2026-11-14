@@ -6,9 +6,9 @@ import 'package:eiermann/features/team/team_screen.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/routing/back_or_home.dart';
 import 'package:eiermann/routing/router.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// The kinds of thing the hub sorts its sections into.

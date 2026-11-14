@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import 'package:eiermann/features/areas/areas_providers.dart';
 import 'package:eiermann/l10n/l10n.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
 /// A photo the user has taken and cropped, ready to upload.

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/ui/device_location.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The sentence for a refusal. Each case offers a different next move, which is
 /// the whole reason [LocationRefusal] has cases at all: a service that is off

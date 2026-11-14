@@ -6,9 +6,9 @@ import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann/ui/device_location.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:zugvogel_core/zugvogel_core.dart';
 

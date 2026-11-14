@@ -8,11 +8,11 @@ import 'package:eiermann/features/areas/pin_canvas.dart';
 import 'package:eiermann/l10n/l10n.dart';
 import 'package:eiermann_data/eiermann_data.dart';
 import 'package:eiermann_models/eiermann_models.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:zugvogel_ui/zugvogel_ui.dart';
 
