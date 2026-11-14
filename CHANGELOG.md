@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.1.1](https://github.com/jhbruhn/eiermann/compare/v2.1.0...v2.1.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** Flutter 3.50, Material from package:material_ui, zugvogel bbdc89d ([5bda92c](https://github.com/jhbruhn/eiermann/commit/5bda92c25674ff0a63d9ef289b10ecc98c65a379))
+* **deps:** zugvogel 2adb744 — the Dart pin follows the base image ([bec8c3c](https://github.com/jhbruhn/eiermann/commit/bec8c3cd9111e44419d0583af1d6b4166111d556))
+* **deps:** zugvogel c11e717 — the Dart pin follows the base image ([a3c611a](https://github.com/jhbruhn/eiermann/commit/a3c611ad9c93668af2e33050280eaeb7625bf176))
+* **oauth2:** a first sign-in can no longer choose its own role ([25dff6a](https://github.com/jhbruhn/eiermann/commit/25dff6a1e59625190397ab43b5c56b628c0e83fa))
+* **visits:** a failed send freezes the draft, a refusal reopens it ([23afa38](https://github.com/jhbruhn/eiermann/commit/23afa38d4e4bb47190640322793e8a433ebd8f25))
+* **visits:** a visit dated more than a day ahead is refused ([f6a072b](https://github.com/jhbruhn/eiermann/commit/f6a072b60118e093b80496fa22d665d1bbf2540d))
+* **visits:** egg counts have a ceiling, a cleanup reaches every row ([89f9f67](https://github.com/jhbruhn/eiermann/commit/89f9f67d3dba9f79541f3d83eb529f2cfa5d9744))
+
 ## [2.1.0](https://github.com/jhbruhn/eiermann/compare/v2.0.0...v2.1.0) (2026-11-02)
 
 
