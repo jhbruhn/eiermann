@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.3](https://github.com/jhbruhn/eiermann/compare/v2.1.2...v2.1.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** upgrade locked dependencies within constraints ([b75c132](https://github.com/jhbruhn/eiermann/commit/b75c1327adeee6bc2e4435d1a7cdccf26c4c653c))
+
 ## [2.1.2](https://github.com/jhbruhn/eiermann/compare/v2.1.1...v2.1.2) (2026-11-14)
 
 
