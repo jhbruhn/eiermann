@@ -395,6 +395,7 @@
   "serverErrorVisitNestForeignSpot": "That nest does not belong to this Spot. Reload the Spot.",
   "serverErrorVisitNestDuplicate": "This nest has already been checked on this visit.",
   "serverErrorVisitEggsDoNotBalance": "The egg counts do not add up. Check how many real eggs were removed and how many dummies were placed.",
+  "serverErrorVisitEggCountTooHigh": "That many eggs do not fit in one nest. Check the egg counts — at most 10 each.",
   "serverErrorVisitSkipHasChecks": "A skipped visit cannot contain nest checks.",
   "serverErrorVisitVisitedAtInFuture": "This visit is dated in the future. Check the date and time on your device, then send it again.",
   "serverErrorVisitIdempotencyKeyReused": "This visit has already been sent. Reload the list before trying again.",

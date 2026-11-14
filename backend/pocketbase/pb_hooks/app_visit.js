@@ -143,6 +143,30 @@ function checkArithmetic(payload) {
   const removedReal = n("removed_real");
   const addedDummy = n("added_dummy");
 
+  // eiermann-l1j — a ceiling on every number. Without one, `added_dummy: 3000`
+  // was accepted and wrote 3000 nest_eggs rows in one request. A feral pigeon
+  // lays two eggs and a nest rarely holds more than a second clutch on top, so
+  // the bound is generous for a real nest and still catches the typo that
+  // matters most: 22 for 2, a tap too many on the form's number.
+  //
+  // Only the arithmetic path is bounded. A nest whose STORED rows exceed the
+  // ceiling (written before it existed) is not stuck: an `empty` or `gone`
+  // check clears it without passing through here.
+  const MAX_EGGS = 10;
+  for (const [key, value] of [
+    ["real_before", realBefore],
+    ["dummy_before", dummyBefore],
+    ["removed_real", removedReal],
+    ["added_dummy", addedDummy],
+  ]) {
+    if (value > MAX_EGGS) {
+      refuse(
+        CODES.visitEggCountTooHigh,
+        `${key} is ${value}, above the ceiling of ${MAX_EGGS}`,
+      );
+    }
+  }
+
   if (removedReal > realBefore) {
     refuse(
       CODES.visitEggsRemovedExceedPresent,
@@ -217,20 +241,32 @@ function reconcileState(state, numbers) {
  */
 const CLEARS_EGGS = ["empty", "gone"];
 
+/**
+ * EVERY `nest_eggs` row of [nest], in slot order.
+ *
+ * eiermann-l1j — both callers delete what this returns, so a cap here is a
+ * cap on what gets cleaned up: with the 200 it used to pass, an `empty` check
+ * on a nest holding 3000 rows left 2800 standing, and the dossier went on
+ * showing eggs in a nest recorded as empty. A limit of 0 is PocketBase's "no
+ * limit". The ceiling in [checkArithmetic] is what keeps the set small; this is
+ * what makes a large one, written before that ceiling, go away.
+ */
+function eggsOf(app, nest) {
+  return app.findRecordsByFilter(
+    "nest_eggs", "nest = {:nest}", "slot_index", 0, 0, { nest: nest.id },
+  );
+}
+
 /** Deletes every `nest_eggs` row of [nest]. See [CLEARS_EGGS]. */
 function clearEggs(app, nest) {
-  const existing = app.findRecordsByFilter(
-    "nest_eggs", "nest = {:nest}", "slot_index", 200, 0, { nest: nest.id },
-  );
+  const existing = eggsOf(app, nest);
   for (const row of existing) app.delete(row);
   return existing.length;
 }
 
 /** Rewrites `nest_eggs` to match the check's outcome. */
 function rewriteEggs(app, nest, check, numbers) {
-  const existing = app.findRecordsByFilter(
-    "nest_eggs", "nest = {:nest}", "slot_index", 200, 0, { nest: nest.id },
-  );
+  const existing = eggsOf(app, nest);
   // `since` is per EGG and must survive a rewrite: a dummy that has sat for
   // three months is a nest the birds have given up on, and resetting the date on
   // every visit would erase exactly that signal. So the dates of the eggs that

@@ -3588,6 +3588,120 @@ h.check(
     "ahead of the server's; refusing it would refuse a real visit",
 )
 
+# ── Egg counts have a ceiling, and a cleanup reaches every row (eiermann-l1j) ─
+#
+# `added_dummy: 3000` used to be accepted and wrote 3000 nest_eggs rows; and the
+# two functions that delete a nest's rows read at most 200 of them, so a later
+# `empty` check left 2800 standing. Its own Spot, so no other assertion reads
+# these nests.
+egg_spot = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Eierhaus", "phase": "active"}
+)
+egg_area = h.mk(
+    coord_token, "areas", {"org": ORG, "spot": egg_spot["id"], "name": "Boden"}
+)
+
+
+def egg_nest(label):
+    return h.mk(
+        coord_token,
+        "nests",
+        {"org": ORG, "area": egg_area["id"], "label": label,
+         "species": "feral_pigeon", "status": "active"},
+    )
+
+
+def eggs_of(nest_id):
+    _, body = h.req(
+        "GET",
+        "/api/collections/nest_eggs/records?perPage=1&filter="
+        + urllib.parse.quote(f'nest = "{nest_id}"'),
+        T,
+    )
+    return (body or {}).get("totalItems", -1)
+
+
+capped = egg_nest("E1")
+before = counts(coord_token)
+for key, numbers in (
+    ("added_dummy", {"real_before": 2, "dummy_before": 0, "removed_real": 2,
+                     "added_dummy": 3000}),
+    ("added_dummy", {"real_before": 2, "dummy_before": 0, "removed_real": 2,
+                     "added_dummy": 22}),
+    ("real_before", {"real_before": 11, "dummy_before": 0, "removed_real": 11,
+                     "added_dummy": 2}),
+    ("dummy_before", {"real_before": 1, "dummy_before": 11, "removed_real": 1,
+                      "added_dummy": 1}),
+):
+    status, body_eggs = post_visit(
+        member_token,
+        {"spot": egg_spot["id"], "outcome": "checked",
+         "checks": [dict({"nest": capped["id"], "state": "swapped"}, **numbers)]},
+    )
+    h.check(
+        f"{key} {numbers[key]} is refused with its code",
+        status == 400 and refused_with(body_eggs, "visit_egg_count_too_high"),
+        f"status {status}, codes {refusal_codes(body_eggs)}",
+    )
+h.check(
+    "...and none of those wrote anything",
+    counts(coord_token) == before,
+    "a refused check must roll back the whole visit, eggs included",
+)
+status, _ = post_visit(
+    member_token,
+    {"spot": egg_spot["id"], "outcome": "checked",
+     "checks": [{"nest": capped["id"], "state": "swapped", "real_before": 10,
+                 "dummy_before": 0, "removed_real": 10, "added_dummy": 10}]},
+)
+h.check(
+    "ten of each, the ceiling itself, is accepted",
+    status == 200 and eggs_of(capped["id"]) == 10,
+    f"status {status}, rows {eggs_of(capped['id'])}",
+)
+
+# Rows written before the ceiling existed. Seeded as the superuser, because no
+# client may write nest_eggs and the endpoint can no longer produce this many —
+# which is exactly the state a cleanup has to cope with. 201 is one past the
+# old read limit; one stale row is all it takes.
+SEEDED = 201
+
+
+def seed_eggs(nest_id):
+    for slot in range(SEEDED):
+        h.mk(T, "nest_eggs", {"org": ORG, "nest": nest_id, "slot_index": slot,
+                              "kind": "dummy", "since": h.stamp(days=-60)})
+
+
+emptied = egg_nest("E2")
+seed_eggs(emptied["id"])
+status, _ = post_visit(
+    member_token,
+    {"spot": egg_spot["id"], "outcome": "checked",
+     "checks": [{"nest": emptied["id"], "state": "empty"}]},
+)
+h.check(
+    f"an empty check clears ALL {SEEDED} rows of a nest, not the first 200",
+    status == 200 and eggs_of(emptied["id"]) == 0,
+    f"status {status}, {eggs_of(emptied['id'])} rows left — the dossier would "
+    "show eggs in a nest just recorded as empty",
+)
+
+rewritten = egg_nest("E3")
+seed_eggs(rewritten["id"])
+status, _ = post_visit(
+    member_token,
+    {"spot": egg_spot["id"], "outcome": "checked",
+     "checks": [{"nest": rewritten["id"], "state": "swapped", "real_before": 2,
+                 "dummy_before": 0, "removed_real": 2, "added_dummy": 2}]},
+)
+h.check(
+    f"a swap rewrites the row set from ALL {SEEDED} rows, not the first 200",
+    status == 200 and eggs_of(rewritten["id"]) == 2,
+    f"status {status}, {eggs_of(rewritten['id'])} rows, expected the 2 dummies "
+    "the check placed",
+)
+
 # ── One Besuch is one row ──────────────────────────────────────────────────
 #
 # eiermann-30w.6. The route writes a visit, a check per nest, eggs, findings and

@@ -900,6 +900,10 @@
   "serverErrorVisitNestForeignSpot": "Dieses Nest gehört nicht zu diesem Spot. Lade den Spot neu.",
   "serverErrorVisitNestDuplicate": "Dieses Nest wurde in diesem Besuch schon geprüft.",
   "serverErrorVisitEggsDoNotBalance": "Die Eierzahlen gehen nicht auf. Prüfe, wie viele echte Eier entnommen und wie viele Attrappen eingelegt wurden.",
+  "serverErrorVisitEggCountTooHigh": "So viele Eier passen nicht in ein Nest. Prüfe die Eierzahlen, höchstens 10 je Angabe.",
+  "@serverErrorVisitEggCountTooHigh": {
+    "description": "The server caps each egg count of a check at 10 (MAX_EGGS in app_visit.js). Catches a typo such as 22 instead of 2. Keep the number in step with the hook."
+  },
   "serverErrorVisitSkipHasChecks": "Ein ausgelassener Besuch kann keine Nestprüfungen enthalten.",
   "serverErrorVisitVisitedAtInFuture": "Der Besuch liegt in der Zukunft. Prüfe Datum und Uhrzeit auf deinem Gerät und sende ihn dann erneut.",
   "@serverErrorVisitVisitedAtInFuture": {

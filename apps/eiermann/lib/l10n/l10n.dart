@@ -145,6 +145,9 @@ class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
     'visit_nest_foreign_spot' => _l10n.serverErrorVisitNestForeignSpot,
     'visit_nest_duplicate' => _l10n.serverErrorVisitNestDuplicate,
     'visit_eggs_do_not_balance' => _l10n.serverErrorVisitEggsDoNotBalance,
+    // The form has no ceiling of its own, so this is how a tap too many — 22
+    // for 2 — comes back to the person who made it.
+    'visit_egg_count_too_high' => _l10n.serverErrorVisitEggCountTooHigh,
     'visit_skip_has_checks' => _l10n.serverErrorVisitSkipHasChecks,
     // Unreachable from today's visit flow, which sends no date and lets the
     // server stamp it. Mapped for the first caller that does send one (an

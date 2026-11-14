@@ -111,6 +111,7 @@ const CODES = {
   visitNestForeignSpot: "visit_nest_foreign_spot",
   visitEggsRemovedExceedPresent: "visit_eggs_removed_exceed_present",
   visitEggsDoNotBalance: "visit_eggs_do_not_balance",
+  visitEggCountTooHigh: "visit_egg_count_too_high",
   visitTourRunNotFound: "visit_tour_run_not_found",
   visitTourRunFinished: "visit_tour_run_finished",
   visitIdempotencyKeyReused: "visit_idempotency_key_reused",
