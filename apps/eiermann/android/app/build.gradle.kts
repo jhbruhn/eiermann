@@ -28,7 +28,7 @@ val hasReleaseKey =
 android {
     namespace = "de.jhbruhn.eiermann"
     // Flutter's own number, which is 36 — the newest STABLE Android platform
-    // and AGP 9.0.1's maximum recommended.
+    // and within AGP 9.3.1's supported range.
     //
     // It stays Flutter's rather than a literal because the one dependency that
     // wanted more is held back instead: `flutter_secure_storage` 11 demands 37,
