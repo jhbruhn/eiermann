@@ -9,7 +9,7 @@
 # it, then tears everything down. The exit code propagates from the suite.
 #
 # Usage:  backend/pocketbase/tests/run.sh
-# Env:    ZV_TEST_PORT (default 8097)
+# Env:    ZV_TEST_PORT (default 8097), ZV_OIDC_PORT (default 9181)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -26,8 +26,16 @@ ADMIN_PASS="Admin12345!"
 # member of the team in any rule test. The bootstrap hook creates this one.
 COORD_EMAIL="coordinator@eiermann.local"
 COORD_PASS="CoordPass12345!"
+# eiermann-bd8 — the fake OIDC provider (fake_oidc.py) runs on the HOST, and the
+# container reaches it through this name. Podman defines it by itself; Docker
+# (CI) does not, which is why `docker run` below maps it explicitly to the
+# host gateway. One name for both runtimes, so the server's config is the same.
+OIDC_PORT="${ZV_OIDC_PORT:-9181}"
+OIDC_HOST="host.containers.internal"
+OIDC_PID=""
 
 cleanup() {
+  [ -n "$OIDC_PID" ] && kill "$OIDC_PID" >/dev/null 2>&1 || true
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   # Files under $DATA/storage are created by the container as root, so the host
   # user cannot rm them directly — clear the contents from inside a container
@@ -74,6 +82,16 @@ docker run --rm "${MOUNTS[@]}" "$IMAGE" migrate up
 echo "==> Creating superuser"
 docker run --rm "${MOUNTS[@]}" "$IMAGE" superuser upsert "$ADMIN_EMAIL" "$ADMIN_PASS"
 
+echo "==> Starting the fake OIDC provider on :$OIDC_PORT"
+python3 "$HERE/fake_oidc.py" "$OIDC_PORT" &
+OIDC_PID=$!
+for _ in $(seq 1 20); do
+  curl -sf "http://localhost:$OIDC_PORT/" >/dev/null && break
+  sleep 0.25
+done
+curl -sf "http://localhost:$OIDC_PORT/" >/dev/null || {
+  echo "fake OIDC provider never came up on :$OIDC_PORT"; exit 1; }
+
 echo "==> Starting server on :$PORT"
 # Every value below exists to make a specific assertion possible. Keep the
 # reasons when you change them:
@@ -91,16 +109,23 @@ echo "==> Starting server on :$PORT"
 #   Two dummy OAuth2 providers — a generic OIDC one, which must be told to ask
 #   for the groups scope because a group mapping is configured, and a social
 #   one, which must NOT be (an unknown scope fails the whole authorization
-#   request there). Nothing signs in through either; the credentials are fake.
+#   request there). The credentials are fake. The OIDC one's token and userinfo
+#   endpoints point at fake_oidc.py (eiermann-bd8), so the suite can complete a
+#   real code exchange; its authorize URL stays at id.invalid, because the
+#   browser half of the flow is never walked — the suite invents the code.
+#
+#   --add-host maps the provider's host name to the host gateway. Podman has
+#   the name already (and accepts the mapping); Docker on CI needs it.
 docker run -d --name "$NAME" -p "$PORT:8090" \
+  --add-host="$OIDC_HOST:host-gateway" \
   -e EIERMANN_COORDINATOR_EMAIL="$COORD_EMAIL" \
   -e EIERMANN_COORDINATOR_PASSWORD="$COORD_PASS" \
   -e EIERMANN_OAUTH2_PROVIDERS=oidc,google \
   -e EIERMANN_OAUTH2_OIDC_CLIENT_ID=test-client \
   -e EIERMANN_OAUTH2_OIDC_CLIENT_SECRET=test-secret \
   -e EIERMANN_OAUTH2_OIDC_AUTH_URL=https://id.invalid/authorize \
-  -e EIERMANN_OAUTH2_OIDC_TOKEN_URL=https://id.invalid/token \
-  -e EIERMANN_OAUTH2_OIDC_USERINFO_URL=https://id.invalid/userinfo \
+  -e EIERMANN_OAUTH2_OIDC_TOKEN_URL="http://$OIDC_HOST:$OIDC_PORT/token" \
+  -e EIERMANN_OAUTH2_OIDC_USERINFO_URL="http://$OIDC_HOST:$OIDC_PORT/userinfo" \
   -e EIERMANN_OAUTH2_GOOGLE_CLIENT_ID=test-client \
   -e EIERMANN_OAUTH2_GOOGLE_CLIENT_SECRET=test-secret \
   -e EIERMANN_MAP_MODE=raster \

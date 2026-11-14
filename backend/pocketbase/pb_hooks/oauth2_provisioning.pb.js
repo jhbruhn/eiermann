@@ -37,8 +37,27 @@
 // of landing as a guest. Worth it for an instance whose identity provider holds
 // far more people than the pigeon group.
 
-onRecordAuthWithOAuth2Request((e) =>
-  require(`${__hooks}/zv_oauth2_provisioning.js`).provision(e, {
+// ── The client's createData is thrown away (eiermann-bd8) ──────────────────
+//
+// The auth-with-oauth2 body may carry a `createData` object, and the library
+// in the base image this app currently pins MERGES it with the server's fields.
+// That merge overwrote the plain `role` key but not PocketBase's field
+// modifiers — `role+`, `+role`, `role-`, `org+` — which PocketBase applies
+// after the plain key. So `{"role+": "coordinator"}` made any stranger at the
+// identity provider an active coordinator, and `{"org+": <id>}` put the new
+// account into another organisation: the users createRule admits the oauth2
+// context, and main.pb.js's create guard trusts this hook's decision.
+//
+// zugvogel fixes it at the source (provision() no longer merges), but that
+// reaches this app only with a new base image and a bumped ZUGVOGEL_PB_BASE
+// pin. Emptying createData HERE takes effect with this repo's own hooks, and
+// stays correct afterwards: no client of this app sends createData, and every
+// field of a provisioned account is the server's to choose. The rule suite
+// completes a real sign-in against a fake provider to hold this.
+
+onRecordAuthWithOAuth2Request((e) => {
+  e.createData = {};
+  return require(`${__hooks}/zv_oauth2_provisioning.js`).provision(e, {
     envPrefix: "EIERMANN",
     // Written by this app's own seed migration, which is why the id is the
     // app's to state rather than the library's to know.
@@ -75,5 +94,5 @@ onRecordAuthWithOAuth2Request((e) =>
     // `audit_auth.pb.js` records as one.
     audit: require(`${__hooks}/app_audit_log.js`),
     auditAction: require(`${__hooks}/app_audit_log.js`).ACTIONS.USER_PROVISIONED,
-  }),
-);
+  });
+});

@@ -6201,6 +6201,104 @@ h.check(
     "FREE_TEXT the value reaches a table with no delete rule",
 )
 
+# ── A real OAuth2 sign-in cannot choose its own role (eiermann-bd8) ─────────
+#
+# Everything above about the oauth2 context is about its SHAPE. This walks the
+# code exchange itself, against fake_oidc.py (run.sh starts it and points the
+# `oidc` provider's token and userinfo endpoints at it): the code we invent is
+# the identity the provider vouches for.
+#
+# The auth-with-oauth2 body carries a client-chosen `createData`, and the base
+# image's provisioning library merged it with the server's fields. Overwriting
+# the plain `role` key does not touch PocketBase's field modifiers, which it
+# applies AFTER the plain key — `{"role+": "coordinator"}` made a stranger at
+# the identity provider an active coordinator. Every spelling a client could
+# try must still land as a guest in the seeded org, active, and behind the wall.
+
+print("\n[an OAuth2 sign-in cannot choose its own role]")
+
+import time
+
+from fake_oidc import fake_oidc_code
+
+
+def oauth2_sign_in(subject, create_data, attempts=6):
+    """A first sign-in through the fake provider as [subject]. (status, body).
+
+    auth-with-oauth2 is an auth action, so the factory `*:auth` limit (2 per
+    3 s) applies; back off on 429 exactly as h.login does, or a throttled
+    attempt reads as a refused sign-in.
+    """
+    claims = {
+        "sub": subject,
+        "email": f"{subject}@idp.test",
+        "email_verified": True,
+        "name": subject,
+    }
+    body = {
+        "provider": "oidc",
+        "code": fake_oidc_code(claims),
+        # PKCE material is the browser half's; the fake provider ignores it, but
+        # PocketBase sends it on, so it must be well-formed.
+        "codeVerifier": "v" * 43,
+        "redirectURL": "http://localhost/redirect",
+    }
+    if create_data is not None:
+        body["createData"] = create_data
+    for attempt in range(attempts):
+        status, data = h.req(
+            "POST", "/api/collections/users/auth-with-oauth2", None, body
+        )
+        if status != 429:
+            return status, data
+        time.sleep(1.5 * (attempt + 1))
+    return 429, None
+
+
+OAUTH2_CREATE_DATA = [
+    ("no createData at all", None),
+    ("a plain role key", {"role": "coordinator"}),
+    ("role+ (append modifier)", {"role+": "coordinator"}),
+    ("+role (prepend modifier)", {"+role": "coordinator"}),
+    ("role- (subtract modifier)", {"role-": "guest"}),
+    ("org+ (append modifier on the org)", {"org+": "org00000foreign"}),
+    (
+        "every modifier at once, plus is_active",
+        {
+            "role": "coordinator",
+            "role+": "coordinator",
+            "+role": "coordinator",
+            "role-": "guest",
+            "org+": "org00000foreign",
+            "is_active": False,
+        },
+    ),
+]
+for index, (label, create_data) in enumerate(OAUTH2_CREATE_DATA):
+    status, data = oauth2_sign_in(f"oauth2-newcomer-{index}", create_data)
+    record = (data or {}).get("record") or {}
+    h.check(
+        f"OAuth2 first sign-in with {label} lands as an active guest in the "
+        "seeded org",
+        status == 200
+        and record.get("role") == "guest"
+        and record.get("org") == ORG
+        and record.get("is_active") is True,
+        f"status {status}, role {record.get('role')!r}, org "
+        f"{record.get('org')!r}, active {record.get('is_active')!r} — "
+        f"{data if status != 200 else ''} — createData is the client's, and "
+        "no key in it may reach the record",
+    )
+    if index == 0:
+        # The wall the role exists for: the provisioned account, with its own
+        # token, reads nothing. One check is enough here; the guest matrix
+        # above covers every collection with a seeded guest.
+        h.check(
+            "...and the provisioned guest reads no Spot",
+            status == 200 and h.reads_nothing("spots", (data or {}).get("token")),
+            "a guest is authenticated and behind every access rule",
+        )
+
 print(
     f"\n({len(base_collections(cols))} client-writable base collections swept; "
     f"the sweeps carry the properties forward to collections that do not exist yet)"
