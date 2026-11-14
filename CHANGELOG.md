@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/jhbruhn/eiermann/compare/v2.1.1...v2.1.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** Gradle 9.5.0, AGP 9.3.1, KGP 2.4.20 for Flutter 3.50 ([f90c7e2](https://github.com/jhbruhn/eiermann/commit/f90c7e2529ddd93e2a348771fe77a7ad6dab7722))
+
 ## [2.1.1](https://github.com/jhbruhn/eiermann/compare/v2.1.0...v2.1.1) (2026-11-14)
 
 
