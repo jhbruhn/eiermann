@@ -93,7 +93,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
   bool _busy = false;
   String? _error;
 
-  /// The draft the last failed attempt tried to send.
+  /// The draft the last failed attempt tried to send — the PENDING attempt.
   ///
   /// The retry has to resend THAT ONE, not whatever the screen would build now.
   /// A failed "nicht geprüft" followed by a retry that sent a *checked* visit
@@ -101,7 +101,20 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
   /// server refuses with a 409, correctly, and the volunteer would be looking
   /// at "your key is being reused" for having pressed the button the app
   /// offered them.
+  ///
+  /// And because the retry resends this body, the form is LOCKED while it is
+  /// set (eiermann-o90): a correction made after a network failure would not
+  /// travel with the retry, and the app would then confirm a visit that is not
+  /// the one on the screen. It is cleared — together with [_key] — only by a
+  /// refusal the server answered for certain (see [_isRefusal]), because only
+  /// then is it known that nothing was written under the key.
   VisitDraft? _lastAttempt;
+
+  /// Whether the last failure was a definite refusal rather than a pending
+  /// attempt: nothing was written, the draft is editable again, and the next
+  /// send is a NEW attempt under a new key. The copy says "correct and send",
+  /// not "sending again is safe".
+  bool _refused = false;
 
   /// Whether the last failure might have landed anyway.
   ///
@@ -206,6 +219,34 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
         ),
   );
 
+  /// Whether the draft is frozen: a send is in flight, or an attempt is
+  /// pending and the retry will resend exactly what it sent.
+  bool get _locked => _busy || _lastAttempt != null;
+
+  /// Whether [e] is a refusal the server answered for certain, after which
+  /// nothing was written and no response is stored under the key.
+  ///
+  /// The visit route stores its response under the Idempotency-Key only inside
+  /// the transaction that wrote the visit, so a 4xx it answered — a hook
+  /// refusal (validation), a Spot or nest that is gone (notFound), an account
+  /// that may not write (unauthorized) — left nothing behind. Resending the
+  /// same body could never succeed, so the attempt is dropped and the form
+  /// opens again.
+  ///
+  /// Everything else keeps the attempt pending: no answer (network), an answer
+  /// that may have come after a commit (unknownOutcome), and whatever this
+  /// cannot classify (unknown — a 409, a 429, a 5xx, or a failure after a 200).
+  /// Treating one of those as a refusal would hand out a new key for a visit
+  /// that may already exist, and the next send would write it twice.
+  static bool _isRefusal(RepositoryException e) => switch (e.kind) {
+    RepositoryErrorKind.validation ||
+    RepositoryErrorKind.notFound ||
+    RepositoryErrorKind.unauthorized => true,
+    RepositoryErrorKind.network ||
+    RepositoryErrorKind.unknownOutcome ||
+    RepositoryErrorKind.unknown => false,
+  };
+
   String? get _noteOrNull {
     final text = _note.text.trim();
     return text.isEmpty ? null : text;
@@ -222,6 +263,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       _busy = true;
       _error = null;
       _outcomeUnknown = false;
+      _refused = false;
       _lastAttempt = draft;
     });
     // Generated ONCE per visit, here rather than per attempt.
@@ -263,6 +305,14 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
         _busy = false;
         _outcomeUnknown = e.kind == RepositoryErrorKind.unknownOutcome;
         _error = errorMessage(strings, e);
+        if (_isRefusal(e)) {
+          // Nothing was written and nothing is stored under the key, so both
+          // go: the draft is the volunteer's to correct, and the corrected
+          // body is a different request that needs a key of its own.
+          _refused = true;
+          _lastAttempt = null;
+          _key = null;
+        }
       });
     } on Object catch (error, stackTrace) {
       reportCaughtError(error, stackTrace, context: 'submit visit');
@@ -435,14 +485,14 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                         nests: group.nests,
                         drafts: _checks,
                         onOpenNest: _openNest,
-                        enabled: !_busy,
+                        enabled: !_locked,
                       ),
                     ),
                 const SizedBox(height: ZugvogelSpacing.lg),
                 _FindingsSection(
                   findings: _findings,
-                  onAdd: _busy ? null : () => _openFinding(rows),
-                  onEdit: _busy
+                  onAdd: _locked ? null : () => _openFinding(rows),
+                  onEdit: _locked
                       ? null
                       : (index) => _openFinding(rows, index: index),
                 ),
@@ -451,7 +501,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                   controller: _note,
                   label: l10n.visitFlowNoteLabel,
                   prefixIcon: Icons.notes_outlined,
-                  enabled: !_busy,
+                  enabled: !_locked,
                   maxLines: 3,
                 ),
                 const SizedBox(height: ZugvogelSpacing.lg),
@@ -459,6 +509,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                   _SendFailure(
                     message: message,
                     outcomeUnknown: _outcomeUnknown,
+                    refused: _refused,
                   ),
                   const SizedBox(height: ZugvogelSpacing.md),
                 ],
@@ -472,11 +523,15 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                 PrimaryButton(
                   // The retry is the SAME action with the same key, so it is
                   // the same button — a separate "erneut senden" control would
-                  // suggest a different, riskier operation.
-                  label: _error == null
-                      ? l10n.visitFlowFinishAction
-                      : l10n.visitFlowRetryAction,
-                  icon: _error == null ? Icons.check : Icons.refresh,
+                  // suggest a different, riskier operation. After a refusal
+                  // there is nothing to retry: the corrected draft is a new
+                  // send, and the button says so.
+                  label: _error != null && _lastAttempt != null
+                      ? l10n.visitFlowRetryAction
+                      : l10n.visitFlowFinishAction,
+                  icon: _error != null && _lastAttempt != null
+                      ? Icons.refresh
+                      : Icons.check,
                   isLoading: _busy,
                   onPressed: _finishOrRetry,
                 ),
@@ -603,13 +658,22 @@ class _FindingsSection extends StatelessWidget {
 /// Idempotency-Key made concrete, and it is stated exactly where the failure
 /// appears.
 class _SendFailure extends StatelessWidget {
-  const _SendFailure({required this.message, required this.outcomeUnknown});
+  const _SendFailure({
+    required this.message,
+    required this.outcomeUnknown,
+    required this.refused,
+  });
 
   final String message;
 
   /// Whether the write may have landed anyway. The retry stays the right move —
   /// the key makes it safe — but the sentence must not claim "not reached".
   final bool outcomeUnknown;
+
+  /// Whether the server refused the visit for certain. Then the promise that
+  /// "sending again is safe" is beside the point — sending the same visit again
+  /// cannot succeed — and the sentence asks for a correction instead.
+  final bool refused;
 
   @override
   Widget build(BuildContext context) {
@@ -639,8 +703,11 @@ class _SendFailure extends StatelessWidget {
             Text(
               // Both halves are true whether or not the outcome is known: the
               // draft is still here, and the key is what makes pressing again
-              // safe either way.
-              l10n.visitFlowSendFailedHint,
+              // safe either way. A refusal is the exception: nothing was
+              // written, and the draft is open again to be corrected.
+              refused
+                  ? l10n.visitFlowRefusedHint
+                  : l10n.visitFlowSendFailedHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onErrorContainer,
                 fontWeight: outcomeUnknown ? FontWeight.bold : null,

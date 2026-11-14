@@ -474,6 +474,7 @@
   "visitFlowSummaryHalfClutch": "{count, plural, =1{1 return visit} other{{count} return visits}}",
   "visitFlowSendFailedTitle": "The visit has not been saved",
   "visitFlowSendFailedHint": "Nothing is lost: the visit is still here. Sending again is safe — it cannot produce a second visit.",
+  "visitFlowRefusedHint": "Nothing was saved, and the visit is still here. Correct the entries and finish it again.",
   "visitFlowRetryAction": "Send again",
   "visitFlowLeaveTitle": "Discard the visit?",
   "visitFlowLeaveMessage": "The nests you recorded have not been sent. Leaving loses them.",

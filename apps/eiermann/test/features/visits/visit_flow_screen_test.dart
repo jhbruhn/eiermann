@@ -399,6 +399,130 @@ void main() {
     expect(tester.widget<OutlinedButton>(skip).onPressed, isNull);
   });
 
+  /// Whether the three editable parts of the draft accept input: the nests,
+  /// the Funde and the note.
+  ({bool nests, bool findings, bool note}) editable(WidgetTester tester) {
+    final add = find.widgetWithText(OutlinedButton, de.findingsAddAction);
+    return (
+      nests: tester.widget<VisitAreaGroup>(find.byType(VisitAreaGroup)).enabled,
+      findings: tester.widget<OutlinedButton>(add).onPressed != null,
+      note: tester.widget<TextField>(find.byType(TextField)).enabled ?? true,
+    );
+  }
+
+  testWidgets('a pending attempt LOCKS the draft — the retry resends it', (
+    tester,
+  ) async {
+    // eiermann-o90. The retry resends the frozen attempt under the same key, so
+    // a correction made after a network failure would not travel with it — and
+    // the app would then confirm a visit that is not the one on the screen.
+    when(
+      () => visits.submit(any(), idempotencyKey: any(named: 'idempotencyKey')),
+    ).thenAnswer(
+      (_) async => throw const RepositoryException(
+        'offline',
+        kind: RepositoryErrorKind.network,
+      ),
+    );
+
+    await pump(tester);
+    await recordNest(tester);
+    expect(
+      editable(tester),
+      (nests: true, findings: true, note: true),
+      reason: "before the first send the draft is the volunteer's",
+    );
+    await press(tester, de.visitFlowFinishAction);
+
+    expect(
+      editable(tester),
+      (nests: false, findings: false, note: false),
+      reason: 'nests, Funde and note are frozen while the attempt is pending',
+    );
+    expect(find.text(de.visitFlowRetryAction), findsOneWidget);
+    expect(find.text(de.visitFlowSendFailedHint), findsOneWidget);
+  });
+
+  testWidgets('...and so does an unknown outcome', (tester) async {
+    // The visit may have landed. Editing it now would make the retry's
+    // confirmation a statement about a different body.
+    when(
+      () => visits.submit(any(), idempotencyKey: any(named: 'idempotencyKey')),
+    ).thenAnswer(
+      (_) async => throw const RepositoryException(
+        'timeout',
+        kind: RepositoryErrorKind.unknownOutcome,
+      ),
+    );
+
+    await pump(tester);
+    await recordNest(tester);
+    await press(tester, de.visitFlowFinishAction);
+
+    expect(editable(tester), (nests: false, findings: false, note: false));
+  });
+
+  testWidgets('a REFUSAL reopens the draft, and the correction goes out '
+      'under a NEW key', (tester) async {
+    // A refusal the server answered for certain wrote nothing and stored no
+    // response under the key, so resending the same body could never succeed.
+    // The draft opens again, and the corrected body is a different request.
+    var calls = 0;
+    when(
+      () => visits.submit(any(), idempotencyKey: any(named: 'idempotencyKey')),
+    ).thenAnswer((_) async {
+      calls++;
+      if (calls == 1) {
+        throw const RepositoryException(
+          'refused',
+          kind: RepositoryErrorKind.validation,
+          statusCode: 400,
+        );
+      }
+      return const VisitResult(visit: 'v1');
+    });
+
+    await pump(tester);
+    await recordNest(tester);
+    await press(tester, de.visitFlowFinishAction);
+
+    expect(find.byType(VisitFlowScreen), findsOneWidget);
+    expect(
+      editable(tester),
+      (nests: true, findings: true, note: true),
+      reason: 'nothing is pending after a refusal',
+    );
+    // The copy asks for a correction rather than promising a safe resend, and
+    // the button is the ordinary finish again — there is nothing to retry.
+    expect(find.text(de.visitFlowRefusedHint), findsOneWidget);
+    expect(find.text(de.visitFlowSendFailedHint), findsNothing);
+    expect(find.text(de.visitFlowRetryAction), findsNothing);
+    // ...and the other outcome is open again, because no key is committed.
+    final skip = find.widgetWithText(OutlinedButton, de.visitSkipAction);
+    expect(tester.widget<OutlinedButton>(skip).onPressed, isNotNull);
+
+    await tester.enterText(find.byType(TextField), 'Nest N1 doch leer');
+    await press(tester, de.visitFlowFinishAction);
+
+    final captured = verify(
+      () => visits.submit(
+        captureAny(),
+        idempotencyKey: captureAny(named: 'idempotencyKey'),
+      ),
+    ).captured;
+    final drafts = captured.whereType<VisitDraft>().toList();
+    final keys = captured.whereType<String>().toList();
+    expect(drafts.length, 2);
+    expect(drafts.first.note, isNull);
+    expect(
+      drafts.last.note,
+      'Nest N1 doch leer',
+      reason: 'the CORRECTED body is what goes out, not the refused one',
+    );
+    expect(keys.toSet().length, 2, reason: 'a new body needs a new key');
+    expect(find.byType(VisitFlowScreen), findsNothing);
+  });
+
   /// Taps the kind chip inside the open Fund sheet.
   ///
   /// Through the CHIP and not through the text: once a Fund is recorded, the

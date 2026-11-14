@@ -1176,6 +1176,10 @@
   "@visitFlowSendFailedHint": {
     "description": "The Idempotency-Key made concrete. This promise is the mitigation for having no offline mode, so it is stated where the failure appears."
   },
+  "visitFlowRefusedHint": "Es wurde nichts gespeichert, und der Besuch liegt noch hier. Korrigiere die Angaben und schließe ihn erneut ab.",
+  "@visitFlowRefusedHint": {
+    "description": "After a definite refusal by the server. Unlike the failure hint, resending the same visit cannot succeed, so this asks for a correction; the form is editable again."
+  },
   "visitFlowRetryAction": "Erneut senden",
   "visitFlowLeaveTitle": "Besuch verwerfen?",
   "visitFlowLeaveMessage": "Die erfassten Nester sind noch nicht gesendet. Beim Verlassen gehen sie verloren.",
