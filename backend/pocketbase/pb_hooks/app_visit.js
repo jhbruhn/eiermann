@@ -295,6 +295,26 @@ function writeVisit(app, auth, body) {
     refuse(CODES.visitOutcomeInvalid, `outcome must be checked|skipped, was ${outcome}`);
   }
   const visitedAt = String(body.visited_at || "") || new DateTime().string();
+  // eiermann-49p — the client states when the visit happened, and the rhythm
+  // dates the nest from it: a visit stamped 2099-01-01 set next_due_at to
+  // 2099-01-08 and took the nest out of every due list, silently. One phone
+  // with a wrong clock is enough. A visit cannot have happened in the future,
+  // but the bound is a DAY rather than "now": the client sends its own clock,
+  // and a correct clock may still run ahead of the server's by minutes, or
+  // carry a date that is already tomorrow at UTC+14. A backdated visit stays
+  // legitimate — entering yesterday's round today is the normal case.
+  //
+  // Parsed the way app_rhythm.js's addDays parses, because PocketBase's own
+  // format has a space where Date wants a `T`. A stamp Date cannot read is left
+  // to the date field's own validation; it is not a future one.
+  const MAX_FUTURE_MS = 24 * 60 * 60 * 1000;
+  const visitedMs = new Date(visitedAt.trim().replace(" ", "T")).getTime();
+  if (!isNaN(visitedMs) && visitedMs > Date.now() + MAX_FUTURE_MS) {
+    refuse(
+      CODES.visitVisitedAtInFuture,
+      `visited_at ${visitedAt} is more than a day in the future`,
+    );
+  }
 
   // The round this visit was walked on, if any. `tour_run` is the ONLY link
   // between a tour and the work done on it — there is no per-stop progress row,

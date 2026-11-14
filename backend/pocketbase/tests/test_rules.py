@@ -3526,6 +3526,68 @@ h.check(
 )
 
 
+# ── A visit cannot have happened in the future (eiermann-49p) ──────────────
+#
+# The rhythm dates a nest from `visited_at`, which the client may state. A
+# visit stamped 2099-01-01 set next_due_at to 2099-01-08 and took the nest out
+# of every due list without a word, so one phone with a wrong clock is enough.
+# The bound is a day rather than "now", because a correct client clock may run
+# ahead of the server's, or already be on tomorrow's date at UTC+14. Its own
+# Spot, so neither visit moves a date another assertion reads.
+clock_spot = h.mk(
+    coord_token, "spots", {"org": ORG, "name": "Uhrhaus", "phase": "active"}
+)
+before = counts(coord_token)
+status, body_future = post_visit(
+    member_token,
+    {"spot": clock_spot["id"], "outcome": "checked", "checks": [],
+     "visited_at": h.stamp(days=2)},
+)
+h.check(
+    "a visit dated two days ahead is refused with its code",
+    status == 400 and refused_with(body_future, "visit_visited_at_in_future"),
+    f"status {status}, codes {refusal_codes(body_future)}",
+)
+status, body_future = post_visit(
+    member_token,
+    {"spot": clock_spot["id"], "outcome": "checked", "checks": [],
+     "visited_at": "2099-01-01 00:00:00.000Z"},
+)
+h.check(
+    "...and so is one in 2099, the measured case",
+    status == 400 and refused_with(body_future, "visit_visited_at_in_future"),
+    f"status {status}, codes {refusal_codes(body_future)}",
+)
+# The client's own format, not only PocketBase's: Dart sends a `T`.
+status, body_future = post_visit(
+    member_token,
+    {"spot": clock_spot["id"], "outcome": "checked", "checks": [],
+     "visited_at": h.stamp(days=3).replace(" ", "T")},
+)
+h.check(
+    "...whether the stamp is written with a space or a T",
+    status == 400 and refused_with(body_future, "visit_visited_at_in_future"),
+    f"status {status}, codes {refusal_codes(body_future)} — the client sends "
+    "ISO 8601, and a parser that only reads one spelling is a bypass",
+)
+h.check(
+    "...and a refused visit writes nothing",
+    counts(coord_token) == before,
+    "the refusal sits inside the transaction; anything written before it must "
+    "roll back",
+)
+status, _ = post_visit(
+    member_token,
+    {"spot": clock_spot["id"], "outcome": "checked", "checks": [],
+     "visited_at": h.stamp(hours=12)},
+)
+h.check(
+    "a visit dated half a day ahead is still accepted",
+    status == 200,
+    f"status {status} — inside the window a client clock may legitimately be "
+    "ahead of the server's; refusing it would refuse a real visit",
+)
+
 # ── One Besuch is one row ──────────────────────────────────────────────────
 #
 # eiermann-30w.6. The route writes a visit, a check per nest, eggs, findings and
@@ -5220,7 +5282,10 @@ h.check("an unknown format is refused", status == 400, f"status {status}")
 # +60, so BOTH have to call it the new year. Written through the real endpoint,
 # read back through the real filter: the unit test proves the arithmetic, this
 # proves the two consumers actually share it.
-BOUNDARY_YEAR = 2031  # comfortably in the future, so nothing else counts here
+# Comfortably in the PAST, so nothing else counts here: every other visit in
+# this suite is stamped around now. It used to be in the future, which the
+# visit route now refuses (eiermann-49p) — and a past year isolates just as well.
+BOUNDARY_YEAR = 2011
 nyhost = h.mk(
     coord_token,
     "spots",

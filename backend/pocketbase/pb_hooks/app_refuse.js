@@ -102,6 +102,7 @@ const CODES = {
   visitNeedsSpot: "visit_needs_spot",
   visitSpotNotFound: "visit_spot_not_found",
   visitOutcomeInvalid: "visit_outcome_invalid",
+  visitVisitedAtInFuture: "visit_visited_at_in_future",
   visitSkipNeedsReason: "visit_skip_needs_reason",
   visitSkipHasChecks: "visit_skip_has_checks",
   visitCheckNeedsNest: "visit_check_needs_nest",

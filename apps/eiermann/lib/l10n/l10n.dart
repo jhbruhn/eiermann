@@ -146,6 +146,12 @@ class EiermannStrings implements ZugvogelStrings, ServerCodeStrings {
     'visit_nest_duplicate' => _l10n.serverErrorVisitNestDuplicate,
     'visit_eggs_do_not_balance' => _l10n.serverErrorVisitEggsDoNotBalance,
     'visit_skip_has_checks' => _l10n.serverErrorVisitSkipHasChecks,
+    // Unreachable from today's visit flow, which sends no date and lets the
+    // server stamp it. Mapped for the first caller that does send one (an
+    // offline queue, an import): there the cause is a device clock running a
+    // day or more ahead, the way out is on the phone and not in the form, and
+    // generic copy would not say so.
+    'visit_visited_at_in_future' => _l10n.serverErrorVisitVisitedAtInFuture,
     'visit_idempotency_key_reused' =>
       _l10n.serverErrorVisitIdempotencyKeyReused,
     // The round's own guards. `tour_run_already_finished` and

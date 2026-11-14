@@ -901,6 +901,10 @@
   "serverErrorVisitNestDuplicate": "Dieses Nest wurde in diesem Besuch schon geprüft.",
   "serverErrorVisitEggsDoNotBalance": "Die Eierzahlen gehen nicht auf. Prüfe, wie viele echte Eier entnommen und wie viele Attrappen eingelegt wurden.",
   "serverErrorVisitSkipHasChecks": "Ein ausgelassener Besuch kann keine Nestprüfungen enthalten.",
+  "serverErrorVisitVisitedAtInFuture": "Der Besuch liegt in der Zukunft. Prüfe Datum und Uhrzeit auf deinem Gerät und sende ihn dann erneut.",
+  "@serverErrorVisitVisitedAtInFuture": {
+    "description": "The server refuses a visit dated more than a day ahead, because the rhythm would date the nest from it and drop it out of every due list. A client that sends its own date is the only way to get here, so the cause is the device clock."
+  },
   "serverErrorVisitIdempotencyKeyReused": "Dieser Besuch wurde bereits gesendet. Lade die Liste neu, bevor du es erneut versuchst.",
   "spotPinPickerTitle": "Pin setzen",
   "spotPinSearchHint": "Adresse suchen",
