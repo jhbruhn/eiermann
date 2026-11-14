@@ -32,7 +32,7 @@
 # of that tag's index, e.g.
 #   podman manifest inspect --verbose <image>:<tag>   (or `docker buildx
 #   imagetools inspect <image>:<tag>`, which prints the index digest).
-ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-442b15d243e07ac18b13f2f965f7662436b64e19@sha256:7b64234bea3f18bd38b1637873dcc8236ff02d10451c727cf1ccaac8c8bd60d0
+ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-2adb744950b4780a0ddc8aecc238992501a915b5@sha256:ba592701d9b7408e7ddec4a0a3f2f0099bfcb130c8d965c6cdabda33c8a05c0c
 
 # ── Flutter web build ──────────────────────────────────────────────────────────
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS flutterbuild
