@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 #
 # Eiermann — one image, two targets.
 #
@@ -22,10 +22,20 @@
 # Bumping it is a deliberate step, exactly like bumping the pubspec pin — and the
 # two are independent: a change to zugvogel's Dart packages does not move this,
 # and a change to the shared hooks does not move the pubspec.
-ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-442b15d243e07ac18b13f2f965f7662436b64e19
+#
+# eiermann-881 — and the tag carries its digest. A `sha-<commit>` tag names one
+# commit, but a registry tag can still be pushed over; the digest is what makes
+# the pull verifiable. Every FROM in this file is `tag@sha256:<digest>`, and the
+# digest is the multi-arch INDEX (the release builds amd64 and arm64), not one
+# platform's manifest. With both present the digest wins and the tag is the
+# human-readable half. A bump therefore moves BOTH: the new tag, and the digest
+# of that tag's index, e.g.
+#   podman manifest inspect --verbose <image>:<tag>   (or `docker buildx
+#   imagetools inspect <image>:<tag>`, which prints the index digest).
+ARG ZUGVOGEL_PB_BASE=ghcr.io/jhbruhn/zugvogel-pb-base:sha-442b15d243e07ac18b13f2f965f7662436b64e19@sha256:7b64234bea3f18bd38b1637873dcc8236ff02d10451c727cf1ccaac8c8bd60d0
 
 # ── Flutter web build ──────────────────────────────────────────────────────────
-FROM debian:bookworm-slim AS flutterbuild
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS flutterbuild
 
 # Keep in sync with the repo's pinned Flutter (apps/eiermann: flutter ^3.44.0)
 # AND with zugvogel's CI, which compiles the shared library with the same
@@ -109,7 +119,7 @@ RUN cd apps/eiermann && flutter build web --release --wasm \
 # into the base is filed as eiermann-uxn; until that image is published and the
 # pin bumped, following federfall's precedent is what keeps the two apps' report
 # pipelines identical.
-FROM alpine:3.20 AS typstfetch
+FROM alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc AS typstfetch
 ARG TYPST_VERSION=0.15.0
 ARG TARGETARCH
 RUN apk add --no-cache wget xz ca-certificates
