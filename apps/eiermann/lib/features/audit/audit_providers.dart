@@ -105,7 +105,7 @@ class AuditLog extends _$AuditLog {
     final repo = await ref.read(auditRepositoryProvider.future);
     final spot = spotId;
     return spot == null
-        ? repo.pageOfLog(after: after)
-        : repo.pageForSpot(spot, after: after);
+        ? await repo.pageOfLog(after: after)
+        : await repo.pageForSpot(spot, after: after);
   }
 }

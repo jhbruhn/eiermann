@@ -27,16 +27,12 @@ val hasReleaseKey =
 
 android {
     namespace = "de.jhbruhn.eiermann"
-    // Flutter's own number, which is 36 — the newest STABLE Android platform
-    // and within AGP 9.3.1's supported range.
-    //
-    // It stays Flutter's rather than a literal because the one dependency that
-    // wanted more is held back instead: `flutter_secure_storage` 11 demands 37,
-    // which exists only as a preview platform, and a release built against a
-    // preview stops being rebuildable when that preview is withdrawn. See the
-    // `dependency_overrides` block in the workspace pubspec for the full
-    // reasoning and the way out.
-    compileSdk = flutter.compileSdkVersion
+    // 37, above Flutter's own 36: `flutter_secure_storage` 11 publishes AAR
+    // metadata demanding it. API 37 is a stable platform and within AGP 9.3.1's
+    // recommended range. Only the compile SDK moves; targetSdk stays Flutter's,
+    // so no runtime behaviour changes with it. Drop back to
+    // `flutter.compileSdkVersion` once Flutter's default reaches 37.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -14,7 +14,7 @@ part 'nests_providers.g.dart';
 @riverpod
 Future<List<Nest>> nestsForArea(Ref ref, String areaId) async {
   final repo = await ref.watch(nestsRepositoryProvider.future);
-  return repo.forArea(areaId);
+  return await repo.forArea(areaId);
 }
 
 /// Every nest of one building, urgent first — with what is in it.
@@ -26,7 +26,7 @@ Future<List<Nest>> nestsForArea(Ref ref, String areaId) async {
 @riverpod
 Future<List<NestState>> nestStatesForSpot(Ref ref, String spotId) async {
   final repo = await ref.watch(nestStateRepositoryProvider.future);
-  return repo.forSpot(spotId);
+  return await repo.forSpot(spotId);
 }
 
 /// Invalidates every read that draws a nest.

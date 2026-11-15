@@ -11,35 +11,35 @@ part 'tours_providers.g.dart';
 @riverpod
 Future<List<Tour>> allTours(Ref ref) async {
   final repo = await ref.watch(toursRepositoryProvider.future);
-  return repo.all();
+  return await repo.all();
 }
 
 /// The templates still in use — what the "Tour starten" picker offers.
 @riverpod
 Future<List<Tour>> activeTours(Ref ref) async {
   final repo = await ref.watch(toursRepositoryProvider.future);
-  return repo.active();
+  return await repo.active();
 }
 
 /// One route, in order, with each stop's building name.
 @riverpod
 Future<List<TourStop>> tourStops(Ref ref, String tourId) async {
   final repo = await ref.watch(tourStopsRepositoryProvider.future);
-  return repo.forTour(tourId);
+  return await repo.forTour(tourId);
 }
 
 /// One round.
 @riverpod
 Future<TourRun> tourRun(Ref ref, String runId) async {
   final repo = await ref.watch(tourRunsRepositoryProvider.future);
-  return repo.getOne(runId);
+  return await repo.getOne(runId);
 }
 
 /// The visits recorded on one round — which is what its progress IS.
 @riverpod
 Future<List<Visit>> tourRunVisits(Ref ref, String runId) async {
   final repo = await ref.watch(visitLogRepositoryProvider.future);
-  return repo.forRun(runId);
+  return await repo.forRun(runId);
 }
 
 /// My own round that is still going, or null.
@@ -57,7 +57,7 @@ Future<TourRun?> myOpenRun(Ref ref) async {
   final me = await ref.watch(currentUserProvider.selectAsync((u) => u?.id));
   if (me == null) return null;
   final repo = await ref.watch(tourRunsRepositoryProvider.future);
-  return repo.openFor(me);
+  return await repo.openFor(me);
 }
 
 /// One round's progress: the route, plus what was actually visited on it.

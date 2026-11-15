@@ -56,7 +56,7 @@ class NestChecksRepository extends PbReadOnlyRepository<NestCheck> {
   /// anything.
   Future<List<NestCheck>> forVisits(List<String> visitIds) async {
     if (visitIds.isEmpty) return const [];
-    return list(
+    return await list(
       filter: anyOf('visit', visitIds),
       // Ordered so a visit's nests read N1..N4 rather than in write order.
       sort: 'checked_at,nest',
@@ -140,7 +140,7 @@ class FindingsRepository extends PbReadOnlyRepository<Finding> {
   /// visits.
   Future<List<Finding>> forVisits(List<String> visitIds) async {
     if (visitIds.isEmpty) return const [];
-    return list(
+    return await list(
       filter: anyOf('visit', visitIds),
       sort: 'found_at',
       expand: 'nest',

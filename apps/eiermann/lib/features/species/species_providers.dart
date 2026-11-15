@@ -12,5 +12,5 @@ part 'species_providers.g.dart';
 @riverpod
 Future<List<SpeciesLabel>> speciesLabels(Ref ref) async {
   final repo = await ref.watch(speciesLabelsRepositoryProvider.future);
-  return repo.all();
+  return await repo.all();
 }

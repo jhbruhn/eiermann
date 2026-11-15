@@ -73,7 +73,7 @@ class StatisticsPeriod extends _$StatisticsPeriod {
 @riverpod
 Future<OrgStatistics> statistics(Ref ref, {int? year, int? month}) async {
   final repo = await ref.watch(statsRepositoryProvider.future);
-  return repo.fetch(
+  return await repo.fetch(
     year: year,
     month: month,
     tzOffsetMinutes: DateTime.now().timeZoneOffset.inMinutes,

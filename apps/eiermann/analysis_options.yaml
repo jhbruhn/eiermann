@@ -1,5 +1,10 @@
 include: package:very_good_analysis/analysis_options.yaml
 
+# very_good_analysis 11 switched this to `automate`, which re-wraps every
+# hand-placed trailing comma. Keep the layout the code was written in.
+formatter:
+  trailing_commas: preserve
+
 # NOTE: riverpod_lint is enabled via the `plugins:` key in the workspace-root
 # analysis_options.yaml (../../analysis_options.yaml) — the native
 # analysis-server plugin system only allows `plugins:` at the workspace root.

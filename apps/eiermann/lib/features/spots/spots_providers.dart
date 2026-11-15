@@ -127,14 +127,14 @@ class SpotFeed extends _$SpotFeed {
 @riverpod
 Future<Spot> spot(Ref ref, String id) async {
   final repo = await ref.watch(spotsRepositoryProvider.future);
-  return repo.getOne(id);
+  return await repo.getOne(id);
 }
 
 /// One Spot's contacts, the ones worth ringing first at the top.
 @riverpod
 Future<List<SpotContact>> spotContacts(Ref ref, String spotId) async {
   final repo = await ref.watch(spotContactsRepositoryProvider.future);
-  return repo.forSpot(spotId);
+  return await repo.forSpot(spotId);
 }
 
 /// Every Spot in the org, unpaged.
@@ -151,7 +151,7 @@ Future<List<SpotContact>> spotContacts(Ref ref, String spotId) async {
 @riverpod
 Future<List<SpotOverview>> allSpots(Ref ref) async {
   final repo = await ref.watch(spotOverviewRepositoryProvider.future);
-  return repo.search('');
+  return await repo.search('');
 }
 
 /// Every Spot matching [search], unpaged — the map's read.
@@ -169,9 +169,9 @@ Future<List<SpotOverview>> allSpots(Ref ref) async {
 /// the list's.
 @riverpod
 Future<List<SpotOverview>> spotsMatching(Ref ref, String search) async {
-  if (search.trim().isEmpty) return ref.watch(allSpotsProvider.future);
+  if (search.trim().isEmpty) return await ref.watch(allSpotsProvider.future);
   final repo = await ref.watch(spotOverviewRepositoryProvider.future);
-  return repo.search(search);
+  return await repo.search(search);
 }
 
 /// How many Spots sit at each urgency rank.

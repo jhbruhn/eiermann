@@ -17,5 +17,5 @@ part 'team_providers.g.dart';
 @riverpod
 Future<List<AppUser>> team(Ref ref) async {
   final repo = await ref.read(usersRepositoryProvider.future);
-  return repo.team();
+  return await repo.team();
 }

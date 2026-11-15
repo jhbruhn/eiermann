@@ -17,7 +17,7 @@ part 'visits_providers.g.dart';
 @riverpod
 Future<List<NestEgg>> nestEggs(Ref ref, String nestId) async {
   final repo = await ref.watch(nestEggsRepositoryProvider.future);
-  return repo.forNest(nestId);
+  return await repo.forNest(nestId);
 }
 
 /// Every open Nachkontrolle in the org, earliest first — the dashboard's top
@@ -25,7 +25,7 @@ Future<List<NestEgg>> nestEggs(Ref ref, String nestId) async {
 @riverpod
 Future<List<FollowUp>> openFollowUps(Ref ref) async {
   final repo = await ref.watch(followUpsRepositoryProvider.future);
-  return repo.open();
+  return await repo.open();
 }
 
 /// The open Nachkontrollen of one building — the dossier's second date, and the
@@ -33,7 +33,7 @@ Future<List<FollowUp>> openFollowUps(Ref ref) async {
 @riverpod
 Future<List<FollowUp>> openFollowUpsForSpot(Ref ref, String spotId) async {
   final repo = await ref.watch(followUpsRepositoryProvider.future);
-  return repo.openForSpot(spotId);
+  return await repo.openForSpot(spotId);
 }
 
 /// Invalidates everything a written visit changes.

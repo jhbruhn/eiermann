@@ -12,5 +12,5 @@ part 'oauth_providers.g.dart';
 @riverpod
 Future<List<OAuthProvider>> oauthProviders(Ref ref) async {
   final repo = await ref.watch(authRepositoryProvider.future);
-  return repo.oauthProviders();
+  return await repo.oauthProviders();
 }

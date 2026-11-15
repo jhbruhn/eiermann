@@ -36,7 +36,7 @@ dependencies:
   latlong2: ^0.10.1
   material_ui: ^1.11.0
   package_info_plus: ^10.2.0
-  pocketbase: ^0.25.3
+  pocketbase: ^0.26.0
   riverpod_annotation: ^4.0.3
   share_plus: ^13.2.0
   shared_preferences: ^2.5.5
@@ -45,22 +45,22 @@ dependencies:
   zugvogel_core:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: c11e717a9ec24e1bcb3aadcbc941a0b25b3f388f
+      ref: a1c55612c488861f9800424efa594e9f3d77c737
       path: packages/zugvogel_core
   zugvogel_data:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: c11e717a9ec24e1bcb3aadcbc941a0b25b3f388f
+      ref: a1c55612c488861f9800424efa594e9f3d77c737
       path: packages/zugvogel_data
   zugvogel_pb_client:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: c11e717a9ec24e1bcb3aadcbc941a0b25b3f388f
+      ref: a1c55612c488861f9800424efa594e9f3d77c737
       path: packages/zugvogel_pb_client
   zugvogel_ui:
     git:
       url: https://github.com/jhbruhn/zugvogel.git
-      ref: c11e717a9ec24e1bcb3aadcbc941a0b25b3f388f
+      ref: a1c55612c488861f9800424efa594e9f3d77c737
       path: packages/zugvogel_ui
 dev_dependencies:
   build_runner: ^2.15.0
@@ -72,7 +72,7 @@ dev_dependencies:
   mocktail: ^1.0.5
   riverpod_generator: ^4.0.10
   riverpod_lint: ^3.2.0
-  very_good_analysis: ^10.3.0
+  very_good_analysis: ^11.0.0
 flutter:
   generate: true
   uses-material-design: true

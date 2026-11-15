@@ -205,7 +205,7 @@ Future<int> recentFindingsCount(Ref ref) async {
   final repo = await ref.watch(findingsRepositoryProvider.future);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  return repo.countSince(today.subtract(kFindingsWindow));
+  return await repo.countSince(today.subtract(kFindingsWindow));
 }
 
 /// What the Funde list currently shows.

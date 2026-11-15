@@ -15,5 +15,5 @@ part 'rhythm_providers.g.dart';
 @Riverpod(keepAlive: true)
 Future<RhythmSettings> rhythmSettings(Ref ref) async {
   final repo = await ref.read(rhythmRepositoryProvider.future);
-  return repo.fetch();
+  return await repo.fetch();
 }

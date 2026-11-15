@@ -13,7 +13,7 @@ part 'areas_providers.g.dart';
 @riverpod
 Future<List<Area>> areasForSpot(Ref ref, String spotId) async {
   final repo = await ref.watch(areasRepositoryProvider.future);
-  return repo.forSpot(spotId);
+  return await repo.forSpot(spotId);
 }
 
 /// One Bereich on its own, for the pin editor.
@@ -24,7 +24,7 @@ Future<List<Area>> areasForSpot(Ref ref, String spotId) async {
 @riverpod
 Future<Area> area(Ref ref, String areaId) async {
   final repo = await ref.watch(areasRepositoryProvider.future);
-  return repo.getOne(areaId);
+  return await repo.getOne(areaId);
 }
 
 /// Injectable image source, so a widget test can supply a fake picker.
