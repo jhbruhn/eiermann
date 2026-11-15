@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.4](https://github.com/jhbruhn/eiermann/compare/v2.1.3...v2.1.4) (2026-11-15)
+
+
+### Bug Fixes
+
+* **deps:** zugvogel a1c5561, pocketbase 0.26, flutter_secure_storage 11, very_good_analysis 11 ([2630eef](https://github.com/jhbruhn/eiermann/commit/2630eefdb71a5db0153628e130ac5964d22f948e))
+
 ## [2.1.3](https://github.com/jhbruhn/eiermann/compare/v2.1.2...v2.1.3) (2026-11-14)
 
 
