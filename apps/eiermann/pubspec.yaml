@@ -1,6 +1,6 @@
 name: eiermann
 description: Eiermann — Gelegemanagement für Stadttauben
-version: 2.1.3
+version: 2.1.4
 publish_to: none
 environment:
   sdk: ^3.12.0
